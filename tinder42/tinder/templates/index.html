@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../../static/css/style.css">
     <link rel="stylesheet" href="../../static/css/feature-section.css">
+    <link rel="stylesheet" href="../../static/css/howitworks-section.css">
+    <link rel="stylesheet" href="../../static/css/aboutus-section.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
     <script src="https://kit.fontawesome.com/b80699d249.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
@@ -14,7 +16,7 @@
     <title>Tinder42</title>
 </head>
 <body>
-    <div class="backgroundimage">
+    <div class="backgroundimage" id="home-section">
         <nav class="navbar">
             <div class="logo-container"><a class="navbar-item" href="/">
                 <div class="logo">
@@ -22,14 +24,14 @@
                   </div></a>
             </div>
             <ul class="nav-links" style="margin-top: 1em !important;">
-                <li><a class="navbar-item" href="/dashboard">Home</a></li>
+                <li><a class="navbar-item" href="#home-section">Home</a></li>
                 <li><a class="navbar-item" href="#features-section">Features</a></li>
-                <li><a class="navbar-item" href="/about-us">How it Works</a></li>
+                <li><a class="navbar-item" href="#howitworks-section">How it Works</a></li>
                 <li><a class="navbar-item" href="/about-us">About Us</a></li>
                 <li><a class="navbar-item" href="/about-us">Support</a></li>
             </ul>
         </nav>
-        <section class="banner-section">
+        <section class="banner-section" id="banner-section">
         <div class="row clearfix">
             <!--Content Column-->
             
@@ -100,7 +102,149 @@
     </section>
 
     <section class="howitworks-section" id="howitworks-section">
-      
+        <div class="auto-container">
+            <div class="row clearfix">
+
+                <!--Image Column-->
+                <div class="image-column col-md-6 col-sm-12 col-xs-12">
+                    <div class="image">
+                        <img src="../../static/assets/backgrounds-layers/42.png" height="750px" alt="">
+                    </div>
+                </div>
+                <!--Content Column-->
+                <div class="content-column col-md-6 col-sm-12 col-xs-12">
+                    <div class="inner-column">
+                        <div class="big-title">Tinder42</div>
+                        <h2>Chat, Meet Friend, Dating</h2>
+                        <div class="text">Here you can search for a partner without any hidden costs. Discover interesting people and find the right partner for you.</div>
+                        <div class="row clearfix">
+
+                            <!--Featured Block Two-->
+                            <div class="featured-block-two col-md-6 col-sm-6 col-xs-12">
+                                <div class="inner-box">
+                                    <div class="number">1</div>
+                                    <div class="icon-box">
+                                        <span class="icon"><img src="../../static/assets/backgrounds-layers/feature-icon-1.png" alt=""></span>
+                                    </div>
+                                    <h3>Easy to Use!</h3>
+                                    <div class="featured-text">Over thousands of people have signed up for CatchUp.</div>
+                                </div>
+                            </div>
+
+                            <!--Featured Block Two-->
+                            <div class="featured-block-two col-md-6 col-sm-6 col-xs-12">
+                                <div class="inner-box">
+                                    <div class="number">2</div>
+                                    <div class="icon-box">
+                                        <span class="icon"><img src="../../static/assets/backgrounds-layers/feature-icon-2.png" alt=""></span>
+                                    </div>
+                                    <h3>It's Free!</h3>
+                                    <div class="featured-text">Message anyone, anytime, always free.</div>
+                                </div>
+                            </div>
+
+                            <!--Featured Block Two-->
+                            <div class="featured-block-two col-md-6 col-sm-6 col-xs-12">
+                                <div class="inner-box">
+                                    <div class="number">3</div>
+                                    <div class="icon-box">
+                                        <span class="icon"><img src="../../static/assets/backgrounds-layers/feature-icon-3.png" alt=""></span>
+                                    </div>
+                                    <h3>Safe &amp; Secure</h3>
+                                    <div class="featured-text">We strictly monitor all profiles &amp; it's safe &amp; secure your data.</div>
+                                </div>
+                            </div>
+
+                            <!--Featured Block Two-->
+                            <div class="featured-block-two col-md-6 col-sm-6 col-xs-12">
+                                <div class="inner-box">
+                                    <div class="number">4</div>
+                                    <div class="icon-box">
+                                        <span class="icon"><img src="../../static/assets/backgrounds-layers/feature-icon-4.png" alt=""></span>
+                                    </div>
+                                    <h3>It's Quick!</h3>
+                                    <div class="featured-text">Sign up and find matches within minutes.</div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <section class="aboutus-section" id="aboutus-section">
+        <div class="auto-container">
+          <div class="big-title"><h1>OUR TEAM</h1></div>
+          <div class="tittle-desc"><h2>How would you like <br> to meet our great team?</h2></div>
+        </div>
+        <div class="team-area">
+        <div class="responsive-container-block teamcard-container">
+          <div class="responsive-cell-block wk-desk-3 wk-mobile-12 wk-tab-4 wk-ipadp-4 team-card-container">
+            <div class="team-card">
+              <div class="team-img-wrapper">
+                <img class="team-img" src="../../static/assets/team/eyagiz.jpeg">
+              </div>
+              <div class="team-card-content">
+                <p class="text-blk name">
+                  Enes Yağız
+                </p>
+                <p class="text-blk position">
+                  Full Stack Developer
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="responsive-cell-block wk-desk-3 wk-mobile-12 wk-tab-4 wk-ipadp-4 team-card-container">
+            <div class="team-card">
+              <div class="team-img-wrapper">
+                <img class="team-img" src="../../static/assets/team/yeaktas.jpeg">
+              </div>
+              <div class="team-card-content">
+                <p class="text-blk name">
+                  Yunus Emre Aktaş
+                </p>
+                <p class="text-blk position">
+                  DevOps Engineer
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="responsive-cell-block wk-desk-3 wk-mobile-12 wk-tab-4 wk-ipadp-4 team-card-container">
+            <div class="team-card">
+              <div class="team-img-wrapper">
+                <img class="team-img" src="../../static/assets/team/yeaktas.jpeg">
+              </div>
+              <div class="team-card-content">
+                <p class="text-blk name">
+                  Yunus Emre Aktaş
+                </p>
+                <p class="text-blk position">
+                  DevOps Engineer
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="responsive-cell-block wk-desk-3 wk-mobile-12 wk-tab-4 wk-ipadp-4 team-card-container">
+            <div class="team-card">
+              <div class="team-img-wrapper">
+                <img class="team-img" src="../../static/assets/team/eyagiz.jpeg">
+              </div>
+              <div class="team-card-content">
+                <p class="text-blk name">
+                  Enes Yağız
+                </p>
+                <p class="text-blk position">
+                  Full Stack Developer
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          </div>
+        </div>
     </section>
 </body>
 </html>

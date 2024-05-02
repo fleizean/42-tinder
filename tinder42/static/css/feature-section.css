@@ -14,9 +14,11 @@
 .features-section {
     background-color: white;
     display: flex;
+    margin-bottom: 10rem;
+    margin-top: 5rem;
 }
 
-.auto-container {
+.features-section .auto-container {
     position: static;
     max-width: 1200px;
     padding: 0px 15px;
@@ -29,14 +31,14 @@
     z-index: 2; 
 }
 
-.big-title h1 {
+.features-section .big-title h1 {
     font-size: 130px;
     font-weight: 800;
     color: #f6f6f6;
     text-transform: uppercase;
 }
 
-.big-title {
+.features-section .big-title {
     position: absolute;
     z-index: 100;
     left: 50%;
@@ -46,7 +48,7 @@
     margin-top: 1em;
 }
 
-.tittle-desc {
+.features-section .tittle-desc {
     position: absolute;
     z-index: 100;
     left: 50%;
@@ -56,7 +58,7 @@
     margin-top: 5em;
 }
 
-.tittle-desc h2 {
+.features-section .tittle-desc h2 {
     color: #333333;
     font-size: 36px;
     font-weight: 700;

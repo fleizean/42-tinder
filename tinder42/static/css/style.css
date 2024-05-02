@@ -1,0 +1,255 @@
+
+
+/* The font i use in this css is only available for personal use. */
+/* link to this font https://www.fontspace.com/pixeboy-font-f43730 */
+
+@import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
+
+@import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
+
+body {
+  margin: 0;
+  padding: 0;
+  /* cursor: url('../assets/scrool/pixelsword.png'), auto; */
+}
+
+.backgroundimage {
+    /* background: linear-gradient(to right, #ff6f91b1, #d65db2b9); */
+    background-image: url('../assets/backgrounds/1.jpg');
+    background-repeat: no-repeat; /* Resmin tekrar etmemesini sağlar */
+
+    height: 100%;
+    width: 100%;
+    min-height: 1229px;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    overflow-y: scroll;
+}
+
+.navbar {
+  padding: 5px;
+  position: fixed !important;
+  top: 0;
+  width: 100%;
+  z-index: 1000; /* Navbar'ın içerikten üstte kalmasını sağlar */
+}
+
+.navbar.scrolled {
+    background-color: rgba(0, 0, 0, 0.75);
+}
+
+
+.nav-links li {
+    font-family: "Lato", sans-serif;
+    font-weight: bold;
+    font-style: normal;
+}
+
+.nav-links li a i {
+  margin-right: 5px; /* İkon ile metin arasındaki boşluğu ayarlar */
+  font-size: 0.8em;
+  color: white;
+  
+}
+
+
+.navbar-item {
+  font-size: 0.9em;
+  color: white;
+  position: relative;
+  /* cursor: url('../assets/scrool/crossedsword.png'), auto; */
+  padding: 0.6rem 0;
+  margin-right: 1em;
+}
+
+.navbar-item:hover {
+    color: #ff0015;
+    transition: 0.5s;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  margin-left: 3em;
+}
+
+.logo-container a,
+.logo-container a:link,
+.logo-container a:visited {
+  color: white;
+  text-decoration: none;
+}
+
+.logo-container a .logo {
+  color: white; /* Ya da istediğiniz rengi belirtin */
+}
+
+.logo img {
+  width: 48px;
+  height: 48px;
+  margin-right: 10px;
+}
+
+.logo {
+  font-family: "Pacifico", cursive;
+  font-weight: 400;
+  font-style: normal;
+  color:white;
+  font-size: 2.3em;
+  margin-left:2.5em;
+  display: flex;
+  align-items: center;
+}
+
+.nav-links {
+  list-style: none;
+  display: flex;
+  padding: 0;
+  margin-right: 12em;
+}
+
+.nav-links li {
+  margin-right: 35px;
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: white;
+}
+
+.banner-section {
+    position: relative;
+    padding-top: 70px;
+    min-height: 1229px;
+    left: 7.8em;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: left bottom;
+}
+
+.feature-section {
+    min-height: 600px;
+    background-color: white;
+}
+
+.banner-section .content-column h2 {
+    position: relative;
+    color: #ffffff;
+    font-size: 50px;
+    font-weight: 800;
+    line-height: 1.2em;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    animation: bounce; 
+    animation-duration: 2s;
+    animation-iteration-count: infinite;
+}
+
+.banner-section .text {
+    color: white;
+    font-size: 14px;
+}
+
+.banner-section .image-column .image img {
+    position: relative;
+    max-width: 100%;
+}
+
+.icons-layer {
+    position: absolute;
+    z-index: 5;
+    right: 600px;
+    animation: moveUpDown 2s infinite; /* Play the animation infinitely */
+}
+
+.banner-section .content-column {
+    position: relative;
+}
+
+.banner-section .content-column .inner-column {
+    position: relative;
+    padding-right: 80px;
+    padding-top: 100px;
+}
+
+.image img {
+    animation: moveUpDown 2s infinite; /* Play the animation infinitely */
+    z-index: 3;
+}
+
+
+@keyframes moveUpDown {
+    0% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-20px); /* Move up */
+    }
+    100% {
+        transform: translateY(0);
+    }
+}
+
+
+.playstore-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  border-radius: 9999px;
+  background-color: white;
+  padding: 0.625rem 1.5rem;
+  text-align: center;
+  color: black;
+  outline: 0;
+  transition: all  .2s ease;
+  text-decoration: none;
+}
+
+.playstore-button:hover, .img42logo {
+  background-color: transparent;
+  color: white !important;
+  
+  
+}
+
+.img42logo-white {
+    display: none;
+}
+
+
+.playstore-button:hover .img42logo {
+    display: none;
+}
+
+.playstore-button:hover .img42logo-white {
+    display: inline-block;
+}
+
+.icon {
+  height: 1.5rem;
+  width: 1.5rem;
+}
+
+.texts {
+  margin-left: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1;
+}
+
+.text-1 {
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.text-2 {
+  font-weight: 600;
+}
+
+.btns-box {
+    margin-top: 2em;
+}

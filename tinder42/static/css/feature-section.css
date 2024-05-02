@@ -1,0 +1,137 @@
+:root {
+    --red: hsl(0, 78%, 62%);
+    --cyan: hsl(180, 62%, 55%);
+    --orange: hsl(34, 97%, 64%);
+    --blue: hsl(212, 86%, 64%);
+    --varyDarkBlue: hsl(234, 12%, 34%);
+    --grayishBlue: hsl(229, 6%, 66%);
+    --veryLightGray: hsl(0, 0%, 98%);
+    --weight1: 200;
+    --weight2: 400;
+    --weight3: 600;
+}
+
+.features-section {
+    background-color: white;
+    display: flex;
+}
+
+.auto-container {
+    position: static;
+    max-width: 1200px;
+    padding: 0px 15px;
+    margin-top: -14rem;
+}
+
+.sec-title {
+    position: relative;
+    margin-bottom: 85px;
+    z-index: 2; 
+}
+
+.big-title h1 {
+    font-size: 130px;
+    font-weight: 800;
+    color: #f6f6f6;
+    text-transform: uppercase;
+}
+
+.big-title {
+    position: absolute;
+    z-index: 100;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center; /* İçeriği yatayda merkezlemek için */
+    width: 100%; /* Genişlik 100% olsun ki içeriği yatayda merkezleyebilelim */
+    margin-top: 1em;
+}
+
+.tittle-desc {
+    position: absolute;
+    z-index: 100;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center; /* İçeriği yatayda merkezlemek için */
+    width: 100%; /* Genişlik 100% olsun ki içeriği yatayda merkezleyebilelim */
+    margin-top: 5em;
+}
+
+.tittle-desc h2 {
+    color: #333333;
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.2em;
+}
+
+.attribution { 
+    font-size: 11px; text-align: center; 
+}
+.attribution a { 
+    color: hsl(228, 45%, 44%); 
+}
+
+.box p {
+    color: var(--grayishBlue);
+}
+
+.box {
+    border-radius: 5px;
+    box-shadow: 0px 30px 40px -20px var(--grayishBlue);
+    padding: 30px;
+    margin: 20px;  
+}
+
+.feature-img {
+    float: right;
+}
+
+
+
+
+
+.cyan {
+    border-top: 3px solid var(--cyan);
+}
+.red {
+    border-top: 3px solid var(--red);
+}
+.blue {
+    border-top: 3px solid var(--blue);
+}
+.orange {
+    border-top: 3px solid var(--orange);
+}
+
+.feature-h2 {
+    font-size: 26px;
+    color: var(--varyDarkBlue);
+    font-weight: var(--weight3);
+}
+
+.feature-h2 i {
+    color: var(--cyan);
+}
+
+.row1-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.row2-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.box-down {
+    position: relative;
+    top: 150px;
+}
+.box {
+    width: 20%;
+ 
+}
+.header p {
+    width: 30%;
+}
+    

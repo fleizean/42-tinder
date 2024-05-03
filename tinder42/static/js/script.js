@@ -19,6 +19,12 @@ document.querySelector('.navbar-item[href="#howitworks-section"]').addEventListe
     howitWorksSection.scrollIntoView({ behavior: 'smooth' }); // Kaydırma işlemi
 });
 
+document.querySelector('.navbar-item[href="#aboutus-section"]').addEventListener('click', function(e) {
+    e.preventDefault(); // Sayfa yenilenmesini önlemek için
+    const aboutUsSection = document.getElementById('aboutus-section');
+    aboutUsSection.scrollIntoView({ behavior: 'smooth' }); // Kaydırma işlemi
+});
+
 window.addEventListener('scroll', function() {
     var navbar = document.querySelector('.navbar');
     if (window.scrollY > 0) {

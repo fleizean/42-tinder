@@ -179,20 +179,6 @@ body {
     z-index: 3;
 }
 
-
-@keyframes moveUpDown {
-    0% {
-        transform: translateY(0);
-    }
-    50% {
-        transform: translateY(-20px); /* Move up */
-    }
-    100% {
-        transform: translateY(0);
-    }
-}
-
-
 .playstore-button {
   display: inline-flex;
   align-items: center;

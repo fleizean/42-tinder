@@ -10,7 +10,7 @@ This is the second web project of school 42, it’s a dating WebSite where the u
 
 
 
-<table class="ourteam">
+<table align="center">
   <tr>
     <td align="center"><a href="https://github.com/temasictfic/" style="text-decoration:none; color: #00ff15;"><img src="https://i.hizliresim.com/mu0ink4.jpg" width="100px;" alt=""/><br /><sub><b>sciftci (Samet)</b></sub></a><br />
     <br><a href="https://profile.intra.42.fr/users/sciftci" title="Intra 42"><img src="https://img.shields.io/badge/Kocaeli-FFFFFF?style=plastic&logo=42&logoColor=000000" alt="Intra 42"/></a></td>

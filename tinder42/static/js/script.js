@@ -27,13 +27,10 @@ document.querySelector('.navbar-item[href="#aboutus-section"]').addEventListener
 
 window.addEventListener('scroll', function() {
     var navbar = document.querySelector('.navbar');
-    var logo = document.querySelector('.logo-img'); // Changed to querySelector
     if (window.scrollY > 0) {
         navbar.classList.add('scrolled');
-        logo.style.display = 'flex';
     } else {
         navbar.classList.remove('scrolled');
-        logo.style.display = 'none';
     }
 });
 });

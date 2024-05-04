@@ -1,13 +1,12 @@
 
-
 /* The font i use in this css is only available for personal use. */
 /* link to this font https://www.fontspace.com/pixeboy-font-f43730 */
 
 @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
 
-@import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
-
 @import url('https://fonts.googleapis.com/css2?family=Allura&family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
+
+@import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
 
 body {
   margin: 0;
@@ -67,7 +66,7 @@ body {
 }
 
 .navbar-item:hover {
-    color: #ff0015;
+    color: hsl(212, 86%, 64%);;
     transition: 0.5s;
 }
 
@@ -84,15 +83,16 @@ body {
   text-decoration: none;
 }
 
-.logo-container a .logo {
-  color: white; /* Ya da istediğiniz rengi belirtin */
+.logo-container .navbar-item:hover {
+  animation: heartBeat 0.5s infinite; /* Play the animation infinitely */
+  color: hsl(212, 86%, 64%);
+  display: inline-block;
+  margin-left: 5px; /* Adjust spacing */
+  transition: 0.5s;
 }
 
-.logo img {
-  width: 40px;
-  height: 40px;
-  margin-top: -2px;
-  display: none;
+.logo-container a .logo {
+  color: white; /* Ya da istediğiniz rengi belirtin */
 }
 
 .logo {
@@ -197,7 +197,7 @@ body {
   text-decoration: none;
 }
 
-.playstore-button:hover, .img42logo {
+.playstore-button:hover, .im42logo {
   background-color: transparent;
   color: white !important;
   

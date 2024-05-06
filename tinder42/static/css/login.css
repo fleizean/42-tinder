@@ -4,22 +4,21 @@ body {
     margin: 0;
     padding: 0;
     background: #e9d8ff;
-    /* cursor: url('../assets/scrool/pixelsword.png'), auto; */
 }
 
-.container-signup {
+.container-login {
     top: 0;
     left: 0;
     z-index: 50;
 }
 
-.container-signup .page-title {
+.container-login .page-title {
     display: flex;
     justify-content: center;
     padding-top: 64px;
 }
 
-.container-signup .page-title h1 {
+.container-login .page-title h1 {
     font-family: "Rubik", sans-serif;
     font-weight: 700;
     font-size: 60px;
@@ -34,6 +33,7 @@ body {
     display: block;
     text-align: center;
 }
+
 
 .have-account {
     font-family: "Rubik", sans-serif;
@@ -54,6 +54,7 @@ body {
     color: #2260ff;
 }
 
+
 .page-form .form-label {
     font-family: "Rubik", sans-serif;
     color: black;
@@ -65,6 +66,11 @@ body {
     margin-top: 20px;
     margin-right: -5px;
 
+}
+
+.login-or {
+    font-family: "Rubik", sans-serif;
+    color: black;
 }
 
 .input-field {
@@ -122,110 +128,7 @@ label .input:valid+span {
 }
 
 
-.radio-inputs {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    max-width: 300px;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-    margin: 0 auto; 
-}
-
-.radio-inputs>* {
-    margin: 6px;
-}
-
-
-.radio-input:checked+.radio-tile:before {
-    transform: scale(1);
-    opacity: 1;
-    background-color: #2260ff;
-    border-color: #2260ff;
-}
-
-
-.radio-input:focus+.radio-tile {
-    border-color: #2260ff;
-    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1), 0 0 0 4px #b5c9fc;
-}
-
-.radio-input:focus+.radio-tile:before {
-    transform: scale(1);
-    opacity: 1;
-}
-
-.radio-tile {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 80px;
-    min-height: 80px;
-    border-radius: 0.5rem;
-    border: 2px solid #b5bfd9;
-    background-color: #fff;
-    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
-    transition: 0.15s ease;
-    cursor: pointer;
-    position: relative;
-}
-
-.radio-tile:before {
-    content: "";
-    position: absolute;
-    display: block;
-    width: 0.75rem;
-    height: 0.75rem;
-    border: 2px solid #b5bfd9;
-    background-color: #fff;
-    border-radius: 50%;
-    top: 0.25rem;
-    left: 0.25rem;
-    opacity: 0;
-    transform: scale(0);
-    transition: 0.25s ease;
-}
-
-
-.radio-tile:hover:before {
-    transform: scale(1);
-    opacity: 1;
-}
-
-
-.radio-label {
-    color: #707070;
-    transition: 0.375s ease;
-    text-align: center;
-    font-size: 13px;
-    margin-top: 10px;
-}
-
-.radio-input {
-    clip: rect(0 0 0 0);
-    -webkit-clip-path: inset(100%);
-    clip-path: inset(100%);
-    height: 1px;
-    overflow: hidden;
-    position: absolute;
-    white-space: nowrap;
-    width: 1px;
-}
-
-#woman:checked, #woman-text {
-    color: #fea1de;
-}
-
-#man:checked, #man-text {
-    color: #a1d9fe;
-}
-
-
-.signup-btn {
+.login-btn {
     background-color: black;
     border-radius: 12px;
     border: 0;
@@ -233,16 +136,65 @@ label .input:valid+span {
     color: #eee;
     cursor: pointer;
     font-size: 18px;
+    font-weight: 550;
     height: 50px;
     text-align: center;
+    margin-top: 10px;
     width: 300px;
 }
 
-.signup-btn:hover {
+.login-btn:hover {
     background-color: rgb(31, 31, 31);
 }
 
-/* Add your existing CSS rules here */
+.another-btn {
+    display: flex; 
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    margin-right: auto;
+    background-color: transparent;
+    border: 1px solid black;
+    border-radius: 12px;
+    width: 300px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 550;
+    margin-bottom: 10px;
+    height: 50px;
+}
+
+.another-btn:hover {
+    background-color: #d9caed;
+}
+
+.another-btn img {
+    margin-right: 5px;
+}
+
+.another-btn i {
+    margin-right: 5px;
+    font-size: 24px;
+}
+
+.forgot-pass {
+    font-family: "Rubik", sans-serif;
+    color: black;
+    font-size: 15px;
+    margin-top: 10px;
+    margin-left: 9rem;
+}
+
+.forgot-pass:hover {
+    color: #2260ff;
+}
+
+.terms {
+    font-family: "Rubik", sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+}
+
 
 @media screen and (max-width: 768px) {
     /* Adjustments for smaller screens */

@@ -1,0 +1,196 @@
+@import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
+
+@import url('https://fonts.googleapis.com/css2?family=Allura&family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
+
+@import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
+
+body {
+    margin: 0;
+    padding: 0;
+    /* cursor: url('../assets/scrool/pixelsword.png'), auto; */
+}
+
+.backgroundimage {
+    /* background: linear-gradient(to right, #ff6f91b1, #d65db2b9); */
+    background: linear-gradient(135deg, #FB5956, #F9465C, #FE6951);
+    /* Resmin tekrar etmemesini sağlar */
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+
+.navbar {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    padding: 5;
+    z-index: 1000;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.75);
+    /* Navbar'ın içerikten üstte kalmasını sağlar */
+}
+
+
+.nav-links li {
+    font-family: "Roboto", sans-serif;
+    font-weight: bold;
+    font-style: normal;
+}
+
+.nav-links li:not(:last-child) {
+    margin-top: 15px; /* Önceki değer: 35px */
+}
+
+
+
+
+.navbar-item {
+    font-size: 0.9em;
+    color: white;
+    position: relative;
+    margin-right: 1em;
+}
+
+.navbar-item:hover {
+    color:coral;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+}
+
+.logo-container a,
+.logo-container a:link,
+.logo-container a:visited {
+    color: white;
+    text-decoration: none;
+}
+
+.logo-container a .logo {
+    color: white;
+    /* Ya da istediğiniz rengi belirtin */
+}
+
+.logo-container .logo a:hover {
+    color:coral;
+}
+
+.logo {
+    font-family: "Pacifico", cursive;
+    font-weight: 400;
+    font-size: 2.3em;
+    color: white;
+    margin-left: 20px;
+}
+
+.nav-links {
+    list-style: none;
+    display: flex;
+    padding: 0;
+    margin-right: 1em;
+    margin-left: auto
+}
+
+.nav-links li {
+    margin-right: 35px;
+}
+
+.nav-links a {
+    text-decoration: none;
+    color: white;
+}
+
+
+
+.profile-menu {
+    position: relative;
+    margin-right: 20px;
+}
+
+.profile-menu img {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    cursor: pointer;
+    aspect-ratio: 1/1; 
+    object-fit: cover;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+    right: -50;
+    top: 58px;
+    border-radius: 5px;
+}
+
+.dropdown-content a {
+    color: black;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+}
+
+.dropdown-content a:hover {
+    background-color: #f1f1f1;
+}
+
+.profile-menu:hover .dropdown-content {
+    display: block;
+}
+
+
+.container-mid {
+    margin-top: 8rem;
+    display: flex;
+    overflow-y: auto;
+    z-index: 2;
+    justify-content: center !important;
+}
+
+.content-card {
+    background-color: rgb(255, 255, 255) !important;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    max-width: 1300px;
+    width: 100%;
+    max-height: auto;
+    height: auto;
+}
+
+
+
+@media only screen and (max-width: 768px) {
+    .nav-links {
+        display: none;
+    }
+
+    .navbar-item {
+        margin-right: 0.5em;
+    }
+
+    .logo {
+        font-size: 2em;
+        margin-left: 10px;
+    }
+
+    .profile-menu {
+        margin-right: 10px;
+    }
+
+    .dropdown-content {
+        right: 0;
+    }
+}

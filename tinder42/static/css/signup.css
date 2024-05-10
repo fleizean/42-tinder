@@ -53,7 +53,7 @@ body {
 }
 
 .have-account a:hover {
-    color: #2260ff;
+    color: #9c6df9;
 }
 
 .page-form .form-label {
@@ -310,7 +310,7 @@ label .input:valid+span {
 }
 
 .terms a:hover {
-    color: #2260ff;
+    color: #9c6df9;
 }
 
 /* Add your existing CSS rules here */
@@ -325,6 +325,9 @@ label .input:valid+span {
         font-size: 40px;
     }
 
-
+    .terms {
+        margin-top: 1em;
+        font-size: 10px;
+    }
     /* Add more adjustments as needed */
 }

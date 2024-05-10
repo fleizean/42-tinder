@@ -7,22 +7,22 @@ body {
     background: url('../../static/assets/backgrounds/1.jpg');
 }
 
-.container-login {
+.container-changepass {
     top: 0;
     left: 0;
     z-index: 50;
     margin-right: 2em;
 }
 
-.container-login .page-title {
+.container-changepass .page-title {
     display: flex;
     justify-content: center;
     padding-top: 64px;
 }
 
-.container-login .page-title h1 {
+.container-changepass .page-title h1 {
     font-family: "Pacifico", cursive;
-    line-height: 1.2;
+    line-height: 1.5;
     font-weight: 700;
     font-size: 60px;
     color: #ffffff;
@@ -76,10 +76,6 @@ body {
     color: white;
 }
 
-.input-field {
-    margin-bottom: 10px;
-    margin-top: 10px;
-}
 
 .input-container {
     display: block;
@@ -92,6 +88,18 @@ label {
     position: relative;
     font-family: "Rubik", sans-serif;
 
+}
+
+.input-field {
+    margin-bottom: 20px;
+    margin-top: 10px;
+}
+
+.page-desc {
+    font-size: 14px;
+    margin-bottom: 2em;
+    font-family: "Rubik", sans-serif;
+    color: white;
 }
 
 label .input {
@@ -145,6 +153,7 @@ label .input:valid+span {
     color: #f0f0f0;
     cursor: pointer;
     z-index: 1;
+    margin-bottom: 3em;
     padding: 10px 20px;
     text-align: center;
     align-items: center;
@@ -234,18 +243,6 @@ label .input:valid+span {
     font-size: 24px;
 }
 
-.forgot-pass {
-    font-family: "Rubik", sans-serif;
-    color: white;
-    font-size: 15px;
-    margin-top: 10px;
-    margin-left: 9rem;
-}
-
-.forgot-pass:hover {
-    color: #2260ff;
-}
-
 .terms {
     color: white;
     font-family: "Rubik", sans-serif;
@@ -284,10 +281,6 @@ label .input:valid+span {
 
     .input-container {
         margin-top: 10px; /* Adjust spacing */
-    }
-
-    .forgot-pass {
-        margin-left: 0; /* Center forgot password link */
     }
 
     .form-group {

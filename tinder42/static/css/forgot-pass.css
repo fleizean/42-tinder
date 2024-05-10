@@ -54,7 +54,7 @@ body {
 }
 
 .have-account a:hover {
-    color: #2260ff;
+    color: #9c6df9;
 }
 
 
@@ -255,7 +255,7 @@ label .input:valid+span {
 }
 
 .terms a:hover {
-    color: #2260ff;
+    color: #9c6df9;
 }
 
 @media screen and (max-width: 768px) {

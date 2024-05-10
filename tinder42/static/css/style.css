@@ -243,3 +243,81 @@ body {
 .btns-box {
     margin-top: 2em;
 }
+
+/* CSS kodunun en üstüne medya sorgularını ekleyin */
+
+/* Küçük ekranlar (mobil cihazlar) için */
+@media only screen and (max-width: 600px) {
+  /* Navbar öğelerinin düzeni */
+  .logo-container {
+    margin-left: 1em;
+  }
+
+  .nav-links {
+    margin-right: 0;
+  }
+
+  .nav-links li {
+    margin-right: 20px;
+  }
+
+  /* Banner bölümünün düzeni */
+  .banner-section {
+    left: 0;
+  }
+
+  /* Banner içeriğinin düzeni */
+  .banner-section .content-column {
+    padding-right: 20px;
+    padding-top: 50px;
+  }
+
+  /* Görsel ikonların düzeni */
+  .icons-layer {
+    right: 200px;
+  }
+}
+
+/* Orta büyüklükte ekranlar (tabletler) için */
+@media only screen and (min-width: 601px) and (max-width: 1024px) {
+  /* Navbar öğelerinin düzeni */
+  .nav-links {
+    margin-right: 6em;
+  }
+
+  .nav-links li {
+    margin-right: 25px;
+  }
+
+  /* Banner bölümünün düzeni */
+  .banner-section {
+    left: 4em;
+  }
+
+  /* Görsel ikonların düzeni */
+  .icons-layer {
+    right: 400px;
+  }
+}
+
+/* Büyük ekranlar (büyük monitörler) için */
+@media only screen and (min-width: 1025px) {
+  /* Navbar'ın düzeni */
+  .nav-links {
+    margin-right: 12em;
+  }
+
+  .nav-links li {
+    margin-right: 35px;
+  }
+
+  /* Banner bölümünün düzeni */
+  .banner-section {
+    left: 7.8em;
+  }
+
+  /* Görsel ikonların düzeni */
+  .icons-layer {
+    right: 600px;
+  }
+}

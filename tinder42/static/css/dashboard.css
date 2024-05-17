@@ -57,6 +57,10 @@ body {
     margin-right: 1em;
 }
 
+.navbar-item i {
+    color: coral;
+}
+
 .navbar-item:hover {
     color:coral;
 }
@@ -123,6 +127,10 @@ body {
     object-fit: cover;
 }
 
+.profile-menu img:hover {
+    filter: brightness(1.2);
+}
+
 .dropdown-content {
     display: none;
     position: absolute;
@@ -130,7 +138,7 @@ body {
     min-width: 160px;
     box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
     z-index: 1;
-    right: -50;
+    right: -55;
     top: 58px;
     border-radius: 5px;
 }
@@ -139,17 +147,73 @@ body {
     color: black;
     padding: 12px 16px;
     text-decoration: none;
+    font-size: 15px;
     display: block;
 }
 
 .dropdown-content a:hover {
-    background-color: #f1f1f1;
+    color: white;
+    background-color: coral;
+}
+
+.dropdown-content a:hover i {
+    color: white; /* i elementinin metin rengini beyaz yapın */
+    background-color: coralwhite; /* i elementinin arka plan rengini başlangıç değerine sıfırlayın */
+}
+
+.dropdown-content a i {
+    color: coral; /* i elementinin rengini a elementinden miras alır */
 }
 
 .profile-menu:hover .dropdown-content {
     display: block;
 }
 
+.profile-menu i {
+    color: coral;
+}
+
+/**/
+
+
+.notification-menu {
+    position: relative;
+    margin-right: 20px;
+}
+
+
+.notification-content {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+    right: -60;
+    top: 41px;
+    border-radius: 5px;
+}
+
+.notification-content a {
+    color: black;
+    padding: 12px 16px;
+    font-size: 12px;
+    text-decoration: none;
+    display: block;
+}
+
+.notification-content a:hover {
+    background-color: coral;
+}
+
+.notification-menu:hover .notification-content {
+    display: block;
+}
+
+.notification-menu i {
+    color: coral;
+    font-size: 26px;
+}
 
 .container-mid {
     margin-top: 8rem;
@@ -170,6 +234,76 @@ body {
     height: auto;
 }
 
+.card {
+    position: relative;
+    background-color: #fff;
+    margin-bottom: 1.25rem;
+    border: 1px solid #edf2f9;
+    border-radius: .25rem;
+    transition: all 0.3s ease-in-out;
+    -webkit-transition: all 0.3s ease-in-out;
+    -moz-transition: all 0.3s ease-in-out;
+    -o-transition: all 0.3s ease-in-out;
+    -ms-transition: all 0.3s ease-in-out;
+}
+.card-body {
+    padding: 1.1rem;
+    position: relative;
+}
+
+.card-body .h2 {
+    font-size: 24px;
+}
+.badge-cyan {
+    color: #00c9a7;
+    background: rgba(0,201,167,0.1);
+    border-color: transparent;
+    font-weight: 500;
+}
+.badge {
+    line-height: 1.7;
+    padding: 0.25em 0.7em;
+}
+.badge.badge-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50px;
+    padding: 0px;
+}
+.font-size-13 {
+    font-size: 13px !important;
+}
+.progress-bar:last-child {
+    border-top-right-radius: 50px;
+    border-bottom-right-radius: 50px;
+}
+.progress.progress-sm {
+    height: 4px;
+}
+
+.progress {
+    height: 8px;
+    background-color: #ececec;
+    border-radius: 50px;
+    margin-bottom: 20px;
+    min-width: 50px;
+}
+.badge.badge-dot:empty {
+    display: inline-block;
+}
+
+.badge.badge-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50px;
+    padding: 0px;
+}
+.badge-red {
+    color: #de4436;
+    background: rgba(222,68,54,0.05);
+    border-color: transparent;
+    font-weight: 500;
+}
 
 
 @media only screen and (max-width: 768px) {

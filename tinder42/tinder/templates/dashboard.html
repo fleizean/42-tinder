@@ -1,42 +1,172 @@
 <link rel="stylesheet" href="../../static/css/dashboard.css">
+
 <head>
     <script src="https://kit.fontawesome.com/b80699d249.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body>
-<div class="backgroundimage">
-    <nav class="navbar">
-        <div class="logo-container">
-            <div class="logo">
-                <a class="navbar-item" href="/home">
-                Tinder42
-              </a></div>
-        </div>
-        <ul class="nav-links" style="margin-top: 1em !important;">
-            <li><a class="navbar-item" href="">Dashboard</a></li>
-            <li><a class="navbar-item" href="">Chat</a></li>
-            <li><a class="navbar-item" href="">Search</a></li>
-            <li><a class="navbar-item" href="">Matcher</a></li>
-            
 
-            <li>
-                <div class="profile-menu">
-                    <img src="../../static/assets/team/eyagiz.jpeg" alt="Profile Picture">
-                    <div class="dropdown-content">
-                        <a href="#">Profile</a>
-                        <a href="#">Profile Settings</a>
-                        <a href="#">Logout</a>
+<body>
+    <div class="backgroundimage">
+        <nav class="navbar">
+            <div class="logo-container">
+                <div class="logo">
+                    <a class="navbar-item" href="/home">
+                        Tinder42
+                    </a>
+                </div>
+            </div>
+            <ul class="nav-links" style="margin-top: 1em !important;">
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-house"></i> Dashboard</a></li>
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-comments"></i> Chat</a></li>
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-magnifying-glass"></i> Search</a></li>
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-heart-circle-bolt"></i> Matcher</a></li>
+
+                <li style="margin-left: 4em;">
+                    <div class="notification-menu">
+                        <i class="fas fa-bell"></i> <!-- Notification icon -->
+                        <div class="notification-content">
+                            <a href="#">Notifications</a>
+                            <a href="#">Another Notification</a>
+                            <a href="#">Yet Another Notification</a>
+                        </div>
+                    </div>
+                </li>
+                <li>
+                    <div class="profile-menu">
+                        <img src="../../static/assets/team/eyagiz.jpeg" alt="Profile Picture">
+                        <div class="dropdown-content">
+                            <a href="#"><i class="fa-solid fa-id-badge"></i> Profile</a>
+                            <a href="#"><i class="fa-solid fa-gear"></i> Profile Settings</a>
+                            <a href="#"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </nav>
+        <div class="container-mid">
+            <div class="content-card">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <p class="mb-0 text-muted"><i class="fa-solid fa-heart" style="color: coral;"></i> New Followers</p>
+                                        <h2>15</h2>
+                                    </div>
+                                    <span class="badge badge-pill badge-cyan font-size-12">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span class="font-weight-semibold ml-1">up</span>
+                                    </span>
+                                </div>
+                                <div class="m-t-40">
+                                    <div class="d-flex justify-content-between">
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge badge-primary badge-dot mr-2"></span>
+                                            <span class="text-gray font-weight-semibold font-size-13">Monthly
+                                                Goal</span>
+                                        </div>
+                                        <span class="text-dark font-weight-semibold font-size-13 mt-2">70% </span>
+                                    </div>
+                                    <div class="progress progress-sm w-100 m-b-0 mt-2">
+                                        <div class="progress-bar bg-primary" style="width: 70%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <p class="mb-0 text-muted">Margin</p>
+                                        <h2>$8,523</h2>
+                                    </div>
+                                    <span class="badge badge-pill badge-cyan badge-red">
+                                        <i class="fas fa-arrow-down"></i>
+                                        <span class="font-weight-semibold   ml-1">6.71%</span>
+                                    </span>
+                                </div>
+                                <div class="m-t-40">
+                                    <div class="d-flex justify-content-between">
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge badge-primary badge-dot mr-2"></span>
+                                            <span class="text-gray font-weight-semibold font-size-13">Monthly
+                                                Goal</span>
+                                        </div>
+                                        <span class="text-dark font-weight-semibold font-size-13 mt-2">60% </span>
+                                    </div>
+                                    <div class="progress progress-sm w-100 m-b-0 mt-2">
+                                        <div class="progress-bar bg-primary" style="width: 70%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <p class="mb-0 text-muted">Sales</p>
+                                        <h2>$23,523</h2>
+                                    </div>
+                                    <span class="badge badge-pill badge-cyan font-size-12">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span class="font-weight-semibold ml-1">6.71%</span>
+                                    </span>
+                                </div>
+                                <div class="m-t-40">
+                                    <div class="d-flex justify-content-between">
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge badge-primary badge-dot mr-2"></span>
+                                            <span class="text-gray font-weight-semibold font-size-13">Monthly
+                                                Goal</span>
+                                        </div>
+                                        <span class="text-dark font-weight-semibold font-size-13 mt-2">70% </span>
+                                    </div>
+                                    <div class="progress progress-sm w-100 m-b-0 mt-2">
+                                        <div class="progress-bar bg-primary" style="width: 70%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <p class="mb-0 text-muted">Sales</p>
+                                        <h2>$23,523</h2>
+                                    </div>
+                                    <span class="badge badge-pill badge-cyan font-size-12">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span class="font-weight-semibold ml-1">6.71%</span>
+                                    </span>
+                                </div>
+                                <div class="m-t-40">
+                                    <div class="d-flex justify-content-between">
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge badge-primary badge-dot mr-2"></span>
+                                            <span class="text-gray font-weight-semibold font-size-13">Monthly
+                                                Goal</span>
+                                        </div>
+                                        <span class="text-dark font-weight-semibold font-size-13 mt-2">70% </span>
+                                    </div>
+                                    <div class="progress progress-sm w-100 m-b-0 mt-2">
+                                        <div class="progress-bar bg-primary" style="width: 70%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </li>
-        </ul>
-    </nav>
-    <div class="container-mid">
-        <div class="content-card">
-            
-
+            </div>
         </div>
-    </div>
 
-</div>
+    </div>
 </body>

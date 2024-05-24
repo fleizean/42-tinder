@@ -7,7 +7,9 @@
 This is the second web project of school 42, it’s a dating WebSite where the user can create his profile, search other users, like them and begin a conversation with a chat if the person liked him back.
 
 <hr>
+
 # Screen Shoots
+
 <img width="1440" alt="Ekran Resmi 2024-05-25 01 31 58" src="https://github.com/fleizean/42-tinder/assets/66090171/69376fb1-f6cd-491f-9bbc-920d75cc2404">
 <img width="1434" alt="Ekran Resmi 2024-05-25 01 32 13" src="https://github.com/fleizean/42-tinder/assets/66090171/d54a4d99-d92d-4a93-9f86-8712a7d41e4a">
 <img width="1440" alt="Ekran Resmi 2024-05-25 01 32 21" src="https://github.com/fleizean/42-tinder/assets/66090171/fbb0f54e-5b7e-4c65-9abe-4f2902958a67">

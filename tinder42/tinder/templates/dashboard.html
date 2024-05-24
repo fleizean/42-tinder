@@ -17,22 +17,25 @@
                     </a>
                 </div>
             </div>
-            <ul class="nav-links" style="margin-top: 1em !important;">
+            <div class="burger-menu" id="burger-menu">
+                <i class="fas fa-bars"></i>
+            </div>
+            <ul class="nav-links" style="margin-top: 1em !important;" id="nav-links">
                 <li><a class="navbar-item" href=""><i class="fa-solid fa-house"></i> Dashboard</a></li>
                 <li><a class="navbar-item" href=""><i class="fa-solid fa-comments"></i> Chat</a></li>
                 <li><a class="navbar-item" href=""><i class="fa-solid fa-magnifying-glass"></i> Search</a></li>
                 <li><a class="navbar-item" href=""><i class="fa-solid fa-heart-circle-bolt"></i> Matcher</a></li>
 
-                <li style="margin-left: 4em;">
-                    <div class="notification-menu">
-                        <i class="fas fa-bell"></i> <!-- Notification icon -->
-                        <div class="notification-content">
-                            <a href="#">Notifications</a>
-                            <a href="#">Another Notification</a>
-                            <a href="#">Yet Another Notification</a>
+                <li class="notification-li">
+                    <a href="/Bitlis/notifications/" class="notification-link">
+                        <div class="notification-menu">
+                            <i class="fas fa-bell"></i>
+                            <span class="notification-count">10</span> <!-- Notification count -->
                         </div>
-                    </div>
+                    </a>
                 </li>
+                
+                
                 <li>
                     <div class="profile-menu">
                         <img src="../../static/assets/team/eyagiz.jpeg" alt="Profile Picture">
@@ -47,13 +50,22 @@
         </nav>
         <div class="container-mid">
             <div class="content-card">
+                <div class="top-of-dashboard">
+                    <div class="background-filter"></div>
+                    <div class="hearts"></div>
+                    <div class="dashboard-text">
+                        <h1>Hello, Enes!</h1>
+                        <p>Firstly nice to see you among us, how about flirting with someone? Believe the Karma!</p>
+                    </div>
+                </div>
+                
                 <div class="row">
                     <div class="col-md-3">
                         <div class="card">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <p class="mb-0 text-muted"><i class="fa-solid fa-heart" style="color: coral;"></i> New Followers</p>
+                                        <p class="mb-0 text-muted"><i class="fa-solid fa-heart" style="color: coral;"></i> Followers</p>
                                         <h2>15</h2>
                                     </div>
                                     <span class="badge badge-pill badge-cyan font-size-12">
@@ -82,12 +94,12 @@
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <p class="mb-0 text-muted">Margin</p>
-                                        <h2>$8,523</h2>
+                                        <p class="mb-0 text-muted">Like Count</p>
+                                        <h2>5</h2>
                                     </div>
                                     <span class="badge badge-pill badge-cyan badge-red">
                                         <i class="fas fa-arrow-down"></i>
-                                        <span class="font-weight-semibold   ml-1">6.71%</span>
+                                        <span class="font-weight-semibold   ml-1">down</span>
                                     </span>
                                 </div>
                                 <div class="m-t-40">
@@ -111,12 +123,12 @@
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <p class="mb-0 text-muted">Sales</p>
-                                        <h2>$23,523</h2>
+                                        <p class="mb-0 text-muted">Matches</p>
+                                        <h2>5</h2>
                                     </div>
                                     <span class="badge badge-pill badge-cyan font-size-12">
                                         <i class="fas fa-arrow-up"></i>
-                                        <span class="font-weight-semibold ml-1">6.71%</span>
+                                        <span class="font-weight-semibold ml-1">up</span>
                                     </span>
                                 </div>
                                 <div class="m-t-40">
@@ -140,12 +152,12 @@
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <p class="mb-0 text-muted">Sales</p>
-                                        <h2>$23,523</h2>
+                                        <p class="mb-0 text-muted">Profile Visit</p>
+                                        <h2>6</h2>
                                     </div>
                                     <span class="badge badge-pill badge-cyan font-size-12">
                                         <i class="fas fa-arrow-up"></i>
-                                        <span class="font-weight-semibold ml-1">6.71%</span>
+                                        <span class="font-weight-semibold ml-1">up</span>
                                     </span>
                                 </div>
                                 <div class="m-t-40">
@@ -170,3 +182,14 @@
 
     </div>
 </body>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const burgerMenu = document.getElementById('burger-menu');
+        const navLinks = document.getElementById('nav-links');
+
+        burgerMenu.addEventListener('click', function () {
+            navLinks.classList.toggle('active');
+        });
+    });
+</script>

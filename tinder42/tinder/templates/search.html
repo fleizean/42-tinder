@@ -1,0 +1,274 @@
+<link rel="stylesheet" href="../../static/css/search.css">
+
+<head>
+    <script src="https://kit.fontawesome.com/b80699d249.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">   
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.1/css/bootstrap-select.min.css" rel="stylesheet">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+    <div class="backgroundimage">
+        <nav class="navbar">
+            <div class="logo-container">
+                <div class="logo">
+                    <a class="navbar-item" href="/home">
+                        Tinder42
+                    </a>
+                </div>
+            </div>
+            <div class="burger-menu" id="burger-menu">
+                <i class="fas fa-bars"></i>
+            </div>
+            <ul class="nav-links" style="margin-top: 1em !important;" id="nav-links">
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-house"></i> Dashboard</a></li>
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-comments"></i> Chat</a></li>
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-magnifying-glass"></i> Search</a></li>
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-heart-circle-bolt"></i> Matcher</a></li>
+
+                <li class="notification-li">
+                    <a href="/Bitlis/notifications/" class="notification-link">
+                        <div class="notification-menu">
+                            <i class="fas fa-bell"></i>
+                            <span class="notification-count">10</span> <!-- Notification count -->
+                        </div>
+                    </a>
+                </li>
+                
+                
+                <li>
+                    <div class="profile-menu">
+                        <img src="../../static/assets/team/eyagiz.jpeg" alt="Profile Picture">
+                        <div class="dropdown-content">
+                            <a href="#"><i class="fa-solid fa-id-badge"></i> Profile</a>
+                            <a href="#"><i class="fa-solid fa-gear"></i> Profile Settings</a>
+                            <a href="#"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </nav>
+        <div class="container-mid">
+            <div class="search-container">
+                <div class="search-bar">
+                    <input type="text" placeholder="Type to search." class="search-input">
+                    <button class="search-button"><i class="fas fa-search"></i></button>
+                </div>
+            </div>            
+            <div class="content-card">
+                <div class="filter-container">
+                    <select class="selectpicker" id="tagSelect" multiple data-live-search="true" data-size="10">
+                        <option>#girl</option>
+                        <option>#coffe</option>
+                        <option>#developer</option>
+                        <option>#designer</option>
+                        <option>#music</option>
+                        <!-- Diğer seçenekler -->
+                    </select>
+                    
+                </div>
+                <div class="row">
+                        <article class="profile">
+                            <div class="profile-image">
+                                <img src="https://assets.codepen.io/285131/neongirl.jpg" />
+                            </div>
+                            <h2 class="profile-username">Elena Zoldado</h2>
+                            <small class="profile-user-handle">@elena_zoldado</small>
+                            <div class="profile-actions">
+                                <button class="btn btn--primary">Follow</button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-share-nodes"></i>
+                                </button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                            <div class="profile-links">
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-x-twitter"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-instagram"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-snapchat"></i>
+                                </a>
+                            </div>
+                        </article>
+                        <article class="profile">
+                            <div class="profile-image">
+                                <img src="https://assets.codepen.io/285131/neongirl.jpg" />
+                            </div>
+                            <h2 class="profile-username">Elena Zoldado</h2>
+                            <small class="profile-user-handle">@elena_zoldado</small>
+                            <div class="profile-actions">
+                                <button class="btn btn--primary">Follow</button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-share-nodes"></i>
+                                </button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                            <div class="profile-links">
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-x-twitter"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-instagram"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-snapchat"></i>
+                                </a>
+                            </div>
+                        </article>
+                        <article class="profile">
+                            <div class="profile-image">
+                                <img src="https://assets.codepen.io/285131/neongirl.jpg" />
+                            </div>
+                            <h2 class="profile-username">Elena Zoldado</h2>
+                            <small class="profile-user-handle">@elena_zoldado</small>
+                            <div class="profile-actions">
+                                <button class="btn btn--primary">Follow</button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-share-nodes"></i>
+                                </button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                            <div class="profile-links">
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-x-twitter"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-instagram"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-snapchat"></i>
+                                </a>
+                            </div>
+                        </article>
+                        <article class="profile">
+                            <div class="profile-image">
+                                <img src="https://assets.codepen.io/285131/neongirl.jpg" />
+                            </div>
+                            <h2 class="profile-username">Elena Zoldado</h2>
+                            <small class="profile-user-handle">@elena_zoldado</small>
+                            <div class="profile-actions">
+                                <button class="btn btn--primary">Follow</button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-share-nodes"></i>
+                                </button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                            <div class="profile-links">
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-x-twitter"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-instagram"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-snapchat"></i>
+                                </a>
+                            </div>
+                        </article>
+                        <article class="profile">
+                            <div class="profile-image">
+                                <img src="https://assets.codepen.io/285131/neongirl.jpg" />
+                            </div>
+                            <h2 class="profile-username">Elena Zoldado</h2>
+                            <small class="profile-user-handle">@elena_zoldado</small>
+                            <div class="profile-actions">
+                                <button class="btn btn--primary">Follow</button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-share-nodes"></i>
+                                </button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                            <div class="profile-links">
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-x-twitter"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-instagram"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-snapchat"></i>
+                                </a>
+                            </div>
+                        </article>
+                        <article class="profile">
+                            <div class="profile-image">
+                                <img src="https://assets.codepen.io/285131/neongirl.jpg" />
+                            </div>
+                            <h2 class="profile-username">Elena Zoldado</h2>
+                            <small class="profile-user-handle">@elena_zoldado</small>
+                            <div class="profile-actions">
+                                <button class="btn btn--primary">Follow</button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-share-nodes"></i>
+                                </button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                            <div class="profile-links">
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-x-twitter"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-instagram"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-snapchat"></i>
+                                </a>
+                            </div>
+                        </article>         
+                </div>
+                <div class="paginator">
+                    <button class="btn btn--icon">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <button class="btn btn--primary">1</button>
+                    <button class="btn btn--icon">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.1/js/bootstrap-select.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const burgerMenu = document.getElementById('burger-menu');
+        const navLinks = document.getElementById('nav-links');
+
+        burgerMenu.addEventListener('click', function () {
+            navLinks.classList.toggle('active');
+        });
+    });
+    $(document).ready(function() {
+        $('#tagSelect').on('changed.bs.select', function (e, clickedIndex, isSelected, previousValue) {
+            var selectedCount = $(this).val().length;
+            console.log(selectedCount);
+            if (selectedCount > 3) {
+                $('.filter-option-inner-inner').text('selected ' + selectedCount + " tags");
+            }
+        });
+    });
+
+</script>

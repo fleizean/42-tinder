@@ -1,0 +1,134 @@
+<link rel="stylesheet" href="../../static/css/profile.css">
+
+<head>
+    <script src="https://kit.fontawesome.com/b80699d249.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+    <div class="backgroundimage">
+        <nav class="navbar">
+            <div class="logo-container">
+                <div class="logo">
+                    <a class="navbar-item" href="/home">
+                        Tinder42
+                    </a>
+                </div>
+            </div>
+            <div class="burger-menu" id="burger-menu">
+                <i class="fas fa-bars"></i>
+            </div>
+            <ul class="nav-links" style="margin-top: 1em !important;" id="nav-links">
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-house"></i> Dashboard</a></li>
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-comments"></i> Chat</a></li>
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-magnifying-glass"></i> Search</a></li>
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-heart-circle-bolt"></i> Matcher</a></li>
+
+                <li class="notification-li">
+                    <a href="/Bitlis/notifications/" class="notification-link">
+                        <div class="notification-menu">
+                            <i class="fas fa-bell"></i>
+                            <span class="notification-count">10</span> <!-- Notification count -->
+                        </div>
+                    </a>
+                </li>
+
+
+                <li>
+                    <div class="profile-menu">
+                        <img src="../../static/assets/team/eyagiz.jpeg" alt="Profile Picture">
+                        <div class="dropdown-content">
+                            <a href="#"><i class="fa-solid fa-id-badge"></i> Profile</a>
+                            <a href="#"><i class="fa-solid fa-gear"></i> Profile Settings</a>
+                            <a href="#"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </nav>
+        <div class="container-mid">
+
+
+            <div class="profile-card">
+                <img src="../../static/assets/team/test.jpeg" alt="Profile Picture">
+                <div class="profile-info">
+                    <h2>eyagiz <i class="fas fa-mars"></i></h2>
+                    <p>Enes Yağız</p>
+                    <div class="details">
+                        <div>
+                            <i class="fas fa-birthday-cake"></i>
+                            <span>22 years old</span>
+                        </div>
+                        <div>
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>Kocaeli</span>
+                        </div>
+                        <div>
+                            <i class="fas fa-search"></i>
+                            <span>Male</span>
+                        </div>
+                    </div>
+                    <p>"Quisquam praesentium fuga. Id dignissimos quam harum recusandae. Molestiae nisi dolorum
+                        dignissimos minus."</p>
+                    <div class="tags">
+                        <span>#collapsologie</span>
+                        <span>#fauconnerie</span>
+                        <span>#tauromachie</span>
+                        <span>#chasseacourre</span>
+                        <span>#frites</span>
+                        <span>#meteorites</span>
+                        <span>#rhododendron</span>
+                    </div>
+                    <div class="footer">
+                        <i class="fas fa-heart"></i>
+                        <span>1706</span>
+                    </div>
+                </div>
+            </div>
+            <div class="who-likes-card">
+                <div class="top-text">                    
+                    <h2 class="head-text">Who Likes You - eyagiz</h2>
+                </div>
+                <div class="heart-divider">
+                    <hr class="left-line">
+                    <i class="fa fa-heart"></i>
+                    <hr class="right-line">
+                </div>
+                <div class="profile-cards-container">
+                    <div class="who-likes-profile-card">
+                        <img src="../../static/assets/team/eyagiz.jpeg">
+                        <div class="profile-info-texts">
+                            <p class="profile-name">eyagiz</p>
+                            <p class="city-name">Kocaeli, Turkey</p>
+                        </div>
+                    </div>
+                    <div class="who-likes-profile-card">
+                        <img src="../../static/assets/team/sciftci.jpeg">
+                        <div class="profile-info-texts">
+                            <p class="profile-name">sciftci</p>
+                            <p class="city-name">Gebze, Turkey</p>
+                        </div>
+                    </div>
+                    <!-- More cards... -->
+                </div>
+            </div>
+            
+            </div>
+        </div>
+
+    </div>
+</body>
+<script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const burgerMenu = document.getElementById('burger-menu');
+        const navLinks = document.getElementById('nav-links');
+
+        burgerMenu.addEventListener('click', function () {
+            navLinks.classList.toggle('active');
+        });
+    });
+</script>

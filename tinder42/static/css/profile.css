@@ -1,0 +1,485 @@
+@import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
+
+@import url('https://fonts.googleapis.com/css2?family=Allura&family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
+
+@import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
+
+body {
+    margin: 0;
+    padding: 0;
+    /* cursor: url('../assets/scrool/pixelsword.png'), auto; */
+}
+
+.backgroundimage {
+    /* background: linear-gradient(to right, #ff6f91b1, #d65db2b9); */
+    background: linear-gradient(135deg, #FB5956, #F9465C, #FE6951);
+    /* Resmin tekrar etmemesini sağlar */
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+
+.navbar {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    padding: 5;
+    z-index: 1000;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.75);
+    /* Navbar'ın içerikten üstte kalmasını sağlar */
+}
+
+
+.nav-links li {
+    font-family: "Roboto", sans-serif;
+    font-weight: bold;
+    font-style: normal;
+}
+
+.nav-links li:not(:last-child) {
+    margin-top: 15px;
+    /* Önceki değer: 35px */
+}
+
+
+
+
+.navbar-item {
+    font-size: 0.9em;
+    color: white;
+    position: relative;
+    margin-right: 1em;
+}
+
+.navbar-item i {
+    color: coral;
+}
+
+.navbar-item:hover {
+    color: coral;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+}
+
+.logo-container a,
+.logo-container a:link,
+.logo-container a:visited {
+    color: white;
+    text-decoration: none;
+}
+
+.logo-container a .logo {
+    color: white;
+    /* Ya da istediğiniz rengi belirtin */
+}
+
+.logo-container .logo a:hover {
+    color: coral;
+}
+
+.logo {
+    font-family: "Pacifico", cursive;
+    font-weight: 400;
+    font-size: 2.3em;
+    color: white;
+    margin-left: 20px;
+}
+
+.nav-links {
+    list-style: none;
+    display: flex;
+    padding: 0;
+    margin-right: 1em;
+    margin-left: auto
+}
+
+.nav-links li {
+    margin-right: 35px;
+}
+
+.nav-links a {
+    text-decoration: none;
+    color: white;
+}
+
+
+
+.profile-menu {
+    position: relative;
+    margin-right: 20px;
+}
+
+.profile-menu img {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    cursor: pointer;
+    aspect-ratio: 1/1;
+    object-fit: cover;
+}
+
+.profile-menu img:hover {
+    filter: brightness(1.2);
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+    z-index: 1;
+    right: -55;
+    top: 58px;
+    border-radius: 5px;
+}
+
+.dropdown-content a {
+    color: black;
+    padding: 12px 16px;
+    text-decoration: none;
+    font-size: 15px;
+    display: block;
+}
+
+.dropdown-content a:hover {
+    color: white;
+    background-color: coral;
+}
+
+.dashboard-text p {
+    font-family: "Roboto", sans-serif;
+    font-size: 1.1em;
+    color: white;
+    font-weight: 500;
+    margin: 0;
+}
+
+.dropdown-content a:hover i {
+    color: white;
+    /* i elementinin metin rengini beyaz yapın */
+    background-color: coralwhite;
+    /* i elementinin arka plan rengini başlangıç değerine sıfırlayın */
+}
+
+.dropdown-content a i {
+    color: coral;
+    /* i elementinin rengini a elementinden miras alır */
+}
+
+.profile-menu:hover .dropdown-content {
+    display: block;
+}
+
+.profile-menu i {
+    color: coral;
+}
+
+/**/
+
+.notification-menu {
+    position: relative;
+    margin-right: 20px;
+}
+
+
+.notification-content {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+    z-index: 1;
+    right: -60;
+    top: 41px;
+    border-radius: 5px;
+}
+
+.notification-content a {
+    color: black;
+    padding: 12px 16px;
+    font-size: 12px;
+    text-decoration: none;
+    display: block;
+}
+
+.notification-content a:hover {
+    background-color: coral;
+}
+
+.notification-menu:hover .notification-content {
+    display: block;
+}
+
+.notification-menu .notification-count {
+    position: absolute;
+    top: -5px;
+    right: -2px;
+    background-color: #ffffff;
+    color: #000000;
+    border-radius: 50%;
+    padding: 1px 3px;
+    font-size: 12px;
+}
+
+.notification-menu i {
+    color: coral;
+    /* Icon rengi */
+    margin-right: 5px;
+    /* İkon ile bildirim sayısı arasında boşluk bırakmak için */
+    font-size: 24px;
+}
+
+.container-mid {
+    margin-top: 2rem;
+    display: flex;
+    overflow-y: auto;
+    flex-direction: column; /* İçerikleri dikey olarak düzenle */
+    align-items: center; /* İçerikleri yatay olarak ortala */
+    justify-content: center; /* İçerikleri dikey olarak ortala */
+}
+
+.burger-menu {
+    display: none;
+    cursor: pointer;
+    color: white;
+    font-size: 1.5em;
+}
+
+.profile-card {
+    background-color: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    width: 70vw;
+    display: flex;
+}
+
+.profile-card img {
+    width: 20vw;
+    height: auto;
+    border-radius: 15px 0 0 15px;
+    position:relative;
+    display:inline-block;
+}
+
+.profile-card .profile-info {
+    padding: 20px;
+    flex: 1;
+}
+
+.profile-card .profile-info h2 {
+    margin: 0;
+    font-size: 24px;
+    color: #ff5b81;
+}
+
+.profile-card .profile-info .details {
+    display: flex;
+    justify-content: space-between;
+    margin: 10px 0;
+}
+
+.profile-card .profile-info .details div {
+    text-align: center;
+}
+
+.profile-card .profile-info .details div i {
+    font-size: 20px;
+    color: #ff5b81;
+}
+
+.profile-card .profile-info .details div span {
+    display: block;
+    margin-top: 5px;
+    color: #333;
+}
+
+.profile-card .profile-info p {
+    font-style: italic;
+    color: #777;
+    margin: 10px 0;
+}
+
+.profile-card .tags {
+    padding: 10px 0;
+}
+
+.profile-card .tags span {
+    display: inline-block;
+    background-color: #ffe6ea;
+    color: #ff5b81;
+    border-radius: 12px;
+    padding: 5px 10px;
+    margin: 5px 5px 0 0;
+    font-size: 12px;
+}
+
+.profile-card .footer {
+    padding: 10px 0;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    color: #ff5b81;
+}
+
+.profile-card .footer i {
+    font-size: 20px;
+    margin-right: 5px;
+}
+
+/* who likes card */
+
+.who-likes-card {
+    margin-top: 1.5em;
+    background-color: rgb(179, 99, 255);
+    padding: 5px;
+    border-radius: 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    width: 70vw;
+    display: block;
+}
+
+.who-likes-card .top-text {
+    text-align: center !important; 
+}
+
+.who-likes-card .top-text .head-text {
+    text-align: center;
+    position: relative;
+    font-family: "Roboto", sans-serif;
+    font-size: 24px;
+    color: white;
+    font-weight: 500;
+
+}
+
+.heart-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.heart-divider .left-line,
+.heart-divider .right-line {
+    flex-grow: 1;
+    border: none;
+    border-top: 2px solid rgb(255, 255, 255);
+}
+
+.heart-divider i {
+    font-size: 24px;
+    color: coral;
+    margin-left: 7.5px;
+    margin-right: 7.5px;
+}
+
+.who-likes-card .top-text .head-text i {
+    color: white;
+}
+
+.who-likes-card .profile-cards-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+
+.profile-cards-container .who-likes-profile-card {
+    flex: 0 0 48%; /* This makes each card take up roughly half of the container's width */
+    background-color: white;
+    border-radius: 20px;
+    min-height: 5vw;
+    display: flex;
+    /* Other styles... */
+}
+
+.profile-cards-container .who-likes-profile-card img {
+    width: 5vw;
+    height: auto;
+    border-radius: 15px 0 0 15px;
+    position:relative;
+    display:inline-block;
+}
+
+.profile-cards-container .profile-info-texts {
+    font-family: "Roboto", sans-serif;
+    margin-left: 1.2em;
+    margin-top: 10px;
+}
+
+.profile-cards-container .profile-name {
+    font-weight: bold;
+    font-size: 15px;
+    color: coral;
+}
+
+.profile-cards-container .city-name {
+    margin-top: -1.2em;
+    font-weight: 400;
+    font-size: 14px;
+}
+
+@media only screen and (max-width: 768px) {
+    .navbar {
+        flex-direction: row;
+    }
+
+    .nav-links {
+        display: none;
+        flex-direction: column;
+        text-align: center;
+        width: 100%;
+    }
+
+    .nav-links.active {
+        display: flex;
+    }
+
+    .burger-menu {
+        display: block;
+    }
+
+
+    .notification-li {
+        text-align: center;
+        margin-bottom: 2em;
+    }
+
+    .logo {
+        font-size: 2em;
+        margin-left: 10px;
+    }
+
+    .profile-menu {
+        margin-right: 10px;
+    }
+
+    .profile-menu .dropdown-content {
+        right: auto;
+        /* Reset the right positioning */
+        left: 50%;
+        /* Center it horizontally relative to the profile-menu */
+        transform: translateX(-50%);
+        /* Shift it left by 50% of its width */
+        top: 60px;
+        /* Position it below the profile image */
+    }
+
+
+    .notification-menu .notification-count {
+        right: auto;
+        left: calc(50% - 5px);
+        /* sağ kenardan 15 piksel sola */
+    }
+}

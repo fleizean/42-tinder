@@ -9,6 +9,14 @@ This is the second web project of school 42, it’s a dating WebSite where the u
 <hr>
 
 # Installation 
+1. Clone the repo
+   ```sh
+   git clone https://github.com/fleizean/42-tinder.git
+   ```
+2. Install NPM packages
+   ```sh
+   sh start.sh
+   ```
 
 
 <hr>

@@ -1,0 +1,89 @@
+<link rel="stylesheet" href="../static/css/signup.css">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="../../static/assets/favicon.ico">
+    <title>{{title}}</title>
+</head>
+<div class="container-signup">
+    <div class="page-title">
+        <h1>signupღ</h1>
+    </div>
+    <div class="page-form">
+        <span class="have-account">Do you already have an account? <a href="/login">Log in</a></span>
+        <div class="form-group">
+            <div class="input-container">
+                <div class="input-field">
+                    <label>
+                        <input required="" placeholder="" type="text" class="input" name="username" required>
+                        <span>USERNAME</span>
+                    </label>
+                </div>
+                <div class="input-field">
+                    <label>
+                        <input required="" placeholder="" type="email" class="input" name="email" required>
+                        <span>EMAIL</span>
+                    </label>
+                </div>
+                <div class="input-field">
+                    <label>
+                        <input required="" placeholder="" type="text" class="input" style="width:151px !important" name="first_name" required>
+                        <span>FIRST NAME</span>
+                    </label>
+                    <label>
+                        <input required="" placeholder="" type="text" class="input" style="width:151px !important" name="last_name" required>
+                        <span>LAST NAME</span>
+                    </label>
+                </div>
+                <div class="input-field">
+                    <label>
+                        <input required="" placeholder="" type="password" class="input" name="password" required>
+                        <span>PASSWORD</span>
+                    </label>
+                </div>
+                <div class="input-field">
+                    <label>
+                        <input required="" placeholder="" type="password" class="input" name="confirmpassword" required>
+                        <span>CONFIRM PASSWORD</span>
+                    </label>
+                </div>
+                <div class="input-field">
+                    <label>
+                        <input required="" placeholder="" type="date" class="input" name="birthday" required>
+                        <span>BIRTHDAY</span>
+                    </label>
+                </div>
+                <div class="input-field">
+                    <div class="radio-inputs">
+                        <label>
+                            <input class="radio-input" id="woman" type="radio" name="gender" required>
+                            <span class="radio-tile">
+                                <span class="radio-icon">
+                                    <!-- SVG icon for WOMAN -->
+                                    <img src="../../static/assets/forms-icons/woman.svg" id="woman-img" width="24px" height="24px">
+                                </span>
+                                <span class="radio-label" id="woman-text">WOMAN</span>
+                            </span>
+                        </label>
+                        
+                        <label>
+                            <input checked="" class="radio-input" id="man" type="radio" name="gender">
+                            <span class="radio-tile">
+                                <span class="radio-icon">
+                                    <!-- SVG icon for MAN -->
+                                    <img src="../static/assets/forms-icons/man.png" id="man-img" width="24px" height="24px">
+                                </span>
+                                <span class="radio-label" id="man-text">MAN</span>
+                            </span>
+                        </label>
+                        
+                        
+                    </div>
+                </div>
+                <button class="button-86" role="button">lets signup</button>
+                <div style="position: absolute; left: 50%; transform: translateX(-50%); bottom: 0;">
+                    <p class="terms">By logining, you agree to our <a href="">Terms and Conditions.</a><br> Learn how we use your data in our <a href="">Privacy Policy.</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

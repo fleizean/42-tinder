@@ -342,7 +342,7 @@ body {
 
 .who-likes-card {
     margin-top: 1.5em;
-    background-color: rgb(179, 99, 255);
+    background-color: rgb(255, 255, 255);
     padding: 5px;
     border-radius: 15px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -360,7 +360,7 @@ body {
     position: relative;
     font-family: "Roboto", sans-serif;
     font-size: 24px;
-    color: white;
+    color: #FE5B80;
     font-weight: 500;
 
 }
@@ -375,12 +375,12 @@ body {
 .heart-divider .right-line {
     flex-grow: 1;
     border: none;
-    border-top: 2px solid rgb(255, 255, 255);
+    border-top: 2px solid rgb(0, 0, 0);
 }
 
 .heart-divider i {
     font-size: 24px;
-    color: coral;
+    color: #FE5B80;
     margin-left: 7.5px;
     margin-right: 7.5px;
 }
@@ -397,7 +397,7 @@ body {
 
 .profile-cards-container .who-likes-profile-card {
     flex: 0 0 48%; /* This makes each card take up roughly half of the container's width */
-    background-color: white;
+    background: linear-gradient(135deg, #FB5956, #F9465C, #FE6951);
     border-radius: 20px;
     min-height: 5vw;
     display: flex;
@@ -421,13 +421,28 @@ body {
 .profile-cards-container .profile-name {
     font-weight: bold;
     font-size: 15px;
-    color: coral;
+    color: white;
 }
 
-.profile-cards-container .city-name {
+.profile-cards-container .line-texts .city-name {
+    color: white;
     margin-top: -1.2em;
     font-weight: 400;
     font-size: 14px;
+}
+
+.profile-cards-container .line-texts .hashtag {
+    color: rgb(0, 255, 195) !important;
+}
+
+.profile-cards-container .profile-info-texts .line-texts {
+    display: block;
+    margin-top: -1.2em;
+}
+
+.profile-cards-container .profile-info-texts .line-texts p {
+    margin: 0; /* Remove default margins */
+    padding: 0; /* Remove default paddings */
 }
 
 @media only screen and (max-width: 768px) {

@@ -5,7 +5,7 @@ body {
     margin: 0;
     padding: 0;
     background: url('../assets/backgrounds/1.jpg');
-
+    
     /* cursor: url('../assets/scrool/pixelsword.png'), auto; */
 }
 
@@ -13,13 +13,14 @@ body {
     top: 0;
     left: 0;
     z-index: 50;
+
     margin-right: 2em;
 }
 
 .container-signup .page-title {
     display: flex;
     justify-content: center;
-    padding-top: 64px;
+    padding-top: 4px;
 }
 
 .container-signup .page-title h1 {
@@ -72,6 +73,7 @@ body {
 .input-field {
     margin-bottom: 10px;
     margin-top: 10px;
+    
 }
 
 .input-container {

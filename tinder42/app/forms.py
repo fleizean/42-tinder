@@ -1,11 +1,13 @@
 class RegistrationForm:
-    def __init__(self, email, username, last_name, first_name, password, confirm_password):
+    def __init__(self, email, username, last_name, first_name, password, confirm_password, gender, birthday):
         self.email = email
         self.username = username
         self.last_name = last_name
         self.first_name = first_name
         self.password = password
         self.confirm_password = confirm_password
+        self.gender = gender
+        self.birthday = birthday
         self.errors = []
 
     def validate(self):
@@ -17,6 +19,7 @@ class RegistrationForm:
             self.errors.append('Passwords do not match.')
         if len(self.password) < 6:
             self.errors.append('Password must be at least 6 characters long.')
+        
         return len(self.errors) == 0
 
 class LoginForm:

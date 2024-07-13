@@ -6,22 +6,39 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 main = Blueprint('main', __name__)
 
-@main.route('/register', methods=['GET', 'POST'])
-def register():
-    form = RegistrationForm(request.form)
-    if request.method == 'POST' and form.validate():
-        hashed_password = generate_password_hash(form.password.data, method='sha256')
-        new_user = User(id=None, email=form.email.data, username=form.username.data, last_name=form.last_name.data, first_name=form.first_name.data, password=hashed_password, gender='', sexual_preferences='')
+@main.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        # Extract form data
+        email = request.form.get('email')
+        username = request.form.get('username')
+        last_name = request.form.get('last_name')
+        first_name = request.form.get('first_name')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirmpassword')  # Note the HTML form field name
+        gender = request.form.get('gender')
+        birthday = request.form.get('birthday')
 
-        conn = sqlite3.connect('database.db')
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (email, username, last_name, first_name, password) VALUES (?, ?, ?, ?, ?)",
-                       (new_user.email, new_user.username, new_user.last_name, new_user.first_name, new_user.password))
-        conn.commit()
-        conn.close()
+        # Instantiate the form with extracted data
+        form = RegistrationForm(email, username, last_name, first_name, password, confirm_password, gender, birthday)
 
-        flash('Registration successful!', 'success')
-        return redirect(url_for('main.index'))
+        if form.validate():
+            hashed_password = generate_password_hash(password, method='sha256')
+            # Assuming User model and database setup is correct
+            new_user = User(email=email, username=username, last_name=last_name, first_name=first_name, password=hashed_password, gender=gender, birthday=birthday)
+
+            # Database insertion logic (assuming it's correct and database is set up properly)
+            conn = sqlite3.connect('database.db')
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO users (email, username, last_name, first_name, password, gender, birthday) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                           (new_user.email, new_user.username, new_user.last_name, new_user.first_name, new_user.password, new_user.gender, new_user.birthday))
+            conn.commit()
+            conn.close()
+
+            flash('Registration successful!', 'success')
+            return redirect(url_for('main.login'))
+    else:
+        form = RegistrationForm('', '', '', '', '', '', '', '')  # Empty form for GET request
     return render_template('signup.html', title='Register', form=form)
 
 @main.route('/')
@@ -40,7 +57,7 @@ def login():
 
             if user and check_password_hash(user[4], form.password):  # Assuming password is the 5th column in the users table
                 flash('Login successful!', 'success')
-                return redirect(url_for('main.index'))
+                return redirect(url_for('main.home'))
             else:
                 flash('Login Unsuccessful. Please check email and password', 'danger')
     else:

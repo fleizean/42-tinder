@@ -8,18 +8,7 @@ This is the second web project of school 42, it’s a dating WebSite where the u
 
 <hr>
 
-# Screen Shoots
-
-<img width="1440" alt="Ekran Resmi 2024-05-25 01 31 58" src="https://github.com/fleizean/42-tinder/assets/66090171/69376fb1-f6cd-491f-9bbc-920d75cc2404">
-<img width="1434" alt="Ekran Resmi 2024-05-25 01 32 13" src="https://github.com/fleizean/42-tinder/assets/66090171/d54a4d99-d92d-4a93-9f86-8712a7d41e4a">
-<img width="1440" alt="Ekran Resmi 2024-05-25 01 32 21" src="https://github.com/fleizean/42-tinder/assets/66090171/fbb0f54e-5b7e-4c65-9abe-4f2902958a67">
-<img width="1440" alt="Ekran Resmi 2024-05-25 01 32 28" src="https://github.com/fleizean/42-tinder/assets/66090171/cf5fcc03-6853-405a-9a73-106401dcd1d4">
-<img width="1439" alt="Ekran Resmi 2024-05-25 01 32 35" src="https://github.com/fleizean/42-tinder/assets/66090171/fd45314a-9c0f-4630-ba21-082b44469c46">
-<img width="1438" alt="Ekran Resmi 2024-05-25 01 32 48" src="https://github.com/fleizean/42-tinder/assets/66090171/319aff47-e10d-4ccb-8d85-d7c0e4036423">
-<img width="1440" alt="Ekran Resmi 2024-05-25 01 32 56" src="https://github.com/fleizean/42-tinder/assets/66090171/7740faf4-5fcb-4c6d-874b-1946eb993b7e">
-<img width="1440" alt="Ekran Resmi 2024-05-25 01 33 09" src="https://github.com/fleizean/42-tinder/assets/66090171/fbc9fbe3-805c-47ff-bc0b-338bebbbcc4c">
-<img width="1440" alt="Ekran Resmi 2024-05-25 01 33 21" src="https://github.com/fleizean/42-tinder/assets/66090171/bc3ed256-ca88-4b98-acaf-be9cba5ff2c7">
-<img width="1438" alt="Ekran Resmi 2024-05-25 01 31 38" src="https://github.com/fleizean/42-tinder/assets/66090171/d285c753-016e-4866-a9c4-ba361a409701">
+# Installation 
 
 
 <hr>

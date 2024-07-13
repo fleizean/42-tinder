@@ -15,6 +15,7 @@ def create_database():
                         biography TEXT,
                         fame_rating INTEGER DEFAULT 0,
                         location TEXT,
+                        birthday DATE,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )''')

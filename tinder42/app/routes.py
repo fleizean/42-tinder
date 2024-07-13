@@ -10,6 +10,7 @@ main = Blueprint('main', __name__)
 def signup():
     if request.method == 'POST':
         # Extract form data
+        print(request.form)
         email = request.form.get('email')
         username = request.form.get('username')
         last_name = request.form.get('last_name')
@@ -19,11 +20,17 @@ def signup():
         gender = request.form.get('gender')
         birthday = request.form.get('birthday')
 
+        if confirm_password != password:
+            flash('Passwords do not match!', 'danger')
+            return redirect(url_for('main.signup'))
+
+
+
         # Instantiate the form with extracted data
         form = RegistrationForm(email, username, last_name, first_name, password, confirm_password, gender, birthday)
 
         if form.validate():
-            hashed_password = generate_password_hash(password, method='sha256')
+            hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
             # Assuming User model and database setup is correct
             new_user = User(email=email, username=username, last_name=last_name, first_name=first_name, password=hashed_password, gender=gender, birthday=birthday)
 

@@ -10,6 +10,9 @@ main = Blueprint('main', __name__)
 
 @main.route('/signup', methods=['GET', 'POST'])
 def signup():
+    if 'user_id' in session:
+        return redirect(url_for('main.home'))
+
     if request.method == 'POST':
         # Extract form data
         print(request.form)
@@ -53,6 +56,8 @@ def signup():
 @main.route('/', methods=['GET', 'POST'])
 @main.route('/login', methods=['GET', 'POST'])
 def login():
+    if 'user_id' in session:
+        return redirect(url_for('main.home'))
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM users")
@@ -86,6 +91,8 @@ def login():
 
 @main.route('/home')
 def home():
+    if 'user_id' not in session:
+        return redirect(url_for('main.login'))
     user_id = session.get('user_id')  # Kullanıcı ID'sini session'dan alın
     if user_id:
         user_data = get_user_by_id(user_id)  # Veritabanından kullanıcı bilgilerini çekin
@@ -98,3 +105,5 @@ def home():
 @main.route('/logout')
 def logout():
     session.pop('user_id', None)
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('main.login'))

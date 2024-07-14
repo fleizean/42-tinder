@@ -51,3 +51,63 @@ def create_database():
                     )''')
     conn.commit()
     conn.close()
+
+
+def get_user_by_id(user_id):
+    conn = sqlite3.connect('database.db')  # Veritabanı bağlantısını kurun
+    c = conn.cursor()
+    
+    # Belirli bir user_id için sorgu yapın
+    c.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    user_data = c.fetchone()  # Sorgu sonucunu alın
+    
+    conn.close()  # Veritabanı bağlantısını kapatın
+    
+    # Sorgu sonucunu bir sözlüğe çevirin
+    if user_data:
+        user_dict = {
+            'id': user_data[0],
+            'username': user_data[1],
+            'email': user_data[2],
+            'lastname': user_data[3],
+            'firstname': user_data[4],
+            'gender': user_data[6],
+            'sexual_preferences': user_data[7],
+            'biography': user_data[8],
+            'fame_rating': user_data[9],
+            'location': user_data[10],
+            'birthday': user_data[11],
+            # Diğer alanlarınız varsa buraya ekleyin
+        }
+        return user_dict
+    else:
+        return None 
+    
+def list_users():
+    conn = sqlite3.connect('database.db')  # Veritabanı bağlantısını kurun
+    c = conn.cursor()
+    
+    # Tüm kullanıcıları getir
+    c.execute("SELECT * FROM users")
+    users = c.fetchall()  # Sorgu sonucunu alın
+    
+    conn.close()  # Veritabanı bağlantısını kapatın
+    
+    # Sorgu sonucunu bir sözlüğe çevirin
+    user_list = []
+    for user_data in users:
+        user_dict = {
+            'id': user_data[0],
+            'username': user_data[1],
+            'email': user_data[2],
+            'lastname': user_data[3],
+            'firstname': user_data[4],
+            'gender': user_data[6],
+            'sexual_preferences': user_data[7],
+            'biography': user_data[8],
+            'fame_rating': user_data[9],
+            'location': user_data[10],
+            'birthday': user_data[11],
+        }
+        user_list.append(user_dict)
+    return user_list

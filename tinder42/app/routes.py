@@ -1,10 +1,12 @@
 import sqlite3
-from flask import Blueprint, render_template, url_for, flash, redirect, request
+from flask import Blueprint, render_template, url_for, flash, redirect, request,session
 from app.forms import RegistrationForm, LoginForm
 from app.models import User
 from werkzeug.security import generate_password_hash, check_password_hash
+from app.database import get_user_by_id, list_users
 
 main = Blueprint('main', __name__)
+
 
 @main.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -48,12 +50,22 @@ def signup():
         form = RegistrationForm('', '', '', '', '', '', '', '')  # Empty form for GET request
     return render_template('signup.html', title='Register', form=form)
 
-@main.route('/')
+@main.route('/', methods=['GET', 'POST'])
 @main.route('/login', methods=['GET', 'POST'])
 def login():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users")
+    users = cursor.fetchall()
+
+    # Sonuçları terminale yazdır
+    for user in users:
+        print(user)
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
+        print(email)
+        print(password)
         form = LoginForm(email, password)
         if form.validate():
             conn = sqlite3.connect('database.db')
@@ -61,12 +73,28 @@ def login():
             cursor.execute("SELECT * FROM users WHERE email = ?", (form.email,))
             user = cursor.fetchone()
             conn.close()
-
-            if user and check_password_hash(user[4], form.password):  # Assuming password is the 5th column in the users table
+            print("User: ", check_password_hash(user[5], form.password))
+            if user and check_password_hash(user[5], form.password):  # Assuming password is the 5th column in the users table
                 flash('Login successful!', 'success')
+                session['user_id'] = user[0] 
                 return redirect(url_for('main.home'))
             else:
                 flash('Login Unsuccessful. Please check email and password', 'danger')
     else:
         form = LoginForm('', '')  # Empty form for GET request
     return render_template('login.html', title='Login', form=form)
+
+@main.route('/home')
+def home():
+    user_id = session.get('user_id')  # Kullanıcı ID'sini session'dan alın
+    if user_id:
+        user_data = get_user_by_id(user_id)  # Veritabanından kullanıcı bilgilerini çekin
+        if user_data:
+            # Kullanıcı bilgilerini şablona argüman olarak geçirin
+            return render_template('home.html', user=user_data)
+    # Eğer kullanıcı bilgisi bulunamazsa veya kullanıcı giriş yapmamışsa, hata mesajı gösterin
+    return 'User not found or not logged in', 404
+
+@main.route('/logout')
+def logout():
+    session.pop('user_id', None)

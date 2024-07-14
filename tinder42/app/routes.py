@@ -91,7 +91,7 @@ def home():
         user_data = get_user_by_id(user_id)  # Veritabanından kullanıcı bilgilerini çekin
         if user_data:
             # Kullanıcı bilgilerini şablona argüman olarak geçirin
-            return render_template('home.html', user=user_data)
+            return render_template('home.html', title="Home", user=user_data)
     # Eğer kullanıcı bilgisi bulunamazsa veya kullanıcı giriş yapmamışsa, hata mesajı gösterin
     return 'User not found or not logged in', 404
 

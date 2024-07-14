@@ -229,6 +229,11 @@ label .input:valid+span {
 }
 
 
+#other:checked, #other-text {
+    color: #000000;
+}
+
+
 /* CSS */
 .button-86 {
     all: unset;

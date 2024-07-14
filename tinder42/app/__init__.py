@@ -18,6 +18,8 @@ def create_app(config_class=Config):
     from app.routes import main as main_blueprint
     app.register_blueprint(main_blueprint)
 
+    csrf.exempt(main_blueprint)
+
     with app.app_context():
         create_database()  # Veritabanını oluştur
 

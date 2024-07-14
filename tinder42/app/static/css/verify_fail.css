@@ -1,67 +1,81 @@
 @import url('https://fonts.googleapis.com/css2?family=Allura&family=Archivo+Black&family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Rubik:ital,wght@0,300..900;1,300..900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
 
+@import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
 body {
     margin: 0;
     padding: 0;
-    background: url('../assets/backgrounds/1.jpg');
-    
-    /* cursor: url('../assets/scrool/pixelsword.png'), auto; */
+    background: url('../../static/assets/backgrounds/1.jpg');
 }
 
-.container-signup {
+.container-verify-fail {
     top: 0;
     left: 0;
     z-index: 50;
-
     margin-right: 2em;
 }
 
-.container-signup .page-title {
+.container-verify-fail .page-title {
     display: flex;
     justify-content: center;
     padding-top: 4px;
 }
 
-.container-signup .page-title h1 {
+.input-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 8em !important;
+}
+
+.input-container .verify-fail-icon i {
+    font-size: 100px;
+    color: #ffffff;
+}
+
+.input-container .verify-fail-text {
+    font-family: "Rubik", sans-serif;
+    color: white;
+    font-weight: 500;
+    font-size: 20px;
+    margin-top: 20px;
+}
+
+.input-container .verify-fail-text p {
+    margin: 0;
+}
+
+.input-container .verify-fail-text p a {
+    color: #ffffff;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.input-container .verify-fail-text p a:hover {
+    color: black;
+    text-decoration: underline;
+}
+
+
+.container-verify-fail .page-title h1 {
     font-family: "Pacifico", cursive;
     line-height: 1.2;
     font-weight: 700;
     font-size: 60px;
-    color: white;
+    color: #ffffff;
     margin: 0;
 }
 
-
 .page-form {
     width: 100%;
+    padding-right: 84px;
     margin-top: 20px;
     display: block;
     text-align: center;
 }
 
-.have-account {
-    font-family: "Rubik", sans-serif;
-    color: white;
-    font-weight: 350;
-    font-size: 15px;
-    line-height: 20px;
-}
-
-.have-account a {
-    text-decoration: underline;
-    font-weight: 500;
-    color: white;
-}
-
-.have-account a:hover {
-    color: black;
-    text-decoration: underline;
-}
-
 .page-form .form-label {
     font-family: "Rubik", sans-serif;
-    color: black;
+    color: white;
     font-weight: 500;
     font-size: 16px;
 }
@@ -72,10 +86,14 @@ body {
 
 }
 
+.login-or {
+    font-family: "Rubik", sans-serif;
+    color: white;
+}
+
 .input-field {
     margin-bottom: 10px;
     margin-top: 10px;
-    
 }
 
 .input-container {
@@ -125,114 +143,6 @@ label .input:focus+span,
 
 label .input:valid+span {
     color: rgb(0, 255, 119);
-}
-
-
-.radio-inputs {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    max-width: 300px;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-    margin: 0 auto; 
-}
-
-.radio-inputs>* {
-    margin: 6px;
-}
-
-
-.radio-input:checked+.radio-tile:before {
-    transform: scale(1);
-    opacity: 1;
-    background-color: #2260ff;
-    border-color: #2260ff;
-}
-
-
-.radio-input:focus+.radio-tile {
-    border-color: #2260ff;
-    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1), 0 0 0 4px #b5c9fc;
-}
-
-.radio-input:focus+.radio-tile:before {
-    transform: scale(1);
-    opacity: 1;
-}
-
-.radio-tile {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 80px;
-    min-height: 80px;
-    border-radius: 0.5rem;
-    border: 2px solid #b5bfd9;
-    background-color: #fff;
-    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
-    transition: 0.15s ease;
-    cursor: pointer;
-    position: relative;
-}
-
-.radio-tile:before {
-    content: "";
-    position: absolute;
-    display: block;
-    width: 0.75rem;
-    height: 0.75rem;
-    border: 2px solid #b5bfd9;
-    background-color: #fff;
-    border-radius: 50%;
-    top: 0.25rem;
-    left: 0.25rem;
-    opacity: 0;
-    transform: scale(0);
-    transition: 0.25s ease;
-}
-
-
-.radio-tile:hover:before {
-    transform: scale(1);
-    opacity: 1;
-}
-
-
-.radio-label {
-    color: #707070;
-    transition: 0.375s ease;
-    text-align: center;
-    font-size: 13px;
-    margin-top: 10px;
-}
-
-.radio-input {
-    clip: rect(0 0 0 0);
-    -webkit-clip-path: inset(100%);
-    clip-path: inset(100%);
-    height: 1px;
-    overflow: hidden;
-    position: absolute;
-    white-space: nowrap;
-    width: 1px;
-}
-
-#woman:checked, #woman-text {
-    color: #fea1de;
-}
-
-#man:checked, #man-text {
-    color: #a1d9fe;
-}
-
-
-#other:checked, #other-text {
-    color: #000000;
 }
 
 
@@ -322,10 +232,9 @@ label .input:valid+span {
     color: #9c6df9;
 }
 
-/* Add your existing CSS rules here */
-
 @media screen and (max-width: 768px) {
     /* Adjustments for smaller screens */
+
     .page-title {
         padding-right: 20px;
     }
@@ -334,9 +243,31 @@ label .input:valid+span {
         font-size: 40px;
     }
 
+    
+    .another-btn {
+        width: 80%; /* Adjust width as needed */
+        max-width: 250px; /* Limit maximum width */
+    }
+
+    label .input {
+        max-width: 250px; /* Adjust input width */
+    }
+
+    .input-container {
+        margin-top: 10px; /* Adjust spacing */
+    }
+
+    .forgot-pass {
+        margin-left: 0; /* Center forgot password link */
+    }
+
+    .form-group {
+        margin-right: 0; /* Adjust margin */
+    }
+
     .terms {
-        margin-top: 1em;
-        font-size: 10px;
+        font-size: 10px; /* Keep the font size consistent */
+        text-align: center; /* Center align the text */
     }
     /* Add more adjustments as needed */
 }

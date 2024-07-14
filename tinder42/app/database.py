@@ -16,6 +16,8 @@ def create_database():
                         fame_rating INTEGER DEFAULT 0,
                         location TEXT,
                         birthday DATE,
+                        verification_token TEXT,
+                        verify_email BOOLEAN DEFAULT 0,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )''')
@@ -67,8 +69,8 @@ def get_user_by_id(user_id):
     if user_data:
         user_dict = {
             'id': user_data[0],
-            'username': user_data[1],
-            'email': user_data[2],
+            'email': user_data[1],
+            'username': user_data[2],
             'lastname': user_data[3],
             'firstname': user_data[4],
             'gender': user_data[6],
@@ -98,8 +100,8 @@ def list_users():
     for user_data in users:
         user_dict = {
             'id': user_data[0],
-            'username': user_data[1],
-            'email': user_data[2],
+            'email': user_data[1],
+            'username': user_data[2],
             'lastname': user_data[3],
             'firstname': user_data[4],
             'gender': user_data[6],
@@ -111,3 +113,33 @@ def list_users():
         }
         user_list.append(user_dict)
     return user_list
+
+def get_user_by_vertification_token(verification_token):
+    conn = sqlite3.connect('database.db')  # Veritabanı bağlantısını kurun
+    c = conn.cursor()
+    
+    # Belirli bir verification_token için sorgu yapın
+    c.execute("SELECT * FROM users WHERE verification_token = ?", (verification_token,))
+    user_data = c.fetchone()  # Sorgu sonucunu alın
+    
+    conn.close()  # Veritabanı bağlantısını kapatın
+    # Sorgu sonucunu bir sözlüğe çevirin
+    if user_data:
+        user_dict = {
+            'id': user_data[0],
+            'email': user_data[1],
+            'username': user_data[2],
+            'lastname': user_data[3],
+            'firstname': user_data[4],
+            'gender': user_data[6],
+            'sexual_preferences': user_data[7],
+            'biography': user_data[8],
+            'fame_rating': user_data[9],
+            'location': user_data[10],
+            'birthday': user_data[11],
+            'verify_email': user_data[14],
+            'verification_token': user_data[12],
+        }
+        return user_dict
+    else:
+        return None

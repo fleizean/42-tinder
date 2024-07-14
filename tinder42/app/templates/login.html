@@ -4,6 +4,7 @@
     <link rel="icon" type="image/x-icon" href="../../static/assets/favicon.ico">
     <title>{{title}}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <div class="container-login">
@@ -15,7 +16,6 @@
         <div class="form-group">
             <div class="input-container">
                 <form method="POST">
-                    {{ form.as_p }}
                     <div class="input-field">
                         <label>
                             <input required="" name="email" id="id_email" placeholder="" type="text" class="input">
@@ -50,4 +50,22 @@
             </div>
         </div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        Swal.fire({
+                            icon: '{{ category }}',  // 'success', 'error', 'info', vb. olabilir
+                            title: '{{ message }}',  // Flash mesajı
+                            showConfirmButton: true,
+                            timer: 5000  // Mesajın ekranda kalma süresi (milisaniye)
+                        });
+                        
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        });
+    </script>
 </div>
+

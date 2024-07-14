@@ -55,14 +55,19 @@ body {
     color: white;
     position: relative;
     margin-right: 1em;
+    text-decoration: none !important;
 }
 
 .navbar-item i {
     color: coral;
 }
 
-.navbar-item:hover {
-    color:coral;
+.navbar-item:hover i {
+    color: coral;
+}
+
+.navbar-item:hover span {
+    color: coral;
 }
 
 .logo-container {
@@ -146,10 +151,12 @@ body {
 .dropdown-content a {
     color: black;
     padding: 12px 16px;
-    text-decoration: none;
+    text-decoration: none !important;
     font-size: 15px;
     display: block;
 }
+
+
 
 .dropdown-content a:hover {
     color: white;

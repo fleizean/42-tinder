@@ -20,6 +20,17 @@ body {
     padding-top: 4px;
 }
 
+.forgot-pass {
+    color: white;
+    font-size: 0.9em;
+    margin-top: 10px;
+    text-decoration: none;
+}
+
+.forgot-pass:hover {
+    color: #dddddd !important;
+}
+
 .container-login .page-title h1 {
     font-family: "Pacifico", cursive;
     line-height: 1.2;

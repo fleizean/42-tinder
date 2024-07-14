@@ -67,8 +67,8 @@ def get_user_by_id(user_id):
     if user_data:
         user_dict = {
             'id': user_data[0],
-            'username': user_data[1],
-            'email': user_data[2],
+            'email': user_data[1],
+            'username': user_data[2],
             'lastname': user_data[3],
             'firstname': user_data[4],
             'gender': user_data[6],
@@ -98,8 +98,8 @@ def list_users():
     for user_data in users:
         user_dict = {
             'id': user_data[0],
-            'username': user_data[1],
-            'email': user_data[2],
+            'email': user_data[1],
+            'username': user_data[2],
             'lastname': user_data[3],
             'firstname': user_data[4],
             'gender': user_data[6],

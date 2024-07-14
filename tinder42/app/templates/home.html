@@ -23,10 +23,10 @@
                 <i class="fas fa-bars"></i>
             </div>
             <ul class="nav-links" style="margin-top: 1em !important;" id="nav-links">
-                <li><a class="navbar-item" href=""><i class="fa-solid fa-house"></i> Dashboard</a></li>
-                <li><a class="navbar-item" href=""><i class="fa-solid fa-comments"></i> Chat</a></li>
-                <li><a class="navbar-item" href=""><i class="fa-solid fa-magnifying-glass"></i> Search</a></li>
-                <li><a class="navbar-item" href=""><i class="fa-solid fa-heart-circle-bolt"></i> Matcher</a></li>
+                <li><a class="navbar-item" href="/home"><i class="fa-solid fa-house"></i> <span>Home</span></a></li>
+                <li><a class="navbar-item" href="/chat"><i class="fa-solid fa-comments"></i> <span>Chat</span></a></li>
+                <li><a class="navbar-item" href="/search"><i class="fa-solid fa-magnifying-glass"></i> <span>Search</span></a></li>
+                <li><a class="navbar-item" href="/matcher"><i class="fa-solid fa-heart-circle-bolt"></i> <span>Matcher</span></a></li>
 
                 <li class="notification-li">
                     <a href="/Bitlis/notifications/" class="notification-link">
@@ -42,9 +42,9 @@
                     <div class="profile-menu">
                         <img src="../../static/assets/team/eyagiz.jpeg" alt="Profile Picture">
                         <div class="dropdown-content">
-                            <a href="#"><i class="fa-solid fa-id-badge"></i> Profile</a>
-                            <a href="#"><i class="fa-solid fa-gear"></i> Profile Settings</a>
-                            <a href="#"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                            <a href="/profile/{{user.username}}"><i class="fa-solid fa-id-badge"></i> Profile</a>
+                            <a href="/profile-settings/{{user.username}}"><i class="fa-solid fa-gear"></i> Profile Settings</a>
+                            <a href="/logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
                         </div>
                     </div>
                 </li>

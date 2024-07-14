@@ -116,9 +116,13 @@ def home():
     user_id = session.get('user_id')  # Kullanıcı ID'sini session'dan alın
     if user_id:
         user_data = get_user_by_id(user_id)  # Veritabanından kullanıcı bilgilerini çekin
+        if not user_data.get('sexual_preferences') or not user_data.get('biography'):
+            # Kullanıcı bilgilerini şablona argüman olarak geçirin
+            flash_message('You have not completed your profile yet.', 'info')
+            return render_template('home.html', title="Home", user=user_data, incomplete_profile=True) 
         if user_data:
             # Kullanıcı bilgilerini şablona argüman olarak geçirin
-            return render_template('home.html', title="Home", user=user_data)
+            return render_template('home.html', title="Home", user=user_data, incomplete_profile=False)
     # Eğer kullanıcı bilgisi bulunamazsa veya kullanıcı giriş yapmamışsa, hata mesajı gösterin
     return 'User not found or not logged in', 404
 

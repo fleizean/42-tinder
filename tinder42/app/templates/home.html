@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/x-icon" href="../../static/assets/favicon.ico">
     <title>{{title}}</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
 </head>
 
 <body>
@@ -197,5 +198,18 @@
         burgerMenu.addEventListener('click', function () {
             navLinks.classList.toggle('active');
         });
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    Swal.fire({
+                        icon: '{{ category }}',  // 'success', 'error', 'info', vb. olabilir
+                        title: '{{ message }}',  // Flash mesajı
+                        showConfirmButton: true,
+                        timer: 5000  // Mesajın ekranda kalma süresi (milisaniye)
+                    });
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
     });
 </script>

@@ -14,7 +14,8 @@ def create_database():
                         sexual_preferences TEXT,
                         biography TEXT,
                         fame_rating INTEGER DEFAULT 0,
-                        location TEXT,
+                        latitude TEXT,
+                        longitude TEXT,
                         birthday DATE,
                         verification_token TEXT,
                         verify_email BOOLEAN DEFAULT 0,
@@ -77,8 +78,11 @@ def get_user_by_id(user_id):
             'sexual_preferences': user_data[7],
             'biography': user_data[8],
             'fame_rating': user_data[9],
-            'location': user_data[10],
-            'birthday': user_data[11],
+            'latitude': user_data[10],
+            'longitude': user_data[11],
+            'birthday': user_data[12],
+            'verification_token': user_data[13],
+            'verify_email': user_data[14],
             # Diğer alanlarınız varsa buraya ekleyin
         }
         return user_dict
@@ -108,8 +112,11 @@ def list_users():
             'sexual_preferences': user_data[7],
             'biography': user_data[8],
             'fame_rating': user_data[9],
-            'location': user_data[10],
-            'birthday': user_data[11],
+            'latitude': user_data[10],
+            'longitude': user_data[11],
+            'birthday': user_data[12],
+            'verification_token': user_data[13],
+            'verify_email': user_data[14],
         }
         user_list.append(user_dict)
     return user_list
@@ -135,11 +142,13 @@ def get_user_by_vertification_token(verification_token):
             'sexual_preferences': user_data[7],
             'biography': user_data[8],
             'fame_rating': user_data[9],
-            'location': user_data[10],
-            'birthday': user_data[11],
+            'latitude': user_data[10],
+            'longitude': user_data[11],
+            'birthday': user_data[12],
+            'verification_token': user_data[13],
             'verify_email': user_data[14],
-            'verification_token': user_data[12],
         }
         return user_dict
     else:
         return None
+

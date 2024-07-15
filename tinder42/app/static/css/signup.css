@@ -1,11 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Allura&family=Archivo+Black&family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Rubik:ital,wght@0,300..900;1,300..900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Honk&family=Jacquarda+Bastarda+9&family=Pacifico&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Silkscreen:wght@400;700&family=VT323&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Rubik+Mono+One&display=swap');
 
 body {
     margin: 0;
     padding: 0;
     background: url('../assets/backgrounds/1.jpg');
-    
+
     /* cursor: url('../assets/scrool/pixelsword.png'), auto; */
 }
 
@@ -15,6 +16,45 @@ body {
     z-index: 50;
 
     margin-right: 2em;
+}
+
+#form-page-2 {
+    display: none;
+}
+
+.gps-location {
+    cursor: pointer;
+}
+
+.loader {
+    width: 33.8px;
+    height: 33.8px;
+    text-align: center;
+    margin-left: 10px;
+    margin-right: 10px;
+    transform: rotate(45deg);
+}
+
+.loader:before,
+.loader:after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50% 50% 0 50%;
+    background: #0000;
+    background-image: radial-gradient(circle 11.2px at 50% 50%, #0000 94%, #ffffff);
+}
+
+.loader:after {
+    animation: pulse-ytk0dhmd 1s infinite;
+    transform: perspective(336px) translateZ(0px);
+}
+
+@keyframes pulse-ytk0dhmd {
+    to {
+        transform: perspective(336px) translateZ(168px);
+        opacity: 0;
+    }
 }
 
 .container-signup .page-title {
@@ -75,7 +115,9 @@ body {
 .input-field {
     margin-bottom: 10px;
     margin-top: 10px;
-    
+
+
+
 }
 
 .input-container {
@@ -127,24 +169,151 @@ label .input:valid+span {
     color: rgb(0, 255, 119);
 }
 
+label .textarea {
+    width: 100%;
+    max-width: 302px;
+    padding: 10px 10px 20px 10px;
+    outline: 0;
+    border: 1px solid rgba(105, 105, 105, 0.397);
+    border-radius: 10px;
+    resize: none; /* Textarea'nın boyutunun dikey olarak ayarlanabilmesini sağlar */
+}
+
+label .textarea+span {
+    position: absolute;
+    left: 10px;
+    top: -5px;
+    color: grey;
+    font-size: 0.5em;
+    text-align: right;
+    cursor: text;
+    transition: 0.3s ease;
+}
+
+label .textarea:placeholder-shown+span {
+    top: -10px;
+    font-size: 0.8em;
+}
+
+label .textarea:focus+span,
+.form label .textarea:valid+span {
+    top: -5px;
+    font-size: 0.7em;
+    font-weight: 600;
+}
+
+label .textarea:valid+span {
+    color: rgb(0, 255, 119);
+}
+
+label .multipeSelector {
+    width: 100%;
+    height: 80px;
+    max-width: 302px;
+    outline: 0;
+    border: 1px solid rgba(105, 105, 105, 0.397);
+    border-radius: 10px;
+    font-size: 1em;
+    text-align: right;
+    padding: 10px 10px 20px 10px
+}
+
+label .multipeSelector+span {
+    position: absolute;
+    left: 10px;
+    top: -5px;
+    color: grey;
+    font-size: 0.5em !important;
+    text-align: right;
+    cursor: text;
+    transition: 0.3s ease;
+}
+
+label .multipeSelector:placeholder-shown+span {
+    top: -10px;
+    font-size: 0.8em;
+}
+
+label .multipeSelector:focus+span,
+.form label .multipeSelector:valid+span {
+    top: -5px;
+    font-size: 0.7em !important;
+    font-weight: 600;
+}
+
+label .multipeSelector:valid+span {
+    color: rgb(0, 255, 119);
+}
+
 
 .radio-inputs {
     display: flex;
-    justify-content: center;
+    justify-content: left;
     align-items: center;
     text-align: center;
     max-width: 300px;
+    overflow-x: auto;
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
-    margin: 0 auto; 
+    margin: auto auto;
+    margin-top: 5px;
+    gap: 5px;
 }
 
-.radio-inputs>* {
-    margin: 6px;
+
+
+.progress-container {
+    display: flex;
+    justify-content: center;
+    text-align: center;
+    align-items: center;
+    margin-bottom: 20px;
+    margin-top: 20px;
 }
 
+.progress-steps {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    width: 100%;
+}
+
+.progress-step {
+    font-family: "Rubik Mono One", monospace;
+    font-weight: 100;
+    font-size: 14px;
+    width: 35px;
+    height: 35px;
+    background-color: transparent;
+    color: white;
+    border: 2px solid white;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+}
+
+.progress-steps a {
+    cursor: pointer;
+}
+
+.progress-step.active {
+    background-color: #a600ff;
+    border: 2px solid #a600ff;
+    color: #fff;
+}
+
+.progress-title {
+    font-family: "Rubik", sans-serif;
+    font-weight: bold;
+    font-size: 26px;
+    color: white;
+    margin-top: -5px;
+    margin-bottom: 5px;
+}
 
 .radio-input:checked+.radio-tile:before {
     transform: scale(1);
@@ -169,7 +338,7 @@ label .input:valid+span {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 80px;
+    width: 88px;
     min-height: 80px;
     border-radius: 0.5rem;
     border: 2px solid #b5bfd9;
@@ -178,6 +347,22 @@ label .input:valid+span {
     transition: 0.15s ease;
     cursor: pointer;
     position: relative;
+}
+
+.gender-text-container {
+    display: flex !important;
+    align-items: center !important;
+    text-align: center;
+
+    justify-content: center;
+
+}
+
+.gender-span {
+    font-family: "Rubik", sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    color: #ffffff;
 }
 
 .radio-tile:before {
@@ -222,19 +407,36 @@ label .input:valid+span {
     width: 1px;
 }
 
-#woman:checked, #woman-text {
+#woman:checked,
+#woman-text {
     color: #fea1de;
 }
 
-#man:checked, #man-text {
+#man:checked,
+#man-text {
     color: #a1d9fe;
 }
 
 
-#other:checked, #other-text {
-    color: #000000;
+#gay:checked,
+#gay-text {
+    color: #e91e63;
 }
 
+#lesbian:checked,
+#lesbian-text {
+    color: #c2185b;
+}
+
+#heterosexual:checked,
+#heterosexual-text {
+    color: #1976d2;
+}
+
+#bisexual:checked,
+#bisexual-text {
+    color: #9c27b0;
+}
 
 /* CSS */
 .button-86 {
@@ -258,27 +460,27 @@ label .input:valid+span {
     user-select: none;
     -webkit-user-select: none;
     touch-action: manipulation;
-  }
-  
-  .button-86::after,
-  .button-86::before {
+}
+
+.button-86::after,
+.button-86::before {
     content: '';
     position: absolute;
     bottom: 0;
     right: 0;
     z-index: -99999;
     transition: all .4s;
-  }
-  
-  .button-86::before {
+}
+
+.button-86::before {
     transform: translate(0%, 0%);
     width: 100%;
     height: 100%;
     background: #9c6df9;
     border-radius: 10px;
-  }
-  
-  .button-86::after {
+}
+
+.button-86::after {
     transform: translate(10px, 10px);
     width: 35px;
     height: 35px;
@@ -286,25 +488,25 @@ label .input:valid+span {
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
     border-radius: 50px;
-  }
-  
-  .button-86:hover::before {
+}
+
+.button-86:hover::before {
     transform: translate(5%, 20%);
     width: 110%;
     height: 110%;
-  }
-  
-  .button-86:hover::after {
+}
+
+.button-86:hover::after {
     border-radius: 10px;
     transform: translate(0, 0);
     width: 100%;
     height: 100%;
-  }
-  
-  .button-86:active::after {
+}
+
+.button-86:active::after {
     transition: 0s;
     transform: translate(0, 5%);
-  }
+}
 
 
 .terms {
@@ -325,6 +527,7 @@ label .input:valid+span {
 /* Add your existing CSS rules here */
 
 @media screen and (max-width: 768px) {
+
     /* Adjustments for smaller screens */
     .page-title {
         padding-right: 20px;
@@ -338,5 +541,6 @@ label .input:valid+span {
         margin-top: 1em;
         font-size: 10px;
     }
+
     /* Add more adjustments as needed */
 }

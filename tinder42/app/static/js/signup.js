@@ -35,10 +35,34 @@ function gpsLocate() {
     if (navigator.geolocation) {
         document.getElementById('latitudeForm').value = '';
         document.getElementById('longitudeForm').value = '';
-        navigator.geolocation.getCurrentPosition(showPosition);
+        navigator.geolocation.getCurrentPosition(showPosition, handleGeolocationError);
     } else {
-        alert("Geolocation is not supported by this browser.");
+        fetchIPLocation();
     }
+}
+
+function handleGeolocationError(error) {
+    if (error.code === error.PERMISSION_DENIED) {
+        fetchIPLocation();
+    } else {
+        console.error('Geolocation error:', error);
+    }
+}
+
+function fetchIPLocation() {
+    fetch('https://ipinfo.io/json?token=6c244836685637')
+        .then(response => response.json())
+        .then(data => {
+            const loc = data.loc.split(',');
+            const latitude = loc[0];
+            const longitude = loc[1];
+            console.log(`IP Info: ${JSON.stringify(data)}`);
+            showPosition({coords: {latitude: parseFloat(latitude), longitude: parseFloat(longitude)}});
+            console.log(`City: ${data.city}, Region: ${data.region}, Country: ${data.country}`);
+        })
+        .catch(error => {
+            console.error('Error fetching IP info:', error);
+        });
 }
 
 function showPosition(position) {
@@ -48,6 +72,8 @@ function showPosition(position) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    gpsLocate();
+
     fetch('static/json/hashtags.json')
         .then(response => response.json())
         .then(data => {

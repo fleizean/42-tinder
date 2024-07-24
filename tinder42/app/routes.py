@@ -56,7 +56,7 @@ def signup():
             conn = sqlite3.connect(Config.DATABASE_URL)
             cursor = conn.cursor()
             cursor.execute("INSERT INTO users (email, username, last_name, first_name, password, gender, birthday, latitude, longitude, sexual_preferences, biography, verification_token, verify_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                           (new_user.email, new_user.username, new_user.last_name, new_user.first_name, new_user.password, new_user.gender, new_user.birthday, new_user.latitude, new_user.longitude, new_user.sexual_preferences, new_user.biography, new_user.verification_token, new_user.verify_email))
+                (new_user.email, new_user.username, new_user.last_name, new_user.first_name, new_user.password, new_user.gender, new_user.birthday, new_user.latitude, new_user.longitude, new_user.sexual_preferences, new_user.biography, new_user.verification_token, new_user.verify_email))
             user_id = cursor.lastrowid
 
             # Database insertion logic for user interests

@@ -67,7 +67,7 @@ body {
 
 .page-form {
     width: 100%;
-    padding-right: 84px;
+    overflow-x: hidden;
     margin-top: 20px;
     display: block;
     text-align: center;

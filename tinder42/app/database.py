@@ -14,7 +14,8 @@ def create_database():
                         sexual_preferences TEXT,
                         biography TEXT,
                         fame_rating INTEGER DEFAULT 0,
-                        location TEXT,
+                        latitude TEXT,
+                        longitude TEXT,
                         birthday DATE,
                         verification_token TEXT,
                         verify_email BOOLEAN DEFAULT 0,
@@ -54,92 +55,81 @@ def create_database():
     conn.commit()
     conn.close()
 
-
 def get_user_by_id(user_id):
-    conn = sqlite3.connect('database.db')  # Veritabanı bağlantısını kurun
-    c = conn.cursor()
-    
-    # Belirli bir user_id için sorgu yapın
-    c.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-    user_data = c.fetchone()  # Sorgu sonucunu alın
-    
-    conn.close()  # Veritabanı bağlantısını kapatın
-    
-    # Sorgu sonucunu bir sözlüğe çevirin
-    if user_data:
-        user_dict = {
-            'id': user_data[0],
-            'email': user_data[1],
-            'username': user_data[2],
-            'lastname': user_data[3],
-            'firstname': user_data[4],
-            'gender': user_data[6],
-            'sexual_preferences': user_data[7],
-            'biography': user_data[8],
-            'fame_rating': user_data[9],
-            'location': user_data[10],
-            'birthday': user_data[11],
-            # Diğer alanlarınız varsa buraya ekleyin
-        }
-        return user_dict
-    else:
-        return None 
+    with sqlite3.connect('database.db') as conn:
+        c = conn.cursor()
+        c.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+        user_data = c.fetchone()
+        if user_data:
+            user_dict = {
+                'id': user_data[0],
+                'email': user_data[1],
+                'username': user_data[2],
+                'lastname': user_data[3],
+                'firstname': user_data[4],
+                'gender': user_data[6],
+                'sexual_preferences': user_data[7],
+                'biography': user_data[8],
+                'fame_rating': user_data[9],
+                'latitude': user_data[10],
+                'longitude': user_data[11],
+                'birthday': user_data[12],
+                'verification_token': user_data[13],
+                'verify_email': user_data[14],
+            }
+            return user_dict
+        else:
+            return None
     
 def list_users():
-    conn = sqlite3.connect('database.db')  # Veritabanı bağlantısını kurun
-    c = conn.cursor()
-    
-    # Tüm kullanıcıları getir
-    c.execute("SELECT * FROM users")
-    users = c.fetchall()  # Sorgu sonucunu alın
-    
-    conn.close()  # Veritabanı bağlantısını kapatın
-    
-    # Sorgu sonucunu bir sözlüğe çevirin
-    user_list = []
-    for user_data in users:
-        user_dict = {
-            'id': user_data[0],
-            'email': user_data[1],
-            'username': user_data[2],
-            'lastname': user_data[3],
-            'firstname': user_data[4],
-            'gender': user_data[6],
-            'sexual_preferences': user_data[7],
-            'biography': user_data[8],
-            'fame_rating': user_data[9],
-            'location': user_data[10],
-            'birthday': user_data[11],
-        }
-        user_list.append(user_dict)
-    return user_list
+    with sqlite3.connect('database.db') as conn:
+        c = conn.cursor()
+        c.execute("SELECT * FROM users")
+        users = c.fetchall()
+        user_list = []
+        for user_data in users:
+            user_dict = {
+                'id': user_data[0],
+                'email': user_data[1],
+                'username': user_data[2],
+                'lastname': user_data[3],
+                'firstname': user_data[4],
+                'gender': user_data[6],
+                'sexual_preferences': user_data[7],
+                'biography': user_data[8],
+                'fame_rating': user_data[9],
+                'latitude': user_data[10],
+                'longitude': user_data[11],
+                'birthday': user_data[12],
+                'verification_token': user_data[13],
+                'verify_email': user_data[14],
+            }
+            user_list.append(user_dict)
+        return user_list
 
 def get_user_by_vertification_token(verification_token):
-    conn = sqlite3.connect('database.db')  # Veritabanı bağlantısını kurun
-    c = conn.cursor()
-    
-    # Belirli bir verification_token için sorgu yapın
-    c.execute("SELECT * FROM users WHERE verification_token = ?", (verification_token,))
-    user_data = c.fetchone()  # Sorgu sonucunu alın
-    
-    conn.close()  # Veritabanı bağlantısını kapatın
-    # Sorgu sonucunu bir sözlüğe çevirin
-    if user_data:
-        user_dict = {
-            'id': user_data[0],
-            'email': user_data[1],
-            'username': user_data[2],
-            'lastname': user_data[3],
-            'firstname': user_data[4],
-            'gender': user_data[6],
-            'sexual_preferences': user_data[7],
-            'biography': user_data[8],
-            'fame_rating': user_data[9],
-            'location': user_data[10],
-            'birthday': user_data[11],
-            'verify_email': user_data[14],
-            'verification_token': user_data[12],
-        }
-        return user_dict
-    else:
-        return None
+    with sqlite3.connect('database.db') as conn:
+        c = conn.cursor()
+        c.execute("SELECT * FROM users WHERE verification_token = ?", (verification_token,))
+        user_data = c.fetchone()
+        if user_data:
+            user_dict = {
+                'id': user_data[0],
+                'email': user_data[1],
+                'username': user_data[2],
+                'lastname': user_data[3],
+                'firstname': user_data[4],
+                'gender': user_data[6],
+                'sexual_preferences': user_data[7],
+                'biography': user_data[8],
+                'fame_rating': user_data[9],
+                'latitude': user_data[10],
+                'longitude': user_data[11],
+                'birthday': user_data[12],
+                'verification_token': user_data[13],
+                'verify_email': user_data[14],
+            }
+            return user_dict
+        else:
+            return None
+

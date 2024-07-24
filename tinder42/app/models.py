@@ -1,7 +1,7 @@
 from datetime import datetime
 
 class User:
-    def __init__(self, email, username, last_name, first_name, password, gender, birthday, sexual_preferences='', biography='', fame_rating=0, location='', verification_token='', verify_email=0, interests=None, profile_pictures=None, created_at=None, updated_at=None):
+    def __init__(self, email, username, last_name, first_name, password, gender, birthday, sexual_preferences='', biography='', fame_rating=0, latitude='', longitude='', verification_token='', verify_email=0, interests=None, profile_pictures=None, created_at=None, updated_at=None):
         self.email = email
         self.username = username
         self.last_name = last_name
@@ -11,7 +11,8 @@ class User:
         self.sexual_preferences = sexual_preferences
         self.biography = biography
         self.fame_rating = fame_rating
-        self.location = location
+        self.latitude = latitude
+        self.longitude = longitude
         self.interests = interests or []
         self.birthday = birthday
         self.verification_token = verification_token

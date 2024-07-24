@@ -7,65 +7,75 @@
     <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
-<div class="container-login">
-    <div class="page-title">
-        <h1>loginღ</h1>
+<header>
+    <div class="header-div">
+        <a href="/">42Tinder</a>
     </div>
-    <div class="page-form">
-        <span class="have-account">Don't have an account? <a href="/signup">Sign up</a></span>
-        <div class="form-group">
-            <div class="input-container">
-                <form method="POST">
+</header>
+
+<main>
+    <div class="container-login">
+        <div class="page-title">
+            <h1>loginღ</h1>
+        </div>
+        <div class="page-form">
+            <span class="have-account">Don't have an account? <a href="/signup">Sign up</a></span>
+            <div class="form-group">
+                <div class="input-container">
+                    <form method="POST">
+                        <div class="input-field">
+                            <label>
+                                <input required="" name="email" id="id_email" placeholder="" type="text" class="input">
+                                <span>EMAIL</span>
+                            </label>
+                        </div>
+                        <div class="input-field">
+                            <label>
+                                <input required="" name="password" id="id_password" placeholder="" type="password" class="input">
+                                <span>PASSWORD</span>
+                            </label>
+                        </div>
+                        
+                        <div class="input-field">
+                            <a class="forgot-pass" href="/forgot-password">Forgot your password?</a>
+                        </div>
+                        <button class="button-86" role="button">lets login</button>
+                    </form>
                     <div class="input-field">
-                        <label>
-                            <input required="" name="email" id="id_email" placeholder="" type="text" class="input">
-                            <span>EMAIL</span>
-                        </label>
+                        <p class="login-or">OR</p>
                     </div>
-                    <div class="input-field">
-                        <label>
-                            <input required="" name="password" id="id_password" placeholder="" type="password" class="input">
-                            <span>PASSWORD</span>
-                        </label>
-                    </div>
-                    
-                    <div class="input-field">
-                        <a class="forgot-pass" href="/forgot-password">Forgot your password?</a>
-                    </div>
-                    <button class="button-86" role="button">lets login</button>
-                </form>
-                <div class="input-field">
-                    <p class="login-or">OR</p>
-                </div>
-                <form method="POST">
-                    <div class="input-field">
-                        <button class="another-btn"><img src="../../static/assets/backgrounds-layers/intra-42-white.svg"> login with Intra42</button>
-                        <button class="another-btn"><i class="fa-brands fa-google"></i> login with Google</button>
-                        <button class="another-btn"><i class="fa-brands fa-github"></i> login with GitHub</button>
-                    </div>
-                </form>
-                <div style="position: absolute; left: 50%; transform: translateX(-50%); bottom: 0;">
-                    <p class="terms">By logining, you agree to our <a href="">Terms and Conditions.</a><br> Learn how we use your data in our <a href="">Privacy Policy.</a></p>
+                    <form method="POST">
+                        <div class="input-field">
+                            <button class="another-btn"><img src="../../static/assets/backgrounds-layers/intra-42-white.svg"> login with Intra42</button>
+                            <button class="another-btn"><i class="fa-brands fa-google"></i> login with Google</button>
+                            <button class="another-btn"><i class="fa-brands fa-github"></i> login with GitHub</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            Swal.fire({
+                                icon: '{{ category }}',  // 'success', 'error', 'info', vb. olabilir
+                                title: '{{ message }}',  // Flash mesajı
+                                showConfirmButton: true,
+                                timer: 5000  // Mesajın ekranda kalma süresi (milisaniye)
+                            });
+                            
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            });
+        </script>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        Swal.fire({
-                            icon: '{{ category }}',  // 'success', 'error', 'info', vb. olabilir
-                            title: '{{ message }}',  // Flash mesajı
-                            showConfirmButton: true,
-                            timer: 5000  // Mesajın ekranda kalma süresi (milisaniye)
-                        });
-                        
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-        });
-    </script>
-</div>
+</main>
+<footer>
+    <div class="footer-div">
+        <p class="terms">By logining, you agree to our <a href="">Terms and Conditions.</a><br> Learn how we use your data in our <a href="">Privacy Policy.</a></p>
+    </div>
+</footer>
 

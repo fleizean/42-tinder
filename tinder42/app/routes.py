@@ -26,46 +26,51 @@ def signup():
         return redirect(url_for('main.home'))
 
     if request.method == 'POST':
-        # Extract form data
+        # Extract form data including new fields
         email = request.form.get('email')
         username = request.form.get('username')
         last_name = request.form.get('last_name')
         first_name = request.form.get('first_name')
         password = request.form.get('password')
-        confirm_password = request.form.get('confirmpassword')  # Note the HTML form field name
+        confirm_password = request.form.get('confirmpassword')
         gender = request.form.get('gender')
         birthday = request.form.get('birthday')
-
-        if confirm_password != password:
-            flash('Passwords do not match!', 'error')
-            return redirect(url_for('main.signup'))
-
-
+        latitude = request.form.get('latitude')
+        longitude = request.form.get('longitude')
+        sexual_preferences = request.form.get('sexual_preferences')
+        biography = request.form.get('biography')
+        selected_interests = request.form.getlist('interests')
 
         # Instantiate the form with extracted data
-        form = RegistrationForm(email, username, last_name, first_name, password, confirm_password, gender, birthday)
+        form = RegistrationForm(email, username, last_name, first_name, password, confirm_password, gender, birthday, latitude, longitude, sexual_preferences, biography, selected_interests)
 
         if form.validate():
             hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
 
             verification_token = secrets.token_urlsafe()
             # Assuming User model and database setup is correct
-            new_user = User(email=email, username=username, last_name=last_name, first_name=first_name, password=hashed_password, gender=gender, birthday=birthday, verification_token=verification_token, verify_email=0)
+            new_user = User(email=email, username=username, last_name=last_name, first_name=first_name, password=hashed_password, gender=gender, birthday=birthday, latitude=latitude, longitude=longitude, sexual_preferences=sexual_preferences, biography=biography, verification_token=verification_token, verify_email=0)
 
             send_verify_email(new_user.email, url_for('main.verify_email', token=verification_token, _external=True), new_user.first_name, new_user.username)
-            # Database insertion logic (assuming it's correct and database is set up properly)
+            # Database insertion logic for user including new fields
             conn = sqlite3.connect(Config.DATABASE_URL)
             cursor = conn.cursor()
-            cursor.execute("INSERT INTO users (email, username, last_name, first_name, password, gender, birthday, verification_token, verify_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                           (new_user.email, new_user.username, new_user.last_name, new_user.first_name, new_user.password, new_user.gender, new_user.birthday, new_user.verification_token, new_user.verify_email))
+            cursor.execute("INSERT INTO users (email, username, last_name, first_name, password, gender, birthday, latitude, longitude, sexual_preferences, biography, verification_token, verify_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (new_user.email, new_user.username, new_user.last_name, new_user.first_name, new_user.password, new_user.gender, new_user.birthday, new_user.latitude, new_user.longitude, new_user.sexual_preferences, new_user.biography, new_user.verification_token, new_user.verify_email))
+            user_id = cursor.lastrowid
+
+            # Database insertion logic for user interests
+            for interest in selected_interests:
+                cursor.execute("INSERT INTO interests (name, user_id) VALUES (?, ?)", (interest, user_id))
+            
             conn.commit()
             conn.close()
 
             flash_message('Account created successfully! Please verify your email address.', 'success')
             return redirect(url_for('main.login'))
     else:
-        form = RegistrationForm('', '', '', '', '', '', '', '')  # Empty form for GET request
-    return render_template('signup.html', title='Register', form=form)
+        form = RegistrationForm('', '', '', '', '', '', '', '', '', '', '', '', '')  # Empty form for GET request
+    return render_template('signup.html', title='Sign up', form=form)
 
 @main.route('/', methods=['GET', 'POST'])
 @main.route('/login', methods=['GET', 'POST'])
@@ -116,9 +121,13 @@ def home():
     user_id = session.get('user_id')  # Kullanıcı ID'sini session'dan alın
     if user_id:
         user_data = get_user_by_id(user_id)  # Veritabanından kullanıcı bilgilerini çekin
+        if not user_data.get('sexual_preferences') or not user_data.get('biography'):
+            # Kullanıcı bilgilerini şablona argüman olarak geçirin
+            flash_message('You have not completed your profile yet.', 'info')
+            return render_template('home.html', title="Home", user=user_data, incomplete_profile=True) 
         if user_data:
             # Kullanıcı bilgilerini şablona argüman olarak geçirin
-            return render_template('home.html', title="Home", user=user_data)
+            return render_template('home.html', title="Home", user=user_data, incomplete_profile=False)
     # Eğer kullanıcı bilgisi bulunamazsa veya kullanıcı giriş yapmamışsa, hata mesajı gösterin
     return 'User not found or not logged in', 404
 

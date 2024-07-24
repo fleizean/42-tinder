@@ -1,5 +1,5 @@
 class RegistrationForm:
-    def __init__(self, email, username, last_name, first_name, password, confirm_password, gender, birthday):
+    def __init__(self, email, username, last_name, first_name, password, confirm_password, gender, birthday, latitude, longitude, interests, biography, sexual_preferences):
         self.email = email
         self.username = username
         self.last_name = last_name
@@ -8,6 +8,11 @@ class RegistrationForm:
         self.confirm_password = confirm_password
         self.gender = gender
         self.birthday = birthday
+        self.latitude = latitude
+        self.longitude = longitude
+        self.interests = interests
+        self.biography = biography
+        self.sexual_preferences = sexual_preferences
         self.errors = []
 
     def validate(self):

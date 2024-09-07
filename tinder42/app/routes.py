@@ -1,14 +1,16 @@
 import sqlite3
 import secrets
-from flask import Blueprint, render_template, url_for, flash, redirect, request,session
+from flask import Blueprint, render_template, url_for, flash, redirect, request,session, send_from_directory
 from app.forms import RegistrationForm, LoginForm
 from app.models import User
 from werkzeug.security import generate_password_hash, check_password_hash
-from app.database import get_user_by_id, list_users, get_user_by_vertification_token
+from app.database import get_user_by_id, list_users, get_user_by_verification_token, get_user_by_username, get_interests_by_user_id, get_profile_picture_by_user_id
 from config import Config
 from itsdangerous import URLSafeTimedSerializer
+import time
 from app.utils.mailservice import send_password_reset_email, send_verify_email
-
+from app.utils.utils import calculate_age, find_place
+import os
 
 main = Blueprint('main', __name__)
 
@@ -19,6 +21,10 @@ def clear_flashes():
 def flash_message(message, category):
     clear_flashes()  # Mevcut flash mesajlarını temizle
     flash(message, category)  # Yeni mesajı flash'la
+
+@main.route('/media/<path:filename>')
+def media_files(filename):
+    return send_from_directory('media', filename)
 
 @main.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -40,9 +46,12 @@ def signup():
         sexual_preferences = request.form.get('sexual_preferences')
         biography = request.form.get('biography')
         selected_interests = request.form.getlist('interests')
+        picture = request.files.get('picture')
+        print("selected_interests:")
+        print(selected_interests)
 
         # Instantiate the form with extracted data
-        form = RegistrationForm(email, username, last_name, first_name, password, confirm_password, gender, birthday, latitude, longitude, sexual_preferences, biography, selected_interests)
+        form = RegistrationForm(email, username, last_name, first_name, password, confirm_password, gender, birthday, latitude, longitude, sexual_preferences, biography, selected_interests, picture)
 
         if form.validate():
             hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
@@ -55,21 +64,35 @@ def signup():
             # Database insertion logic for user including new fields
             conn = sqlite3.connect(Config.DATABASE_URL)
             cursor = conn.cursor()
-            cursor.execute("INSERT INTO users (email, username, last_name, first_name, password, gender, birthday, latitude, longitude, sexual_preferences, biography, verification_token, verify_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            cursor.execute('''INSERT INTO users (email, username, last_name, first_name, password, gender, birthday, latitude, longitude, sexual_preferences, biography, verification_token, verify_email) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                 (new_user.email, new_user.username, new_user.last_name, new_user.first_name, new_user.password, new_user.gender, new_user.birthday, new_user.latitude, new_user.longitude, new_user.sexual_preferences, new_user.biography, new_user.verification_token, new_user.verify_email))
             user_id = cursor.lastrowid
+            print(user_id)
 
             # Database insertion logic for user interests
             for interest in selected_interests:
                 cursor.execute("INSERT INTO interests (name, user_id) VALUES (?, ?)", (interest, user_id))
             
+            # Save the uploaded picture
+            print(picture)
+            if picture:
+                media_dir = os.path.join('app', 'media')
+                if not os.path.exists(media_dir):
+                    os.makedirs(media_dir)
+                picture_path = os.path.join(media_dir, f'{user_id}.jpg')
+                picture.save(picture_path)
+                
+                cursor.execute('''INSERT INTO profile_pictures (image_path, is_profile_picture, user_id)
+                                  VALUES (?, ?, ?)''', (f'{user_id}.jpg', True, user_id))
+
             conn.commit()
             conn.close()
 
             flash_message('Account created successfully! Please verify your email address.', 'success')
             return redirect(url_for('main.login'))
     else:
-        form = RegistrationForm('', '', '', '', '', '', '', '', '', '', '', '', '')  # Empty form for GET request
+        form = RegistrationForm('', '', '', '', '', '', '', '', '', '', '', '', '', '')
     return render_template('signup.html', title='Sign up', form=form)
 
 @main.route('/', methods=['GET', 'POST'])
@@ -193,8 +216,11 @@ def verify_email(token):
     try:
         conn = sqlite3.connect(Config.DATABASE_URL)
         cursor = conn.cursor()
-        user_data = get_user_by_vertification_token(token)
+        user_data = get_user_by_verification_token(token)
+        print(user_data)
+        print(token)
         if user_data['verification_token'] != token:
+            print('burada')
             flash_message('The email verification link is invalid or has expired.', 'error')
             return render_template('verify-failed.html', title='Verify Failed')
         user_id = user_data['id']
@@ -207,3 +233,21 @@ def verify_email(token):
     except:
         flash_message('The email verification link is invalid or has expired.', 'error')
         return render_template('verify-failed.html', title='Verify Failed')
+
+@main.route('/profile/<string:username>')
+def profile(username):
+    if 'user_id' not in session:
+        return redirect(url_for('main.login'))
+    user_id = session.get('user_id')
+    requested_user_data = get_user_by_id(user_id)
+    profile_user_data = get_user_by_username(username)
+    print(profile_user_data['profile_pictures'])
+    if not profile_user_data:
+        return render_template('404.html', title='404')
+    age = calculate_age(profile_user_data['birthday'])
+    place = find_place(profile_user_data['latitude'], profile_user_data['longitude'])
+    interests = get_interests_by_user_id(profile_user_data['id'])
+
+    requested_profile_pic = get_profile_picture_by_user_id(user_id)
+
+    return render_template('profile.html', title='Profile', user=requested_user_data, profile_user=profile_user_data, age=age, place=place, interests=interests, requested_profile_pic=requested_profile_pic)

@@ -3,3 +3,4 @@ Flask-SQLAlchemy
 Flask-WTF
 python-dotenv
 Flask-Mail
+requests

@@ -87,3 +87,25 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => console.error('Error loading the JSON data: ', error));
 });
+
+document.getElementById('file').addEventListener('change', function() {
+    const file = this.files[0];
+    const maxSize = 2 * 1024 * 1024; // 2 MB boyut sınırı
+
+    if (file.size > maxSize) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Oops...',
+            text: 'The file size exceeds the 2 MB limit. Please choose a smaller file.',
+        });
+        this.value = '';
+    } else {
+        Swal.fire({
+            icon: 'success',
+            title: 'Great!',
+            text: 'Profile picture uploaded successfully.',
+        });
+        document.getElementById('imageName').textContent = file.name;
+        return;
+    }
+});

@@ -1,5 +1,5 @@
 class RegistrationForm:
-    def __init__(self, email, username, last_name, first_name, password, confirm_password, gender, birthday, latitude, longitude, interests, biography, sexual_preferences):
+    def __init__(self, email, username, last_name, first_name, password, confirm_password, gender, birthday, latitude, longitude, interests, biography, sexual_preferences, picture):
         self.email = email
         self.username = username
         self.last_name = last_name
@@ -13,6 +13,7 @@ class RegistrationForm:
         self.interests = interests
         self.biography = biography
         self.sexual_preferences = sexual_preferences
+        self.picture = picture
         self.errors = []
 
     def validate(self):
@@ -24,6 +25,12 @@ class RegistrationForm:
             self.errors.append('Passwords do not match.')
         if len(self.password) < 6:
             self.errors.append('Password must be at least 6 characters long.')
+        
+        if self.picture:
+            if not self.picture.filename.endswith(('.png', '.jpg', '.jpeg')):
+                self.errors.append('Invalid file type. Only .png, .jpg, .jpeg are allowed.')
+            if self.picture.content_length > 1024 * 1024:
+                self.errors.append('File size cannot exceed 1MB.')
         
         return len(self.errors) == 0
 

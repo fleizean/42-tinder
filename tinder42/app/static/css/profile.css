@@ -10,18 +10,6 @@ body {
     /* cursor: url('../assets/scrool/pixelsword.png'), auto; */
 }
 
-
-footer {
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-    height: 50px;
-    background-color: #333;
-    opacity: 0.8;
-    color: white;
-    text-align: center;
-}
-
 .backgroundimage {
     /* background: linear-gradient(to right, #ff6f91b1, #d65db2b9); */
     background: linear-gradient(135deg, #FB5956, #F9465C, #FE6951);
@@ -56,7 +44,8 @@ footer {
 }
 
 .nav-links li:not(:last-child) {
-    margin-top: 15px; /* Önceki değer: 35px */
+    margin-top: 15px;
+    /* Önceki değer: 35px */
 }
 
 
@@ -67,18 +56,13 @@ footer {
     color: white;
     position: relative;
     margin-right: 1em;
-    text-decoration: none !important;
 }
 
 .navbar-item i {
     color: coral;
 }
 
-.navbar-item:hover i {
-    color: coral;
-}
-
-.navbar-item:hover span {
+.navbar-item:hover {
     color: coral;
 }
 
@@ -100,7 +84,7 @@ footer {
 }
 
 .logo-container .logo a:hover {
-    color:coral;
+    color: coral;
 }
 
 .logo {
@@ -140,7 +124,7 @@ footer {
     height: 52px;
     border-radius: 50%;
     cursor: pointer;
-    aspect-ratio: 1/1; 
+    aspect-ratio: 1/1;
     object-fit: cover;
 }
 
@@ -153,7 +137,7 @@ footer {
     position: absolute;
     background-color: #f9f9f9;
     min-width: 160px;
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
     z-index: 1;
     right: -55;
     top: 53px;
@@ -163,12 +147,10 @@ footer {
 .dropdown-content a {
     color: black;
     padding: 12px 16px;
-    text-decoration: none !important;
+    text-decoration: none;
     font-size: 15px;
     display: block;
 }
-
-
 
 .dropdown-content a:hover {
     color: white;
@@ -184,12 +166,15 @@ footer {
 }
 
 .dropdown-content a:hover i {
-    color: white; /* i elementinin metin rengini beyaz yapın */
-    background-color: coralwhite; /* i elementinin arka plan rengini başlangıç değerine sıfırlayın */
+    color: white;
+    /* i elementinin metin rengini beyaz yapın */
+    background-color: coralwhite;
+    /* i elementinin arka plan rengini başlangıç değerine sıfırlayın */
 }
 
 .dropdown-content a i {
-    color: coral; /* i elementinin rengini a elementinden miras alır */
+    color: coral;
+    /* i elementinin rengini a elementinden miras alır */
 }
 
 .profile-menu:hover .dropdown-content {
@@ -213,7 +198,7 @@ footer {
     position: absolute;
     background-color: #f9f9f9;
     min-width: 160px;
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
     z-index: 1;
     right: -60;
     top: 41px;
@@ -248,141 +233,20 @@ footer {
 }
 
 .notification-menu i {
-    color: coral; /* Icon rengi */
-    margin-right: 5px; /* İkon ile bildirim sayısı arasında boşluk bırakmak için */
+    color: coral;
+    /* Icon rengi */
+    margin-right: 5px;
+    /* İkon ile bildirim sayısı arasında boşluk bırakmak için */
     font-size: 24px;
 }
 
 .container-mid {
-    margin-top: 4rem;
+    margin-top: 2rem;
     display: flex;
     overflow-y: auto;
-    justify-content: center !important;
-}
-
-.top-of-dashboard {
-    position: relative; /* This is important for positioning the background-filter correctly */
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 2em;
-    overflow: hidden; /* Ensures the background-filter doesn't extend beyond the rounded corners */
-}
-
-
-.top-of-dashboard .background-filter {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgb(224, 5, 45);
-    opacity: 0.6;
-    filter: blur(10px);
-    z-index: 1; /* Ensures the filter stays in the background */
-}
-
-.top-of-dashboard .hearts {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: url('../assets/backgrounds-layers/heart-pattern.png');
-    background-size: 100px;
-    background-repeat: repeat;
-    
-}
-
-.dashboard-text {
-    font-family: "Roboto", sans-serif;
-    position: relative; /* Ensure this stays above the background-filter */
-    color: white; /* Ensure text color is visible */
-    z-index: 555; /* Ensure this stays above the background-filter */
-}
-
-.content-card {
-    background-color: rgb(255, 255, 255) !important;
-    padding: 20px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
-    max-width: 1300px;
-    width: 90vw;
-    max-height: auto;
-    height: auto;
-}
-
-.card {
-    position: relative;
-    background-color: #fff;
-    margin-bottom: 1.25rem;
-    border: 1px solid #edf2f9;
-    border-radius: .25rem;
-    transition: all 0.3s ease-in-out;
-    -webkit-transition: all 0.3s ease-in-out;
-    -moz-transition: all 0.3s ease-in-out;
-    -o-transition: all 0.3s ease-in-out;
-    -ms-transition: all 0.3s ease-in-out;
-}
-.card-body {
-    padding: 1.1rem;
-    position: relative;
-}
-
-.card-body .h2 {
-    font-size: 24px;
-}
-.badge-cyan {
-    color: #00c9a7;
-    background: rgba(0,201,167,0.1);
-    border-color: transparent;
-    font-weight: 500;
-}
-.badge {
-    line-height: 1.7;
-    padding: 0.25em 0.7em;
-}
-.badge.badge-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50px;
-    padding: 0px;
-}
-.font-size-13 {
-    font-size: 13px !important;
-}
-.progress-bar:last-child {
-    border-top-right-radius: 50px;
-    border-bottom-right-radius: 50px;
-}
-.progress.progress-sm {
-    height: 4px;
-}
-
-.progress {
-    height: 8px;
-    background-color: #ececec;
-    border-radius: 50px;
-    margin-bottom: 20px;
-    min-width: 50px;
-}
-.badge.badge-dot:empty {
-    display: inline-block;
-}
-
-.badge.badge-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50px;
-    padding: 0px;
-}
-.badge-red {
-    color: #de4436;
-    background: rgba(222,68,54,0.05);
-    border-color: transparent;
-    font-weight: 500;
+    flex-direction: column; /* İçerikleri dikey olarak düzenle */
+    align-items: center; /* İçerikleri yatay olarak ortala */
+    justify-content: center; /* İçerikleri dikey olarak ortala */
 }
 
 .burger-menu {
@@ -392,12 +256,237 @@ footer {
     font-size: 1.5em;
 }
 
+.profile-card {
+    background-color: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    width: 70vw;
+    display: flex;
+}
+
+.profile-picture-gallery {
+    position: relative;
+    max-width: 335px;
+    margin: auto;
+    overflow: hidden;
+}
+
+.profile-picture-gallery img {
+    width: 100%;
+    display: none;
+}
+
+.profile-picture-gallery img.active {
+    display: block;
+}
+
+.prev, .next {
+    cursor: pointer;
+    position: absolute;
+    top: 50%;
+    width: auto;
+    padding: 16px;
+    margin-top: -22px;
+    color: white !important;
+    font-weight: bold;
+    font-size: 18px;
+    transition: 0.6s ease;
+    user-select: none;
+    z-index: 1;
+}
+.next {
+    right: 10px;
+    border-radius: 3px 0 0 3px;
+}
+
+.prev {
+    left: 10px;
+    border-radius: 0 3px 3px 0;
+}
+
+.prev:hover, .next:hover {
+    background-color: rgba(255, 0, 0, 0.8);
+}
+
+.profile-card .profile-info {
+    padding: 20px;
+    flex: 1;
+}
+
+.profile-card .profile-info h2 {
+    margin: 0;
+    font-size: 24px;
+    color: #ff5b81;
+}
+
+.profile-card .profile-info .details {
+    display: flex;
+    justify-content: space-between;
+    margin: 10px 0;
+}
+
+.profile-card .profile-info .details div {
+    text-align: center;
+}
+
+.profile-card .profile-info .details div i {
+    font-size: 20px;
+    color: #ff5b81;
+}
+
+.profile-card .profile-info .details div span {
+    display: block;
+    margin-top: 5px;
+    color: #333;
+}
+
+.profile-card .profile-info p {
+    font-style: italic;
+    color: #777;
+    margin: 10px 0;
+}
+
+.profile-card .tags {
+    padding: 10px 0;
+}
+
+.profile-card .tags span {
+    display: inline-block;
+    background-color: #ffe6ea;
+    color: #ff5b81;
+    border-radius: 12px;
+    padding: 5px 10px;
+    margin: 5px 5px 0 0;
+    font-size: 12px;
+}
+
+.profile-card .footer {
+    padding: 10px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #ff5b81;
+    border-top: 1px solid #f0f0f0;
+}
+
+.profile-card .footer i {
+    font-size: 20px;
+    margin-right: 5px;
+}
+
+/* who likes card */
+
+.who-likes-card {
+    margin-top: 1.5em;
+    background-color: rgb(255, 255, 255);
+    padding: 5px;
+    border-radius: 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    width: 70vw;
+    display: block;
+}
+
+.who-likes-card .top-text {
+    text-align: center !important; 
+}
+
+.who-likes-card .top-text .head-text {
+    text-align: center;
+    position: relative;
+    font-family: "Roboto", sans-serif;
+    font-size: 24px;
+    color: #FE5B80;
+    font-weight: 500;
+
+}
+
+.heart-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.heart-divider .left-line,
+.heart-divider .right-line {
+    flex-grow: 1;
+    border: none;
+    border-top: 2px solid rgb(0, 0, 0);
+}
+
+.heart-divider i {
+    font-size: 24px;
+    color: #FE5B80;
+    margin-left: 7.5px;
+    margin-right: 7.5px;
+}
+
+.who-likes-card .top-text .head-text i {
+    color: white;
+}
+
+.who-likes-card .profile-cards-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+
+.profile-cards-container .who-likes-profile-card {
+    flex: 0 0 48%; /* This makes each card take up roughly half of the container's width */
+    background: linear-gradient(135deg, #FB5956, #F9465C, #FE6951);
+    border-radius: 20px;
+    min-height: 5vw;
+    display: flex;
+    /* Other styles... */
+}
+
+.profile-cards-container .who-likes-profile-card img {
+    width: 5vw;
+    height: auto;
+    border-radius: 15px 0 0 15px;
+    position:relative;
+    display:inline-block;
+}
+
+.profile-cards-container .profile-info-texts {
+    font-family: "Roboto", sans-serif;
+    margin-left: 1.2em;
+    margin-top: 10px;
+}
+
+.profile-cards-container .profile-name {
+    font-weight: bold;
+    font-size: 15px;
+    color: white;
+}
+
+.profile-cards-container .line-texts .city-name {
+    color: white;
+    margin-top: -1.2em;
+    font-weight: 400;
+    font-size: 14px;
+}
+
+.profile-cards-container .line-texts .hashtag {
+    color: rgb(0, 255, 195) !important;
+}
+
+.profile-cards-container .profile-info-texts .line-texts {
+    display: block;
+    margin-top: -1.2em;
+}
+
+.profile-cards-container .profile-info-texts .line-texts p {
+    margin: 0; /* Remove default margins */
+    padding: 0; /* Remove default paddings */
+}
 
 @media only screen and (max-width: 768px) {
     .navbar {
         flex-direction: row;
     }
-    
+
     .nav-links {
         display: none;
         flex-direction: column;
@@ -429,15 +518,20 @@ footer {
     }
 
     .profile-menu .dropdown-content {
-        right: auto; /* Reset the right positioning */
-        left: 50%; /* Center it horizontally relative to the profile-menu */
-        transform: translateX(-50%); /* Shift it left by 50% of its width */
-        top: 60px; /* Position it below the profile image */
+        right: auto;
+        /* Reset the right positioning */
+        left: 50%;
+        /* Center it horizontally relative to the profile-menu */
+        transform: translateX(-50%);
+        /* Shift it left by 50% of its width */
+        top: 60px;
+        /* Position it below the profile image */
     }
-    
+
 
     .notification-menu .notification-count {
         right: auto;
-        left: calc(50% - 5px); /* sağ kenardan 15 piksel sola */
+        left: calc(50% - 5px);
+        /* sağ kenardan 15 piksel sola */
     }
 }

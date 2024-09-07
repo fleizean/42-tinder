@@ -392,6 +392,20 @@ footer {
     font-size: 1.5em;
 }
 
+.content-card-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5em;
+}
+
+.content-card-body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5em;
+}
+
 
 @media only screen and (max-width: 768px) {
     .navbar {

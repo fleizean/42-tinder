@@ -16,6 +16,5 @@ class Config:
     MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
     DEBUG = os.getenv('DEBUG', 'false').lower() in ['true', '1', 't']
 
-    print(f"SECRET_KEY: {SECRET_KEY}")
 
 config = Config

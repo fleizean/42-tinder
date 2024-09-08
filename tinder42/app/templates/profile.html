@@ -56,7 +56,7 @@
                     {% if profile_user.profile_pictures %}
                         {% for picture in profile_user.profile_pictures %}
                             <div class="profile-picture-container">
-                                <img src="{{ url_for('main.media_files', filename=picture['image_path']) }}" alt="Profile Picture" class="{% if loop.index0 == 0 %}active{% endif %}">
+                                <img src="{{ url_for('main.media_files', filename=picture.image_path) }}" alt="Profile Picture" class="{% if loop.index0 == 0 %}active{% endif %}">
                                 {% if profile_user.username != user.username %}
                                     <div class="like-area">
                                         <button class="like-button"><i class="fas fa-heart"></i></button>

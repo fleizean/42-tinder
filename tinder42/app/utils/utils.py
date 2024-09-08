@@ -9,8 +9,17 @@ load_dotenv()
 GEO_API_KEY = os.getenv('GEO_API_KEY')
 
 def calculate_age(birthday):
+    if isinstance(birthday, int):
+        birthday = str(birthday)
+    elif not isinstance(birthday, str):
+        raise ValueError(f"Invalid type for birthday: {type(birthday)}. Expected str or int.")
+    
+    try:
+        birthdate = datetime.strptime(birthday, '%Y-%m-%d')
+    except ValueError:
+        raise ValueError(f"Invalid date format for birthday: {birthday}. Expected format: YYYY-MM-DD")
+    
     today = datetime.today()
-    birthdate = datetime.strptime(birthday, '%Y-%m-%d')
     age = today.year - birthdate.year - ((today.month, today.day) < (birthdate.month, birthdate.day))
     return age
 

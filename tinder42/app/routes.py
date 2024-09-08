@@ -55,18 +55,37 @@ def signup():
 
             verification_token = secrets.token_urlsafe()
             # Assuming User model and database setup is correct
-            new_user = User(email=email, username=username, last_name=last_name, first_name=first_name, password=hashed_password, gender=gender, birthday=birthday, latitude=latitude, longitude=longitude, sexual_preferences=sexual_preferences, biography=biography, verification_token=verification_token, verify_email=0)
+            new_user = User(
+                id=None,
+                email=email,
+                username=username,
+                last_name=last_name,
+                first_name=first_name,
+                password=hashed_password,
+                gender=gender,
+                birthday=birthday,
+                latitude=latitude,
+                longitude=longitude,
+                sexual_preferences=sexual_preferences,
+                biography=biography,
+                verification_token=verification_token,
+                verify_email=0,
+                fame_rating=0,
+                comment_count=0,
+                match_count=0,
+                created_at=None,
+                updated_at=None
+            )
 
             send_verify_email(new_user.email, url_for('main.verify_email', token=verification_token, _external=True), new_user.first_name, new_user.username)
-            # Database insertion logic for user including new fields
+
             conn = sqlite3.connect(Config.DATABASE_URL)
             cursor = conn.cursor()
-            cursor.execute('''INSERT INTO users (email, username, last_name, first_name, password, gender, birthday, latitude, longitude, sexual_preferences, biography, verification_token, verify_email) 
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                (new_user.email, new_user.username, new_user.last_name, new_user.first_name, new_user.password, new_user.gender, new_user.birthday, new_user.latitude, new_user.longitude, new_user.sexual_preferences, new_user.biography, new_user.verification_token, new_user.verify_email))
+            cursor.execute('''INSERT INTO users (email, username, last_name, first_name, password, gender, birthday, latitude, longitude, sexual_preferences, biography, verification_token, verify_email, fame_rating, comment_count, match_count, created_at, updated_at) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                (new_user.email, new_user.username, new_user.last_name, new_user.first_name, new_user.password, new_user.gender, new_user.birthday, new_user.latitude, new_user.longitude, new_user.sexual_preferences, new_user.biography, new_user.verification_token, new_user.verify_email, new_user.fame_rating, new_user.comment_count, new_user.match_count, new_user.created_at, new_user.updated_at))
             user_id = cursor.lastrowid
 
-            # Database insertion logic for user interests
             for interest in selected_interests:
                 cursor.execute("INSERT INTO interests (name, user_id) VALUES (?, ?)", (interest, user_id))
             
@@ -95,33 +114,22 @@ def signup():
 def login():
     if 'user_id' in session:
         return redirect(url_for('main.home'))
-    conn = sqlite3.connect(Config.DATABASE_URL)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users")
-    users = cursor.fetchall()
 
-    # Sonuçları terminale yazdır
-    for user in users:
-        print(user)
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
         form = LoginForm(email, password)
         if form.validate():
-            conn = sqlite3.connect(Config.DATABASE_URL)
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM users WHERE email = ?", (form.email,))
-            user = cursor.fetchone()
-            conn.close()
-            if user and check_password_hash(user[5], form.password):  # Assuming password is the 5th column in the users table
-                if user[14] == 0:
-                    flash_message('Please verify your email address.', 'info')
+            user = User.get_by_email(form.email)
+            if user and check_password_hash(user.password, form.password):
+                if user.verify_email == 0:
+                    flash('Please verify your email address.', 'info')
                     return redirect(url_for('main.login'))
-                flash_message('Login successful!', 'success')
-                session['user_id'] = user[0] 
+                flash('Login successful!', 'success')
+                session['user_id'] = user.id
                 return redirect(url_for('main.home'))
             else:
-                flash_message('Invalid email or password.', 'error')
+                flash('Invalid email or password.', 'error')
     else:
         form = LoginForm('', '')  # Empty form for GET request
     return render_template('login.html', title='Login', form=form)
@@ -137,9 +145,12 @@ def home():
     if 'user_id' not in session:
         return redirect(url_for('main.login'))
     user_id = session.get('user_id')
+    User.get_all()
     if user_id:
         user = User.get_by_id(user_id)
         requested_profile_pic = ProfilePicture.get_profile_picture(user_id)
+        print("------")
+        print(f"User: {user.__dict__}")
         if not user.sexual_preferences or not user.biography:
             flash_message('You have not completed your profile yet.', 'info')
             return render_template('home.html', title="Home", user=user, incomplete_profile=True, requested_profile_pic=requested_profile_pic)

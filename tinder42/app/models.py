@@ -29,14 +29,12 @@ class User:
     def get_by_id(cls, user_id):
         with sqlite3.connect('database.db') as conn:
             c = conn.cursor()
-            c.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+            c.execute("SELECT id, email, username, last_name, first_name, password, gender, sexual_preferences, biography, fame_rating, comment_count, match_count, latitude, longitude, birthday, verification_token, verify_email, created_at, updated_at FROM users WHERE id = ?", (user_id,))
             user_data = c.fetchone()
-            print(user_data)
             if user_data:
                 user = cls(*user_data)
                 user.profile_pictures = ProfilePicture.get_by_user_id(user_id)
                 user.interests = Interest.get_by_user_id(user_id)
-                print(user.sexual_preferences)
                 return user
             return None
 
@@ -44,7 +42,20 @@ class User:
     def get_by_username(cls, username):
         with sqlite3.connect('database.db') as conn:
             c = conn.cursor()
-            c.execute("SELECT * FROM users WHERE username = ?", (username,))
+            c.execute("SELECT id, email, username, last_name, first_name, password, gender, sexual_preferences, biography, fame_rating, comment_count, match_count, latitude, longitude, birthday, verification_token, verify_email, created_at, updated_at FROM users WHERE username = ?", (username,))
+            user_data = c.fetchone()
+            if user_data:
+                user = cls(*user_data)
+                user.profile_pictures = ProfilePicture.get_by_user_id(user_data[0])
+                user.interests = Interest.get_by_user_id(user_data[0])
+                return user
+            return None
+    
+    @classmethod
+    def get_by_email(cls, email):
+        with sqlite3.connect('database.db') as conn:
+            c = conn.cursor()
+            c.execute("SELECT id, email, username, last_name, first_name, password, gender, sexual_preferences, biography, fame_rating, comment_count, match_count, latitude, longitude, birthday, verification_token, verify_email, created_at, updated_at FROM users WHERE email = ?", (email,))
             user_data = c.fetchone()
             if user_data:
                 user = cls(*user_data)
@@ -57,7 +68,7 @@ class User:
     def get_by_verification_token(cls, token):
         with sqlite3.connect('database.db') as conn:
             c = conn.cursor()
-            c.execute("SELECT * FROM users WHERE verification_token = ?", (token,))
+            c.execute("SELECT id, email, username, last_name, first_name, password, gender, sexual_preferences, biography, fame_rating, comment_count, match_count, latitude, longitude, birthday, verification_token, verify_email, created_at, updated_at FROM users WHERE verification_token = ?", (token,))
             user_data = c.fetchone()
             if user_data:
                 user = cls(*user_data)
@@ -73,20 +84,23 @@ class User:
             if query and interests:
                 interests_placeholders = ','.join('?' for _ in interests)
                 c.execute(f"""
-                    SELECT DISTINCT u.* FROM users u
+                    SELECT DISTINCT u.id, u.email, u.username, u.last_name, u.first_name, u.password, u.gender, u.sexual_preferences, u.biography, u.fame_rating, u.comment_count, u.match_count, u.latitude, u.longitude, u.birthday, u.verification_token, u.verify_email, u.created_at, u.updated_at 
+                    FROM users u
                     LEFT JOIN interests i ON u.id = i.user_id
                     WHERE (u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)
                     AND i.name IN ({interests_placeholders})
                 """, (search_query, search_query, search_query, *interests))
             elif query:
                 c.execute("""
-                    SELECT * FROM users 
+                    SELECT id, email, username, last_name, first_name, password, gender, sexual_preferences, biography, fame_rating, comment_count, match_count, latitude, longitude, birthday, verification_token, verify_email, created_at, updated_at 
+                    FROM users 
                     WHERE username LIKE ? OR first_name LIKE ? OR last_name LIKE ?
                 """, (search_query, search_query, search_query))
             elif interests:
                 interests_placeholders = ','.join('?' for _ in interests)
                 c.execute(f"""
-                    SELECT DISTINCT u.* FROM users u
+                    SELECT DISTINCT u.id, u.email, u.username, u.last_name, u.first_name, u.password, u.gender, u.sexual_preferences, u.biography, u.fame_rating, u.comment_count, u.match_count, u.latitude, u.longitude, u.birthday, u.verification_token, u.verify_email, u.created_at, u.updated_at 
+                    FROM users u
                     LEFT JOIN interests i ON u.id = i.user_id
                     WHERE i.name IN ({interests_placeholders})
                 """, (*interests,))
@@ -101,6 +115,23 @@ class User:
                 users_list.append(user)
             
             return users_list
+    
+    # şimdilik testlerde kullanılıyor
+    @classmethod
+    def get_all(cls):
+        with sqlite3.connect('database.db') as conn:
+            c = conn.cursor()
+            c.execute("SELECT * FROM users")
+            users_data = c.fetchall()
+            users_list = []
+
+            for user_data in users_data:
+                user = cls(*user_data)
+                user.profile_pictures = ProfilePicture.get_by_user_id(user.id)
+                user.interests = Interest.get_by_user_id(user.id)
+                users_list.append(user)
+            return users_list
+        return None
 
 
 class Interest:

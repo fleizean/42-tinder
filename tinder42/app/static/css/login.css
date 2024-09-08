@@ -119,9 +119,12 @@ header {
     color: #ffffff;
 }
 
+
 .have-account a:hover {
-    color: #9c6df9;
+    color: black;
+    text-decoration: underline;
 }
+
 
 
 .page-form .form-label {

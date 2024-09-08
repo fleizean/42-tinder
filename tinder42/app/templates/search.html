@@ -1,0 +1,303 @@
+<link rel="stylesheet" href="../../static/css/search.css">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search</title>
+    <!-- Include Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+    <!-- Include FontAwesome -->
+    <script src="https://kit.fontawesome.com/b80699d249.js" crossorigin="anonymous"></script>
+
+    <!-- Include Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">   
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.1/css/bootstrap-select.min.css" rel="stylesheet">
+
+    <!-- Include Custom CSS -->
+    <link rel="stylesheet" href="../../static/css/search.css">
+</head>
+
+<body>
+    <div class="backgroundimage">
+        <nav class="navbar">
+            <div class="logo-container">
+                <div class="logo">
+                    <a class="navbar-item" href="/home">
+                        Tinder42
+                    </a>
+                </div>
+            </div>
+            <div class="burger-menu" id="burger-menu">
+                <i class="fas fa-bars"></i>
+            </div>
+            <ul class="nav-links" style="margin-top: 1em !important;" id="nav-links">
+                <li><a class="navbar-item" href="/home"><i class="fa-solid fa-house"></i> Home</a></li>
+                <li><a class="navbar-item" href="/chat"><i class="fa-solid fa-comments"></i> Chat</a></li>
+                <li><a class="navbar-item" href="/search"><i class="fa-solid fa-magnifying-glass"></i> Search</a></li>
+                <li><a class="navbar-item" href="/matcher"><i class="fa-solid fa-heart-circle-bolt"></i> Matcher</a></li>
+
+                <li class="notification-li">
+                    <a href="/Bitlis/notifications/" class="notification-link">
+                        <div class="notification-menu">
+                            <i class="fas fa-bell"></i>
+                            <span class="notification-count">10</span> <!-- Notification count -->
+                        </div>
+                    </a>
+                </li>
+                
+                
+                <li>
+                    <div class="profile-menu">
+                        <img src="{{requested_profile_pic}}" alt="Profile Picture">
+                        <div class="dropdown-content">
+                            <a href="/profile/{{user.username}}"><i class="fa-solid fa-id-badge"></i> Profile</a>
+                            <a href="/profile-settings/{{user.username}}"><i class="fa-solid fa-gear"></i> Profile Settings</a>
+                            <a href="/logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </nav>
+        <div class="container-mid">
+            
+                <div class="search-container">
+                    <form method="GET" action="{{ url_for('main.search') }}">
+                        <div class="search-bar">
+                            <input type="text" name="query" placeholder="Type to search." class="search-input" value="{{ search_query }}">
+                            <button type="submit" class="search-button"><i class="fas fa-search"></i></button>
+                        </div>
+                    </form>         
+                </div>   
+            
+            <div class="content-card">
+                <div class="filter-container">
+                    <form method="GET" action="{{ url_for('main.search') }}">
+                        <select class="selectpicker" id="tagSelect" name="interests" multiple data-live-search="true" data-size="10">
+                            <option>#adventure</option>
+                            <option>#yoga</option>
+                            <option>#photography</option>
+                            <option>#fashion</option>
+                            <option>#science</option>
+                            <option>#comedy</option>
+                            <option>#fitness</option>
+                            <option>#musiclover</option>
+                        </select>
+                        <button type="submit" class="filter-button">Filter</button>
+                    </form>
+                </div>
+                <div class="row">
+                        <article class="profile">
+                            <div class="profile-image">
+                                <img src="https://assets.codepen.io/285131/neongirl.jpg" />
+                            </div>
+                            <h2 class="profile-username">Elena Zoldado</h2>
+                            <small class="profile-user-handle">@elena_zoldado</small>
+                            <div class="profile-actions">
+                                <button class="btn btn--primary">Follow</button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-share-nodes"></i>
+                                </button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                            <div class="profile-links">
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-x-twitter"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-instagram"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-snapchat"></i>
+                                </a>
+                            </div>
+                        </article>
+                        <article class="profile">
+                            <div class="profile-image">
+                                <img src="https://assets.codepen.io/285131/neongirl.jpg" />
+                            </div>
+                            <h2 class="profile-username">Elena Zoldado</h2>
+                            <small class="profile-user-handle">@elena_zoldado</small>
+                            <div class="profile-actions">
+                                <button class="btn btn--primary">Follow</button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-share-nodes"></i>
+                                </button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                            <div class="profile-links">
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-x-twitter"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-instagram"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-snapchat"></i>
+                                </a>
+                            </div>
+                        </article>
+                        <article class="profile">
+                            <div class="profile-image">
+                                <img src="https://assets.codepen.io/285131/neongirl.jpg" />
+                            </div>
+                            <h2 class="profile-username">Elena Zoldado</h2>
+                            <small class="profile-user-handle">@elena_zoldado</small>
+                            <div class="profile-actions">
+                                <button class="btn btn--primary">Follow</button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-share-nodes"></i>
+                                </button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                            <div class="profile-links">
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-x-twitter"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-instagram"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-snapchat"></i>
+                                </a>
+                            </div>
+                        </article>
+                        <article class="profile">
+                            <div class="profile-image">
+                                <img src="https://assets.codepen.io/285131/neongirl.jpg" />
+                            </div>
+                            <h2 class="profile-username">Elena Zoldado</h2>
+                            <small class="profile-user-handle">@elena_zoldado</small>
+                            <div class="profile-actions">
+                                <button class="btn btn--primary">Follow</button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-share-nodes"></i>
+                                </button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                            <div class="profile-links">
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-x-twitter"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-instagram"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-snapchat"></i>
+                                </a>
+                            </div>
+                        </article>
+                        <article class="profile">
+                            <div class="profile-image">
+                                <img src="https://assets.codepen.io/285131/neongirl.jpg" />
+                            </div>
+                            <h2 class="profile-username">Elena Zoldado</h2>
+                            <small class="profile-user-handle">@elena_zoldado</small>
+                            <div class="profile-actions">
+                                <button class="btn btn--primary">Follow</button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-share-nodes"></i>
+                                </button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                            <div class="profile-links">
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-x-twitter"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-instagram"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-snapchat"></i>
+                                </a>
+                            </div>
+                        </article>
+                        <article class="profile">
+                            <div class="profile-image">
+                                <img src="https://assets.codepen.io/285131/neongirl.jpg" />
+                            </div>
+                            <h2 class="profile-username">Elena Zoldado</h2>
+                            <small class="profile-user-handle">@elena_zoldado</small>
+                            <div class="profile-actions">
+                                <button class="btn btn--primary">Follow</button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-share-nodes"></i>
+                                </button>
+                                <button class="btn btn--icon">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                            <div class="profile-links">
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-x-twitter"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-instagram"></i>
+                                </a>
+                                <a href="#" class="link link--icon">
+                                    <i class="fa-brands fa-square-snapchat"></i>
+                                </a>
+                            </div>
+                        </article>         
+                </div>
+                <div class="paginator">
+                    <button class="btn btn--icon">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <button class="btn btn--primary">1</button>
+                    <button class="btn btn--icon">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+    <!-- Include jQuery (required for Select2) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Include Popper.js and Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.1/js/bootstrap-select.min.js"></script>
+
+    <!-- Include Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const burgerMenu = document.getElementById('burger-menu');
+            const navLinks = document.getElementById('nav-links');
+
+            burgerMenu.addEventListener('click', function () {
+                navLinks.classList.toggle('active');
+            });
+
+            $('#tagSelect').select2({
+                tags: true,
+                tokenSeparators: [',', ' '],
+                placeholder: "Select or add interests",
+                allowClear: true
+            });
+
+            $('#tagSelect').on('change', function (e) {
+                var selectedCount = $(this).val().length;
+                console.log(selectedCount);
+                if (selectedCount > 3) {
+                    $('.select2-selection__rendered').text('selected ' + selectedCount + " tags");
+                }
+            });
+        });
+    </script>

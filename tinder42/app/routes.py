@@ -2,9 +2,8 @@ import sqlite3
 import secrets
 from flask import Blueprint, render_template, url_for, flash, redirect, request,session, send_from_directory
 from app.forms import RegistrationForm, LoginForm
-from app.models import User
+from app.models import User, Interest, ProfilePicture
 from werkzeug.security import generate_password_hash, check_password_hash
-from app.database import get_user_by_id, list_users, get_user_by_verification_token, get_user_by_username, get_interests_by_user_id, get_profile_picture_by_user_id
 from config import Config
 from itsdangerous import URLSafeTimedSerializer
 import time
@@ -47,8 +46,6 @@ def signup():
         biography = request.form.get('biography')
         selected_interests = request.form.getlist('interests')
         picture = request.files.get('picture')
-        print("selected_interests:")
-        print(selected_interests)
 
         # Instantiate the form with extracted data
         form = RegistrationForm(email, username, last_name, first_name, password, confirm_password, gender, birthday, latitude, longitude, sexual_preferences, biography, selected_interests, picture)
@@ -68,14 +65,12 @@ def signup():
                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                 (new_user.email, new_user.username, new_user.last_name, new_user.first_name, new_user.password, new_user.gender, new_user.birthday, new_user.latitude, new_user.longitude, new_user.sexual_preferences, new_user.biography, new_user.verification_token, new_user.verify_email))
             user_id = cursor.lastrowid
-            print(user_id)
 
             # Database insertion logic for user interests
             for interest in selected_interests:
                 cursor.execute("INSERT INTO interests (name, user_id) VALUES (?, ?)", (interest, user_id))
             
             # Save the uploaded picture
-            print(picture)
             if picture:
                 media_dir = os.path.join('app', 'media')
                 if not os.path.exists(media_dir):
@@ -141,17 +136,15 @@ def logout():
 def home():
     if 'user_id' not in session:
         return redirect(url_for('main.login'))
-    user_id = session.get('user_id')  # Kullanıcı ID'sini session'dan alın
+    user_id = session.get('user_id')
     if user_id:
-        user_data = get_user_by_id(user_id)  # Veritabanından kullanıcı bilgilerini çekin
-        if not user_data.get('sexual_preferences') or not user_data.get('biography'):
-            # Kullanıcı bilgilerini şablona argüman olarak geçirin
+        user = User.get_by_id(user_id)
+        requested_profile_pic = ProfilePicture.get_profile_picture(user_id)
+        if not user.sexual_preferences or not user.biography:
             flash_message('You have not completed your profile yet.', 'info')
-            return render_template('home.html', title="Home", user=user_data, incomplete_profile=True) 
-        if user_data:
-            # Kullanıcı bilgilerini şablona argüman olarak geçirin
-            return render_template('home.html', title="Home", user=user_data, incomplete_profile=False)
-    # Eğer kullanıcı bilgisi bulunamazsa veya kullanıcı giriş yapmamışsa, hata mesajı gösterin
+            return render_template('home.html', title="Home", user=user, incomplete_profile=True, requested_profile_pic=requested_profile_pic)
+        if user:
+            return render_template('home.html', title="Home", user=user, incomplete_profile=False, requested_profile_pic=requested_profile_pic)
     return 'User not found or not logged in', 404
 
 @main.route('/forgot-password', methods=['GET', 'POST'])
@@ -216,14 +209,11 @@ def verify_email(token):
     try:
         conn = sqlite3.connect(Config.DATABASE_URL)
         cursor = conn.cursor()
-        user_data = get_user_by_verification_token(token)
-        print(user_data)
-        print(token)
-        if user_data['verification_token'] != token:
-            print('burada')
+        user_data = User.get_by_verification_token(token)
+        if user_data.verification_token != token:
             flash_message('The email verification link is invalid or has expired.', 'error')
             return render_template('verify-failed.html', title='Verify Failed')
-        user_id = user_data['id']
+        user_id = user_data.id
         cursor.execute("UPDATE users SET verify_email = 1 WHERE id = ?", (user_id,))
         conn.commit()
         conn.close()
@@ -239,15 +229,43 @@ def profile(username):
     if 'user_id' not in session:
         return redirect(url_for('main.login'))
     user_id = session.get('user_id')
-    requested_user_data = get_user_by_id(user_id)
-    profile_user_data = get_user_by_username(username)
-    print(profile_user_data['profile_pictures'])
+    requested_user_data = User.get_by_id(user_id)
+    profile_user_data = User.get_by_username(username)
     if not profile_user_data:
         return render_template('404.html', title='404')
-    age = calculate_age(profile_user_data['birthday'])
-    place = find_place(profile_user_data['latitude'], profile_user_data['longitude'])
-    interests = get_interests_by_user_id(profile_user_data['id'])
 
-    requested_profile_pic = get_profile_picture_by_user_id(user_id)
+    age = calculate_age(profile_user_data.birthday)
+    place = find_place(profile_user_data.latitude, profile_user_data.longitude)
+    interests = Interest.get_by_user_id(profile_user_data.id)
+
+    requested_profile_pic = ProfilePicture.get_profile_picture(user_id)
 
     return render_template('profile.html', title='Profile', user=requested_user_data, profile_user=profile_user_data, age=age, place=place, interests=interests, requested_profile_pic=requested_profile_pic)
+
+@main.route('/profile-settings/<string:username>')
+def profile_settings(username):
+    if 'user_id' not in session:
+        return redirect(url_for('main.login'))
+    user_id = session.get('user_id')
+    requested_user_data = User.get_by_id(user_id)
+    if requested_user_data.username != username:
+        return render_template('404.html', title='404')
+    
+    return render_template('profile-settings.html', title='Profile Settings', user=requested_user_data, username=username)
+
+@main.route('/search', methods=['GET', 'POST'])
+def search():
+    if 'user_id' not in session:
+        return redirect(url_for('main.login'))
+    user_id = session.get('user_id')
+    user_data = User.get_by_id(user_id)
+    search_query = request.args.get('query', '')
+    selected_interests = request.args.getlist('interests')
+    search_results = []
+
+    if search_query or selected_interests:
+        search_results = User.search_users(search_query, selected_interests)
+    requested_profile_pic = ProfilePicture.get_profile_picture(user_id)
+    for user in search_results: # data düzgün şekilde geliyor search tarafına işlenmesi kaldı 
+        print(user.username)
+    return render_template('search.html', title='Search', user=user_data, search_results=search_results, search_query=search_query, requested_profile_pic=requested_profile_pic)

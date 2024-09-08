@@ -42,7 +42,7 @@
 
                     <li>
                         <div class="profile-menu">
-                            <img src="../../static/assets/team/eyagiz.jpeg" alt="Profile Picture">
+                            <img src="{{requested_profile_pic}}" alt="Profile Picture">
                             <div class="dropdown-content">
                                 <a href="/profile/{{user.username}}"><i class="fa-solid fa-id-badge"></i> Profile</a>
                                 <a href="/profile-settings/{{user.username}}"><i class="fa-solid fa-gear"></i> Profile Settings</a>
@@ -60,7 +60,7 @@
                         <div class="background-filter"></div>
                         <div class="hearts"></div>
                         <div class="dashboard-text">
-                            <h1>Hello, {{user.firstname}}!</h1>
+                            <h1>Hello, {{user}}!</h1>
                             <p>Firstly nice to see you among us, how about flirting with someone? Believe the Karma!</p>
                         </div>
                     </div>

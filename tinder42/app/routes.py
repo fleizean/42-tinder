@@ -145,16 +145,13 @@ def home():
     if 'user_id' not in session:
         return redirect(url_for('main.login'))
     user_id = session.get('user_id')
-    User.get_all()
     if user_id:
         user = User.get_by_id(user_id)
-        requested_profile_pic = ProfilePicture.get_profile_picture(user_id)
-        print("------")
-        print(f"User: {user.__dict__}")
-        if not user.sexual_preferences or not user.biography:
-            flash_message('You have not completed your profile yet.', 'info')
-            return render_template('home.html', title="Home", user=user, incomplete_profile=True, requested_profile_pic=requested_profile_pic)
         if user:
+            requested_profile_pic = ProfilePicture.get_profile_picture(user_id)
+            if not user.sexual_preferences or not user.biography:
+                flash_message('You have not completed your profile yet.', 'info')
+                return render_template('home.html', title="Home", user=user, incomplete_profile=True, requested_profile_pic=requested_profile_pic)
             return render_template('home.html', title="Home", user=user, incomplete_profile=False, requested_profile_pic=requested_profile_pic)
     return 'User not found or not logged in', 404
 

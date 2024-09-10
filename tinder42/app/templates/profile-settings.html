@@ -1,0 +1,235 @@
+<link rel="stylesheet" href="../../static/css/profile-settings.css">
+
+<head>
+    <script src="https://kit.fontawesome.com/b80699d249.js" crossorigin="anonymous"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+</head>
+
+<body>
+    <div class="backgroundimage">
+        <nav class="navbar">
+            <div class="logo-container">
+                <div class="logo">
+                    <a class="navbar-item" href="/home">
+                        Tinder42
+                    </a>
+                </div>
+            </div>
+            <div class="burger-menu" id="burger-menu">
+                <i class="fas fa-bars"></i>
+            </div>
+            
+            <ul class="nav-links" style="margin-top: 1em !important;" id="nav-links">
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-house"></i> Home</a></li>
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-comments"></i> Chat</a></li>
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-magnifying-glass"></i> Search</a></li>
+                <li><a class="navbar-item" href=""><i class="fa-solid fa-heart-circle-bolt"></i> Matcher</a></li>
+
+                <li class="notification-li">
+                    <a href="/Bitlis/notifications/" class="notification-link">
+                        <div class="notification-menu">
+                            <i class="fas fa-bell"></i>
+                            <span class="notification-count">10</span> <!-- Notification count -->
+                        </div>
+                    </a>
+                </li>
+                
+                
+                <li>
+                    <div class="profile-menu">
+                        <img src="../../static/assets/team/eyagiz.jpeg" alt="Profile Picture">
+                        <div class="dropdown-content">
+                            <a href="#"><i class="fa-solid fa-id-badge"></i> Profile</a>
+                            <a href="#"><i class="fa-solid fa-gear"></i> Profile Settings</a>
+                            <a href="#"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </nav>
+        <div class="container mt-5">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Profile Settings</h5>
+                    <form action="/profile-settings/{{ username }}" method="POST" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="email">Email:</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="username">Username:</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="first_name">First Name:</label>
+                            <input type="text" class="form-control" id="first_name" name="first_name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="last_name">Last Name:</label>
+                            <input type="text" class="form-control" id="last_name" name="last_name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password:</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="gender">Gender:</label>
+                            <input type="text" class="form-control" id="gender" name="gender">
+                        </div>
+                        <div class="form-group">
+                            <label for="sexual_preferences">Sexual Preferences:</label>
+                            <input type="text" class="form-control" id="sexual_preferences" name="sexual_preferences">
+                        </div>
+                        <div class="form-group">
+                            <label for="biography">Biography:</label>
+                            <textarea class="form-control" id="biography" name="biography"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="birthday">Birthday:</label>
+                            <input type="date" class="form-control" id="birthday" name="birthday">
+                        </div>
+                        <div class="form-group">
+                            <label for="photos">Upload Photos (max 3):</label>
+                            <input type="file" class="form-control-file" id="photos" name="photos" accept="image/*" multiple>
+                            <div id="photo-list" class="mt-2"></div>
+                        </div>
+                        <div class="form-group" style="margin-bottom:2em">
+                            <label for="interests">Interests:</label>
+                            <input type="text" class="form-control" id="interest-input" name="interest">
+                            <button type="button" class="btn btn-primary mt-2" id="add-interest">Add Interest</button>
+                            <div id="interest-list" class="mt-2">
+                                <ul class="list-group">
+                                    {% for interest in interests %}
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            {{ interest }}
+                                            <button type="button" class="btn btn-danger btn-sm delete-interest" onclick=deleteInterest(event)>Delete</button>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success">Update Profile</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script>
+    function deleteInterest(event) {
+        const interestElement = event.target.parentElement;
+        const interest = interestElement.firstChild.textContent.trim(); // Sadece ilgi alanı adını al
+        interestElement.remove();
+    
+        // Send request to the server to delete the interest
+        fetch(`/delete_interest/${encodeURIComponent(interest)}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        }).then(response => {
+            if (!response.ok) {
+                console.error('Error deleting interest:', response.statusText);
+            }
+        }).catch(error => {
+            console.error('Error deleting interest:', error);
+        });
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+            const burgerMenu = document.getElementById('burger-menu');
+            const navLinks = document.getElementById('nav-links');
+
+            burgerMenu.addEventListener('click', function () {
+                navLinks.classList.toggle('active');
+            });
+
+
+            const maxPhotos = 3;
+            const photoInput = document.getElementById('photos');
+            const photoList = document.getElementById('photo-list');
+            const interestInput = document.getElementById('interest-input');
+            const addInterestButton = document.getElementById('add-interest');
+            const interestList = document.getElementById('interest-list');
+        
+            // Mevcut ilgi alanları
+            const existingInterests = {{ interests | tojson | safe }}; // Bu liste sunucudan alınabilir
+        
+            // Mevcut ilgi alanlarını sayfada göster
+      
+
+        
+            photoInput.addEventListener('change', function () {
+                if (photoInput.files.length > maxPhotos) {
+                    alert(`You can only upload a maximum of ${maxPhotos} photos.`);
+                    photoInput.value = '';
+                    return;
+                }
+                photoList.innerHTML = '';
+                Array.from(photoInput.files).forEach((file, index) => {
+                    const photoDiv = document.createElement('div');
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    img.style.width = '100px';
+                    img.style.height = '100px';
+                    img.style.objectFit = 'cover';
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Delete';
+                    deleteButton.addEventListener('click', () => {
+                        photoDiv.remove();
+                        photoInput.value = '';
+                    });
+                    const profileButton = document.createElement('button');
+                    profileButton.textContent = 'Set as Profile Photo';
+                    profileButton.addEventListener('click', () => {
+                        alert('Profile photo set!');
+                    });
+                    photoDiv.appendChild(img);
+                    photoDiv.appendChild(deleteButton);
+                    photoDiv.appendChild(profileButton);
+                    photoList.appendChild(photoDiv);
+                });
+            });
+        
+            addInterestButton.addEventListener('click', function () {
+                const interest = interestInput.value.trim();
+                if (interest) {
+                    const li = document.createElement('li');
+                    li.classList.add('list-group-item', 'd-flex', 'justify-content-between', 'align-items-center');
+                    li.textContent = interest;
+            
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Delete';
+                    deleteButton.classList.add('btn', 'btn-danger', 'btn-sm', 'delete-interest');
+                    deleteButton.addEventListener('click', () => {
+                        li.remove();
+                        // Sunucuya silme isteği gönder
+                        fetch(`/delete_interest/${interest}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': '{{ csrf_token() }}'
+                            }
+                        });
+                    });
+            
+                    li.appendChild(deleteButton);
+                    interestList.querySelector('ul').appendChild(li);
+                    interestInput.value = '';
+            
+                    // Sunucuya ekleme isteği gönder
+                    fetch('/add_interest', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({ interest: interest })
+                    });
+                }
+            });
+    });
+</script>

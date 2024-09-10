@@ -1,6 +1,6 @@
 import sqlite3
 import secrets
-from flask import Blueprint, render_template, url_for, flash, redirect, request,session, send_from_directory
+from flask import Blueprint, render_template, url_for, flash, redirect, request,session, send_from_directory, jsonify
 from app.forms import RegistrationForm, LoginForm
 from app.models import User, Interest, ProfilePicture
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -143,7 +143,7 @@ def logout():
 @main.route('/home')
 def home():
     if 'user_id' not in session:
-        return redirect(url_for('main.login'))
+        return redirect(url_for('main.logout'))
     user_id = session.get('user_id')
     if user_id:
         user = User.get_by_id(user_id)
@@ -235,7 +235,7 @@ def verify_email(token):
 @main.route('/profile/<string:username>')
 def profile(username):
     if 'user_id' not in session:
-        return redirect(url_for('main.login'))
+        return redirect(url_for('main.logout'))
     user_id = session.get('user_id')
     requested_user_data = User.get_by_id(user_id)
     profile_user_data = User.get_by_username(username)
@@ -250,21 +250,108 @@ def profile(username):
 
     return render_template('profile.html', title='Profile', user=requested_user_data, profile_user=profile_user_data, age=age, place=place, interests=interests, requested_profile_pic=requested_profile_pic)
 
-@main.route('/profile-settings/<string:username>')
+@main.route('/add_interest', methods=['POST'])
+def add_interest():
+    if 'user_id' not in session:
+        return redirect(url_for('main.logout'))
+    
+    user_id = session.get('user_id')
+    current_user = User.get_by_id(user_id)
+    data = request.get_json()
+    interest_name = data.get('interest')
+    
+    if interest_name:
+        # Yeni ilgi alanını oluştur ve veritabanına ekle
+        new_interest = Interest(name=interest_name, user_id=current_user.id)
+        new_interest.save()
+        
+        return jsonify({'message': 'Interest added successfully'}), 200
+    
+    return jsonify({'message': 'Invalid interest'}), 400
+
+@main.route('/delete_interest/<string:interest>', methods=['POST'])
+def delete_interest(interest):
+    if 'user_id' not in session:
+        return redirect(url_for('main.logout'))
+    
+    user_id = session.get('user_id')
+    print(session)
+    current_user = User.get_by_id(user_id)
+    print(interest)
+    print("user_id")
+    print(user_id)
+    # İlgili ilgi alanını veritabanından sil
+    interest = Interest.get_by_name(interest, user_id)
+    if interest:
+        interest.delete()
+        return jsonify({'message': 'Interest deleted successfully'}), 200
+
+    
+    return jsonify({'message': 'Interest deleted successfully'}), 200
+
+@main.route('/profile-settings/<string:username>', methods=['GET', 'POST'])
 def profile_settings(username):
     if 'user_id' not in session:
-        return redirect(url_for('main.login'))
+        return redirect(url_for('main.logout'))
+
     user_id = session.get('user_id')
     requested_user_data = User.get_by_id(user_id)
+
     if requested_user_data.username != username:
         return render_template('404.html', title='404')
-    
-    return render_template('profile-settings.html', title='Profile Settings', user=requested_user_data, username=username)
+
+    if request.method == 'POST':
+        conn = sqlite3.connect(Config.DATABASE_URL)
+        # Form'dan gelen güncellemeleri işle
+        email = request.form.get('email')
+        username = request.form.get('username')
+        first_name = request.form.get('first_name')
+        last_name = request.form.get('last_name')
+        password = request.form.get('password')
+        gender = request.form.get('gender')
+        sexual_preferences = request.form.get('sexual_preferences')
+        biography = request.form.get('biography')
+        birthday = request.form.get('birthday')
+        new_interest_name = request.form.get('interest')
+
+        # Güncellemeleri yap
+        current_user.email = email
+        current_user.username = username
+        current_user.first_name = first_name
+        current_user.last_name = last_name
+        if password:
+            current_user.password = password  # Şifreyi hashleyerek kaydet
+        current_user.gender = gender
+        current_user.sexual_preferences = sexual_preferences
+        current_user.biography = biography
+        current_user.birthday = birthday
+
+        if new_interest_name:
+            new_interest = Interest(id=None, name=new_interest_name, user_id=current_user.id)
+            new_interest.save()
+
+        # Veritabanında güncelle
+        with sqlite3.connect('database.db') as conn:
+            c = conn.cursor()
+            c.execute("""
+                UPDATE users SET email = ?, username = ?, first_name = ?, last_name = ?, password = ?, gender = ?, 
+                sexual_preferences = ?, biography = ?, birthday = ? WHERE id = ?
+            """, (current_user.email, current_user.username, current_user.first_name, current_user.last_name, 
+                  current_user.password, current_user.gender, current_user.sexual_preferences, 
+                  current_user.biography, current_user.birthday, current_user.id))
+            conn.commit()
+        flash('Profile updated successfully!', 'success')
+        return redirect(url_for('profile_settings', username=username))
+
+    interests = [interest.name for interest in requested_user_data.interests]
+
+    return render_template('profile-settings.html', title='Profile Settings', user=requested_user_data.to_dict(), interests=interests, username=username)
+
 
 @main.route('/search', methods=['GET', 'POST'])
 def search():
     if 'user_id' not in session:
-        return redirect(url_for('main.login'))
+        return redirect(url_for('main.logout'))
     user_id = session.get('user_id')
     user_data = User.get_by_id(user_id)
     search_query = request.args.get('query', '')

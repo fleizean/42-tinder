@@ -25,6 +25,26 @@ class User:
         self.profile_pictures = profile_pictures or []
         self.interests = interests or []
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'email': self.email,
+            'username': self.username,
+            'last_name': self.last_name,
+            'first_name': self.first_name,
+            'gender': self.gender,
+            'sexual_preferences': self.sexual_preferences,
+            'biography': self.biography,
+            'fame_rating': self.fame_rating,
+            'comment_count': self.comment_count,
+            'match_count': self.match_count,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'birthday': self.birthday,
+            'interests': [interest.to_dict() for interest in self.interests],
+            'profile_pictures': [picture.to_dict() for picture in self.profile_pictures],
+        }
+
     @classmethod
     def get_by_id(cls, user_id):
         with sqlite3.connect('database.db') as conn:
@@ -93,10 +113,29 @@ class User:
 
 
 class Interest:
-    def __init__(self, id, name, user_id):
+    def __init__(self, id=None, name=None, user_id=None):
         self.id = id
         self.name = name
         self.user_id = user_id
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'user_id': self.user_id
+        }
+    
+    def save(self):
+        with sqlite3.connect('database.db') as conn:
+            c = conn.cursor()
+            c.execute("INSERT INTO interests (name, user_id) VALUES (?, ?)", (self.name, self.user_id))
+            conn.commit()
+    
+    def delete(self):
+        with sqlite3.connect('database.db') as conn:
+            c = conn.cursor()
+            c.execute("DELETE FROM interests WHERE id = ?", (self.id,))
+            conn.commit()
 
     @classmethod
     def get_by_user_id(cls, user_id):
@@ -106,7 +145,16 @@ class Interest:
             interests_data = c.fetchall()
             interests = [cls(*interest) for interest in interests_data]
             return interests
-
+    
+    @classmethod
+    def get_by_name(cls, name, user_id):
+        with sqlite3.connect('database.db') as conn:
+            c = conn.cursor()
+            c.execute("SELECT * FROM interests WHERE name = ? AND user_id = ?", (name, user_id))
+            interest_data = c.fetchone()
+            if interest_data:
+                return cls(*interest_data)
+            return None
 
 class ProfilePicture:
     def __init__(self, id, image_path, is_profile_picture, user_id):
@@ -114,6 +162,14 @@ class ProfilePicture:
         self.image_path = image_path
         self.is_profile_picture = is_profile_picture
         self.user_id = user_id
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'image_path': self.image_path,
+            'is_profile_picture': self.is_profile_picture,
+            'user_id': self.user_id
+        }
 
     @classmethod
     def get_by_user_id(cls, user_id):

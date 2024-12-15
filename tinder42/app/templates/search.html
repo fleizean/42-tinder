@@ -50,7 +50,7 @@
                 
                 <li>
                     <div class="profile-menu">
-                        <img src="{{requested_profile_pic}}" alt="Profile Picture">
+                                                <img src="{{ url_for('main.media_files', filename=requested_profile_pic) }}" alt="Profile Picture" >
                         <div class="dropdown-content">
                             <a href="/profile/{{user.username}}"><i class="fa-solid fa-id-badge"></i> Profile</a>
                             <a href="/profile-settings/{{user.username}}"><i class="fa-solid fa-gear"></i> Profile Settings</a>

@@ -157,11 +157,25 @@ class Interest:
             return None
 
 class ProfilePicture:
-    def __init__(self, id, image_path, is_profile_picture, user_id):
+    def __init__(self, id=None, image_path=None, is_profile_picture=False, user_id=None):
         self.id = id
         self.image_path = image_path
         self.is_profile_picture = is_profile_picture
         self.user_id = user_id
+        
+    def save(self):
+        with sqlite3.connect('database.db') as conn:
+            c = conn.cursor()
+            c.execute("INSERT INTO profile_pictures (image_path, is_profile_picture, user_id) VALUES (?, ?, ?)",
+                      (self.image_path, self.is_profile_picture, self.user_id))
+            self.id = c.lastrowid
+            conn.commit()
+        
+    def delete(self):
+        with sqlite3.connect('database.db') as conn:
+            c = conn.cursor()
+            c.execute("DELETE FROM profile_pictures WHERE id = ?", (self.id,))
+            conn.commit()
     
     def to_dict(self):
         return {
@@ -170,6 +184,16 @@ class ProfilePicture:
             'is_profile_picture': self.is_profile_picture,
             'user_id': self.user_id
         }
+    
+    @classmethod
+    def get_by_id(cls, photo_id):
+        with sqlite3.connect('database.db') as conn:
+            c = conn.cursor()
+            c.execute("SELECT * FROM profile_pictures WHERE id = ?", (photo_id,))
+            photo_data = c.fetchone()
+            if photo_data:
+                return cls(*photo_data)
+            return None
 
     @classmethod
     def get_by_user_id(cls, user_id):
@@ -187,7 +211,7 @@ class ProfilePicture:
             c.execute("SELECT image_path FROM profile_pictures WHERE user_id = ? AND is_profile_picture = 1", (user_id,))
             profile_picture = c.fetchone()
             if profile_picture:
-                return "/media/" + profile_picture[0]
+                return  profile_picture[0]
             else:
                 return "../../static/assets/defaultpic.jpeg"
 

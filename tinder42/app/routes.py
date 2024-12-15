@@ -18,9 +18,31 @@ def clear_flashes():
         session.pop('_flashes')
 
 def flash_message(message, category):
+    """
+    @brief Kullanıcıya bir flash mesajı gösterir.
+    
+    Bu fonksiyon mevcut flash mesajlarını temizler ve belirtilen mesaj ve kategori ile yeni bir flash mesajı gösterir.
+    
+    @param message Gösterilecek mesaj.
+    @param category Mesajın kategorisi (örneğin, 'success', 'error').
+    
+    @return None
+    """
     clear_flashes()  # Mevcut flash mesajlarını temizle
     flash(message, category)  # Yeni mesajı flash'la
 
+
+"""
+@file routes.py
+@brief Medya dosyalarını sunan route fonksiyonu.
+
+Bu modül, medya dosyalarını sunmak için kullanılan bir route fonksiyonu içerir.
+
+@package tinder42.app.routes
+
+@param filename: İstenen medya dosyasının adı.
+@return İstenen medya dosyasını içeren bir HTTP yanıtı.
+"""
 @main.route('/media/<path:filename>')
 def media_files(filename):
     return send_from_directory('media', filename)
@@ -299,7 +321,7 @@ def profile_settings(username):
 
     if requested_user_data.username != username:
         return render_template('404.html', title='404')
-
+    requested_profile_pic = ProfilePicture.get_profile_picture(user_id)
     if request.method == 'POST':
         conn = sqlite3.connect(Config.DATABASE_URL)
         # Form'dan gelen güncellemeleri işle
@@ -315,19 +337,19 @@ def profile_settings(username):
         new_interest_name = request.form.get('interest')
 
         # Güncellemeleri yap
-        current_user.email = email
-        current_user.username = username
-        current_user.first_name = first_name
-        current_user.last_name = last_name
+        requested_user_data.email = email
+        requested_user_data.username = username
+        requested_user_data.first_name = first_name
+        requested_user_data.last_name = last_name
         if password:
-            current_user.password = password  # Şifreyi hashleyerek kaydet
-        current_user.gender = gender
-        current_user.sexual_preferences = sexual_preferences
-        current_user.biography = biography
-        current_user.birthday = birthday
+            requested_user_data.password = password  # Şifreyi hashleyerek kaydet
+        requested_user_data.gender = gender
+        requested_user_data.sexual_preferences = sexual_preferences
+        requested_user_data.biography = biography
+        requested_user_data.birthday = birthday
 
         if new_interest_name:
-            new_interest = Interest(id=None, name=new_interest_name, user_id=current_user.id)
+            new_interest = Interest(id=None, name=new_interest_name, user_id=requested_user_data.id)
             new_interest.save()
 
         # Veritabanında güncelle
@@ -336,16 +358,17 @@ def profile_settings(username):
             c.execute("""
                 UPDATE users SET email = ?, username = ?, first_name = ?, last_name = ?, password = ?, gender = ?, 
                 sexual_preferences = ?, biography = ?, birthday = ? WHERE id = ?
-            """, (current_user.email, current_user.username, current_user.first_name, current_user.last_name, 
-                  current_user.password, current_user.gender, current_user.sexual_preferences, 
-                  current_user.biography, current_user.birthday, current_user.id))
+            """, (requested_user_data.email, requested_user_data.username, requested_user_data.first_name, requested_user_data.last_name, 
+                  requested_user_data.password, requested_user_data.gender, requested_user_data.sexual_preferences, 
+                  requested_user_data.biography, requested_user_data.birthday, requested_user_data.id))
             conn.commit()
         flash('Profile updated successfully!', 'success')
-        return redirect(url_for('profile_settings', username=username))
+        return redirect(url_for('main.profile_settings', username=username))
 
     interests = [interest.name for interest in requested_user_data.interests]
+    photos = ProfilePicture.get_by_user_id(user_id)
 
-    return render_template('profile-settings.html', title='Profile Settings', user=requested_user_data.to_dict(), interests=interests, username=username)
+    return render_template('profile-settings.html', title='Profile Settings', user=requested_user_data.to_dict(), interests=interests, photos=photos, username=username, requested_profile_pic=requested_profile_pic)
 
 
 @main.route('/search', methods=['GET', 'POST'])
@@ -364,3 +387,57 @@ def search():
     for user in search_results: # data düzgün şekilde geliyor search tarafına işlenmesi kaldı 
         print(user.username)
     return render_template('search.html', title='Search', user=user_data, search_results=search_results, search_query=search_query, requested_profile_pic=requested_profile_pic)
+
+@main.route('/upload_photo', methods=['POST'])
+def upload_photo():
+    if 'user_id' not in session:
+        return redirect(url_for('main.logout'))
+    user_id = session.get('user_id')
+    user_data = User.get_by_id(user_id)
+    picture = request.files.get('picture')
+    if picture:
+        media_dir = os.path.join('app', 'media')
+        if not os.path.exists(media_dir):
+            os.makedirs(media_dir)
+        picture_filename = f'{user_id}_{secrets.token_urlsafe(8)}.jpg'
+        picture_path = os.path.join(media_dir, picture_filename)
+        picture.save(picture_path)
+        new_picture = ProfilePicture(image_path=f'{picture_filename}', is_profile_picture=False, user_id=user_id)
+        new_picture.save()
+        print(user_data.username)
+        flash_message('Photo uploaded successfully!', 'success')
+    return redirect(url_for('main.profile_settings', username=user_data.username))
+
+@main.route('/delete_photo/<int:photo_id>', methods=['POST'])
+def delete_photo(photo_id):
+    if 'user_id' not in session:
+        return redirect(url_for('main.logout'))
+    user_id = session.get('user_id')
+    photo = ProfilePicture.get_by_id(photo_id)
+    if photo and photo.user_id == user_id:
+        # os.remove(photo.image_path)
+        photo.delete()
+        flash_message('Photo deleted successfully!', 'success')
+    else:
+        flash_message('Photo not found or unauthorized access.', 'danger')
+    return redirect(url_for('main.profile_settings', username=User.get_by_id(user_id).username))
+
+@main.route('/set_profile_photo/<int:photo_id>', methods=['POST'])
+def set_profile_photo(photo_id):
+    if 'user_id' not in session:
+        return redirect(url_for('main.logout'))
+    user_id = session.get('user_id')
+    photo = ProfilePicture.get_by_id(photo_id)
+    if photo and photo.user_id == user_id:
+        # Tüm fotoğrafların profil fotoğrafı durumunu false yap
+        with sqlite3.connect('database.db') as conn:
+            c = conn.cursor()
+            c.execute("UPDATE profile_pictures SET is_profile_picture = 0 WHERE user_id = ?", (user_id,))
+            conn.commit()
+        # Seçilen fotoğrafı profil fotoğrafı yap
+        photo.is_profile_picture = True
+        photo.save()
+        flash_message('Profile photo set successfully!', 'success')
+    else:
+        flash_message('Photo not found or unauthorized access.', 'danger')
+    return redirect(url_for('main.profile_settings', username=User.get_by_id(user_id).username))

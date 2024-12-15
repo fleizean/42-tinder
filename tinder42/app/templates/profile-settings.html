@@ -39,11 +39,11 @@
                 
                 <li>
                     <div class="profile-menu">
-                        <img src="../../static/assets/team/eyagiz.jpeg" alt="Profile Picture">
+                        <img src="{{ url_for('main.media_files', filename=requested_profile_pic) }}" alt="Profile Picture" >
                         <div class="dropdown-content">
-                            <a href="#"><i class="fa-solid fa-id-badge"></i> Profile</a>
-                            <a href="#"><i class="fa-solid fa-gear"></i> Profile Settings</a>
-                            <a href="#"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                            <a href="/profile/{{user.username}}"><i class="fa-solid fa-id-badge"></i> Profile</a>
+                            <a href="/profile-settings/{{user.username}}"><i class="fa-solid fa-gear"></i> Profile Settings</a>
+                            <a href="/logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
                         </div>
                     </div>
                 </li>
@@ -95,9 +95,25 @@
                             <input type="file" class="form-control-file" id="photos" name="photos" accept="image/*" multiple>
                             <div id="photo-list" class="mt-2"></div>
                         </div>
+                        
+                        <div class="form-group">
+                            <label>Uploaded Photos:</label>
+                            <div id="uploaded-photos" class="mt-2">
+                                {% for photo in photos %}
+                                    <div class="uploaded-photo">
+                                        <img src="{{ url_for('main.media_files', filename=photo.image_path)   }}" alt="Uploaded Photo" style="width: 100px; height: 100px; object-fit: cover;">
+                                        <button type="button" class="btn btn-danger btn-sm delete-photo" data-photo-id="{{ photo.id }}">Delete</button>
+                                        <button type="button" class="btn btn-primary btn-sm set-profile-photo" data-photo-id="{{ photo.id }}">Set as Profile Photo</button>
+                                        {% if photo.is_profile_picture %}
+                                            <span class="badge bg-success">Profile Photo</span>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
                         <div class="form-group" style="margin-bottom:2em">
                             <label for="interests">Interests:</label>
-                            <input type="text" class="form-control" id="interest-input" name="interest">
+                            <input type="text" class="form-control" id="interest-input" name="interest" value="#">
                             <button type="button" class="btn btn-primary mt-2" id="add-interest">Add Interest</button>
                             <div id="interest-list" class="mt-2">
                                 <ul class="list-group">
@@ -105,6 +121,7 @@
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
                                             {{ interest }}
                                             <button type="button" class="btn btn-danger btn-sm delete-interest" onclick=deleteInterest(event)>Delete</button>
+                                            
                                         </li>
                                     {% endfor %}
                                 </ul>
@@ -139,97 +156,196 @@
             console.error('Error deleting interest:', error);
         });
     }
-    document.addEventListener('DOMContentLoaded', function () {
-            const burgerMenu = document.getElementById('burger-menu');
-            const navLinks = document.getElementById('nav-links');
-
-            burgerMenu.addEventListener('click', function () {
-                navLinks.classList.toggle('active');
-            });
-
-
-            const maxPhotos = 3;
-            const photoInput = document.getElementById('photos');
-            const photoList = document.getElementById('photo-list');
-            const interestInput = document.getElementById('interest-input');
-            const addInterestButton = document.getElementById('add-interest');
-            const interestList = document.getElementById('interest-list');
-        
-            // Mevcut ilgi alanları
-            const existingInterests = {{ interests | tojson | safe }}; // Bu liste sunucudan alınabilir
-        
-            // Mevcut ilgi alanlarını sayfada göster
-      
-
-        
-            photoInput.addEventListener('change', function () {
-                if (photoInput.files.length > maxPhotos) {
-                    alert(`You can only upload a maximum of ${maxPhotos} photos.`);
+        document.addEventListener('DOMContentLoaded', function () {
+        const burgerMenu = document.getElementById('burger-menu');
+        const navLinks = document.getElementById('nav-links');
+    
+        burgerMenu.addEventListener('click', function () {
+            navLinks.classList.toggle('active');
+        });
+    
+        const maxPhotos = 3;
+        const photoInput = document.getElementById('photos');
+        const photoList = document.getElementById('photo-list');
+        const interestInput = document.getElementById('interest-input');
+        const addInterestButton = document.getElementById('add-interest');
+        const interestList = document.getElementById('interest-list');
+    
+        // Mevcut ilgi alanları
+        const existingInterests = {{ interests | tojson | safe }}; // Bu liste sunucudan alınabilir
+    
+        // Mevcut ilgi alanlarını sayfada göster
+    
+        photoInput.addEventListener('change', function () {
+            if (photoInput.files.length > maxPhotos) {
+                alert(`You can only upload a maximum of ${maxPhotos} photos.`);
+                photoInput.value = '';
+                return;
+            }
+            photoList.innerHTML = '';
+            Array.from(photoInput.files).forEach((file, index) => {
+                const photoDiv = document.createElement('div');
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                img.style.width = '100px';
+                img.style.height = '100px';
+                img.style.objectFit = 'cover';
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Delete';
+                deleteButton.addEventListener('click', () => {
+                    photoDiv.remove();
                     photoInput.value = '';
-                    return;
-                }
-                photoList.innerHTML = '';
-                Array.from(photoInput.files).forEach((file, index) => {
-                    const photoDiv = document.createElement('div');
-                    const img = document.createElement('img');
-                    img.src = URL.createObjectURL(file);
-                    img.style.width = '100px';
-                    img.style.height = '100px';
-                    img.style.objectFit = 'cover';
-                    const deleteButton = document.createElement('button');
-                    deleteButton.textContent = 'Delete';
-                    deleteButton.addEventListener('click', () => {
-                        photoDiv.remove();
-                        photoInput.value = '';
+                });
+                const profileButton = document.createElement('button');
+                profileButton.textContent = 'Set as Profile Photo';
+                profileButton.addEventListener('click', () => {
+                    const photoId = profileButton.getAttribute('data-photo-id');
+                    fetch(`/set_profile_photo/${photoId}`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
+                    }).then(response => {
+                        if (response.ok) {
+                            alert('Profile photo set!');
+                        } else {
+                            console.error('Error setting profile photo:', response.statusText);
+                        }
+                    }).catch(error => {
+                        console.error('Error setting profile photo:', error);
                     });
-                    const profileButton = document.createElement('button');
-                    profileButton.textContent = 'Set as Profile Photo';
-                    profileButton.addEventListener('click', () => {
-                        alert('Profile photo set!');
-                    });
-                    photoDiv.appendChild(img);
-                    photoDiv.appendChild(deleteButton);
-                    photoDiv.appendChild(profileButton);
-                    photoList.appendChild(photoDiv);
+                });
+                photoDiv.appendChild(img);
+                photoDiv.appendChild(deleteButton);
+                photoDiv.appendChild(profileButton);
+                photoList.appendChild(photoDiv);
+    
+                // Sunucuya yükleme isteği gönder
+                const formData = new FormData();
+                formData.append('picture', file);
+    
+                fetch('/upload_photo', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: formData
+                }).then(response => {
+                    if (!response.ok) {
+                        console.error('Error uploading photo:', response.statusText);
+                    }
+                }).catch(error => {
+                    console.error('Error uploading photo:', error);
                 });
             });
-        
-            addInterestButton.addEventListener('click', function () {
-                const interest = interestInput.value.trim();
-                if (interest) {
-                    const li = document.createElement('li');
-                    li.classList.add('list-group-item', 'd-flex', 'justify-content-between', 'align-items-center');
-                    li.textContent = interest;
-            
-                    const deleteButton = document.createElement('button');
-                    deleteButton.textContent = 'Delete';
-                    deleteButton.classList.add('btn', 'btn-danger', 'btn-sm', 'delete-interest');
-                    deleteButton.addEventListener('click', () => {
-                        li.remove();
-                        // Sunucuya silme isteği gönder
-                        fetch(`/delete_interest/${interest}`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': '{{ csrf_token() }}'
-                            }
-                        });
-                    });
-            
-                    li.appendChild(deleteButton);
-                    interestList.querySelector('ul').appendChild(li);
-                    interestInput.value = '';
-            
-                    // Sunucuya ekleme isteği gönder
-                    fetch('/add_interest', {
+        });
+    
+        addInterestButton.addEventListener('click', function () {
+            const interest = interestInput.value.trim();
+            const interestPattern = /^#[A-Za-z][A-Za-z0-9_]*$/;
+            const invalidCharsPattern = /[!@#$%^&*+,./?]/;
+    
+            if (!interest.startsWith('#')) {
+                alert('Interest must start with #.');
+                return;
+            }
+    
+            if (interest.length < 2) {
+                alert('Interest must contain at least one character after #.');
+                return;
+            }
+    
+            if (invalidCharsPattern.test(interest)) {
+                alert('Interest contains invalid characters.');
+                return;
+            }
+    
+            if (!interestPattern.test(interest)) {
+                alert('Interest must be a continuous string without spaces and should not start with a number.');
+                return;
+            }
+    
+            if (interest) {
+                const li = document.createElement('li');
+                li.classList.add('list-group-item', 'd-flex', 'justify-content-between', 'align-items-center');
+                li.textContent = interest;
+    
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Delete';
+                deleteButton.classList.add('btn', 'btn-danger', 'btn-sm', 'delete-interest');
+                deleteButton.addEventListener('click', () => {
+                    li.remove();
+                    // Sunucuya silme isteği gönder
+                    fetch(`/delete_interest/${encodeURIComponent(interest)}`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'X-CSRFToken': '{{ csrf_token() }}'
-                        },
-                        body: JSON.stringify({ interest: interest })
+                        }
                     });
-                }
+                });
+    
+                li.appendChild(deleteButton);
+                interestList.querySelector('ul').appendChild(li);
+                interestInput.value = '#';
+    
+                // Sunucuya ekleme isteği gönder
+                fetch('/add_interest', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ interest: interest })
+                });
+            }
+        });
+
+        document.querySelectorAll('.delete-photo').forEach(button => {
+            button.addEventListener('click', function () {
+                const photoId = this.getAttribute('data-photo-id');
+                fetch(`/delete_photo/${photoId}`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                }).then(response => {
+                    if (response.ok) {
+                        this.parentElement.remove();
+                    } else {
+                        console.error('Error deleting photo:', response.statusText);
+                    }
+                }).catch(error => {
+                    console.error('Error deleting photo:', error);
+                });
             });
+        });
+
+        document.querySelectorAll('.set-profile-photo').forEach(button => {
+            button.addEventListener('click', function () {
+                const photoId = this.getAttribute('data-photo-id');
+                fetch(`/set_profile_photo/${photoId}`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                }).then(response => {
+                    if (response.ok) {
+                        alert('Profile photo set!');
+                        // Profil fotoğrafı olarak ayarlanan fotoğrafı işaretle
+                        document.querySelectorAll('.uploaded-photo .badge').forEach(badge => badge.remove());
+                        const badge = document.createElement('span');
+                        badge.classList.add('badge', 'bg-success');
+                        badge.textContent = 'Profile Photo';
+                        this.parentElement.appendChild(badge);
+                    } else {
+                        console.error('Error setting profile photo:', response.statusText);
+                    }
+                }).catch(error => {
+                    console.error('Error setting profile photo:', error);
+                });
+            });
+        });
+    
     });
 </script>

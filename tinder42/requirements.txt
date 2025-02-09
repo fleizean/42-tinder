@@ -1,6 +1,7 @@
 Flask
 Flask-SQLAlchemy
 Flask-WTF
-python-dotenv
 Flask-Mail
+flask-socketio
+python-dotenv
 requests

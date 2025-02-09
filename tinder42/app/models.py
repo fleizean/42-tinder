@@ -1,6 +1,8 @@
 import sqlite3
 from datetime import datetime
 
+from config import Config
+
 class User:
     def __init__(self, id, email, username, last_name, first_name, password, gender, sexual_preferences, biography, fame_rating, comment_count, match_count, latitude, longitude, birthday, verification_token, verify_email, created_at=None, updated_at=None, profile_pictures=None, interests=None):
         self.id = id
@@ -20,8 +22,8 @@ class User:
         self.birthday = birthday
         self.verification_token = verification_token
         self.verify_email = verify_email
-        self.created_at = created_at or datetime.now(datetime.timezone.local)
-        self.updated_at = updated_at or datetime.now(datetime.timezone.local)
+        self.created_at = created_at or datetime.now()
+        self.updated_at = updated_at or datetime.now()
         self.profile_pictures = profile_pictures or []
         self.interests = interests or []
 
@@ -47,7 +49,7 @@ class User:
 
     @classmethod
     def get_by_id(cls, user_id):
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("SELECT * FROM users WHERE id = ?", (user_id,))
             user_data = c.fetchone()
@@ -60,7 +62,7 @@ class User:
 
     @classmethod
     def get_by_email(cls, email):
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("SELECT * FROM users WHERE email = ?", (email,))
             user_data = c.fetchone()
@@ -73,7 +75,7 @@ class User:
 
     @classmethod
     def get_by_username(cls, username):
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("SELECT * FROM users WHERE username = ?", (username,))
             user_data = c.fetchone()
@@ -86,7 +88,7 @@ class User:
 
     @classmethod
     def get_by_verification_token(cls, token):
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("SELECT * FROM users WHERE verification_token = ?", (token,))
             user_data = c.fetchone()
@@ -99,7 +101,7 @@ class User:
 
     @classmethod
     def get_all(cls):
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("SELECT * FROM users")
             users_data = c.fetchall()
@@ -126,20 +128,20 @@ class Interest:
         }
     
     def save(self):
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("INSERT INTO interests (name, user_id) VALUES (?, ?)", (self.name, self.user_id))
             conn.commit()
     
     def delete(self):
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("DELETE FROM interests WHERE id = ?", (self.id,))
             conn.commit()
 
     @classmethod
     def get_by_user_id(cls, user_id):
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("SELECT * FROM interests WHERE user_id = ?", (user_id,))
             interests_data = c.fetchall()
@@ -148,7 +150,7 @@ class Interest:
     
     @classmethod
     def get_by_name(cls, name, user_id):
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("SELECT * FROM interests WHERE name = ? AND user_id = ?", (name, user_id))
             interest_data = c.fetchone()
@@ -164,7 +166,7 @@ class ProfilePicture:
         self.user_id = user_id
         
     def save(self):
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("INSERT INTO profile_pictures (image_path, is_profile_picture, user_id) VALUES (?, ?, ?)",
                       (self.image_path, self.is_profile_picture, self.user_id))
@@ -172,7 +174,7 @@ class ProfilePicture:
             conn.commit()
         
     def delete(self):
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("DELETE FROM profile_pictures WHERE id = ?", (self.id,))
             conn.commit()
@@ -187,7 +189,7 @@ class ProfilePicture:
     
     @classmethod
     def get_by_id(cls, photo_id):
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("SELECT * FROM profile_pictures WHERE id = ?", (photo_id,))
             photo_data = c.fetchone()
@@ -197,7 +199,7 @@ class ProfilePicture:
 
     @classmethod
     def get_by_user_id(cls, user_id):
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("SELECT * FROM profile_pictures WHERE user_id = ?", (user_id,))
             profile_pictures_data = c.fetchall()
@@ -206,7 +208,7 @@ class ProfilePicture:
 
     @classmethod
     def get_profile_picture(cls, user_id):
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("SELECT image_path FROM profile_pictures WHERE user_id = ? AND is_profile_picture = 1", (user_id,))
             profile_picture = c.fetchone()
@@ -222,7 +224,7 @@ class Message:
         self.sender_id = sender_id
         self.receiver_id = receiver_id
         self.content = content
-        self.timestamp = timestamp or datetime.now(datetime.timezone.local)
+        self.timestamp = timestamp or datetime.now()
 
 class Notification:
     def __init__(self, id, user_id, message, is_read=False, timestamp=None):
@@ -230,4 +232,4 @@ class Notification:
         self.user_id = user_id
         self.message = message
         self.is_read = is_read
-        self.timestamp = timestamp or datetime.now(datetime.timezone.local)
+        self.timestamp = timestamp or datetime.now()

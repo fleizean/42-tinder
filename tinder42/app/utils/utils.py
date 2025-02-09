@@ -3,6 +3,7 @@ import requests
 import json
 import os
 from dotenv import load_dotenv
+from math import radians, sin, cos, sqrt, atan2
 
 load_dotenv()
 
@@ -36,7 +37,7 @@ def find_place(longitude, latitude):
         region = address.get('region', None)
         country = address.get('country', None)
         
-        # Öncelik sırasına göre şehir bilgisini döndür
+        # Return the most specific location
         if city:
             return city
         elif town:
@@ -49,3 +50,13 @@ def find_place(longitude, latitude):
             return country
     else:
         return 'Unknown.'
+    
+# Haversine formula to calculate distance between two coordinates
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371  # Earth radius in km
+    lat1, lon1, lat2, lon2 = map(radians, [float(lat1), float(lon1), float(lat2), float(lon2)])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    return R * c

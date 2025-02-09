@@ -8,7 +8,7 @@ from config import Config
 from itsdangerous import URLSafeTimedSerializer
 import time
 from app.utils.mailservice import send_password_reset_email, send_verify_email
-from app.utils.utils import calculate_age, find_place
+from app.utils.utils import calculate_age, find_place, haversine
 import os
 
 main = Blueprint('main', __name__)
@@ -222,15 +222,16 @@ def change_password(token):
             conn.close()
             flash_message('Password has been changed successfully.', 'success')
             return redirect(url_for('main.login'))
-        except:
+        except (ValueError):
             flash_message('The password reset link is invalid or has expired.', 'error')
             return redirect(url_for('main.forgot_password'))
     else:
         try:
             serializer = URLSafeTimedSerializer(Config.SECRET_KEY)
-            email = serializer.loads(token, salt=Config.PASSWORD_RESET_SALT, max_age=3600)
+            # TODO: email is not used here
+            #email = serializer.loads(token, salt=Config.PASSWORD_RESET_SALT, max_age=3600)
             return render_template('change-password.html', title='Reset Password')
-        except:
+        except (ValueError):
             flash_message('The password reset link is invalid or has expired.', 'error')
             return redirect(url_for('main.forgot_password'))
         
@@ -250,7 +251,7 @@ def verify_email(token):
         session['user_id'] = user_id
         flash_message('Email verified successfully!', 'success')
         return redirect(url_for('main.home'))
-    except:
+    except (ValueError):
         flash_message('The email verification link is invalid or has expired.', 'error')
         return render_template('verify-failed.html', title='Verify Failed')
 
@@ -297,11 +298,11 @@ def delete_interest(interest):
         return redirect(url_for('main.logout'))
     
     user_id = session.get('user_id')
-    print(session)
-    current_user = User.get_by_id(user_id)
-    print(interest)
-    print("user_id")
-    print(user_id)
+    #print(session)
+    #current_user = User.get_by_id(user_id)
+    #print(interest)
+    #print("user_id")
+    #print(user_id)
     # İlgili ilgi alanını veritabanından sil
     interest = Interest.get_by_name(interest, user_id)
     if interest:
@@ -322,8 +323,7 @@ def profile_settings(username):
     if requested_user_data.username != username:
         return render_template('404.html', title='404')
     requested_profile_pic = ProfilePicture.get_profile_picture(user_id)
-    if request.method == 'POST':
-        conn = sqlite3.connect(Config.DATABASE_URL)
+    if request.method == 'POST':        
         # Form'dan gelen güncellemeleri işle
         email = request.form.get('email')
         username = request.form.get('username')
@@ -335,7 +335,7 @@ def profile_settings(username):
         biography = request.form.get('biography')
         birthday = request.form.get('birthday')
         new_interest_name = request.form.get('interest')
-
+        # TODO : Make DRY here
         # Güncellemeleri yap
         requested_user_data.email = email
         requested_user_data.username = username
@@ -353,14 +353,14 @@ def profile_settings(username):
             new_interest.save()
 
         # Veritabanında güncelle
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:    
             c = conn.cursor()
             c.execute("""
                 UPDATE users SET email = ?, username = ?, first_name = ?, last_name = ?, password = ?, gender = ?, 
                 sexual_preferences = ?, biography = ?, birthday = ? WHERE id = ?
             """, (requested_user_data.email, requested_user_data.username, requested_user_data.first_name, requested_user_data.last_name, 
-                  requested_user_data.password, requested_user_data.gender, requested_user_data.sexual_preferences, 
-                  requested_user_data.biography, requested_user_data.birthday, requested_user_data.id))
+                    requested_user_data.password, requested_user_data.gender, requested_user_data.sexual_preferences, 
+                    requested_user_data.biography, requested_user_data.birthday, requested_user_data.id))
             conn.commit()
         flash('Profile updated successfully!', 'success')
         return redirect(url_for('main.profile_settings', username=username))
@@ -384,9 +384,67 @@ def search():
     if search_query or selected_interests:
         search_results = User.search_users(search_query, selected_interests)
     requested_profile_pic = ProfilePicture.get_profile_picture(user_id)
-    for user in search_results: # data düzgün şekilde geliyor search tarafına işlenmesi kaldı 
-        print(user.username)
+    #for user in search_results: # data düzgün şekilde geliyor search tarafına işlenmesi kaldı 
+        #print(user.username)
     return render_template('search.html', title='Search', user=user_data, search_results=search_results, search_query=search_query, requested_profile_pic=requested_profile_pic)
+
+# search route alternative using haversine distance and sex preferences
+@main.route('/browse')
+def browse():
+    if 'user_id' not in session:
+        return redirect(url_for('main.logout'))
+    
+    current_user = User.get_by_id(session['user_id'])
+    suggestions = []
+
+    # Get all non-blocked users matching preferences
+    with sqlite3.connect(Config.DATABASE_URL) as conn:
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        
+        # Base query
+        query = '''SELECT * FROM users 
+                   WHERE id != ? 
+                   AND id NOT IN (
+                       SELECT blocked_id FROM blocks WHERE blocker_id = ?
+                   )'''
+        params = [current_user.id, current_user.id]
+
+        # Add gender preferences
+        if current_user.sexual_preferences.lower() in ['male', 'female']:
+            query += " AND gender = ?"
+            params.append(current_user.sexual_preferences.lower())
+        elif current_user.sexual_preferences.lower() == 'both':
+            query += " AND gender IN ('male', 'female')"
+        
+        # Execute query
+        c.execute(query, params)
+        users = c.fetchall()
+
+        # Process results
+        for user in users:
+            distance = haversine(current_user.latitude, current_user.longitude,
+                               user['latitude'], user['longitude'])
+            
+            # Get common interests
+            c.execute('''SELECT COUNT(*) as common_tags 
+                       FROM interests i1 
+                       JOIN interests i2 ON i1.name = i2.name 
+                       WHERE i1.user_id = ? AND i2.user_id = ?''',
+                    (current_user.id, user['id']))
+            common_tags = c.fetchone()[0]
+
+            suggestions.append({
+                'user': User.get_by_id(user['id']),
+                'distance': round(distance, 1),
+                'common_tags': common_tags,
+                'fame_rating': user['fame_rating']
+            })
+
+    # Sort by priority: distance -> common tags -> fame rating
+    suggestions.sort(key=lambda x: (x['distance'], -x['common_tags'], -x['fame_rating']))
+    
+    return render_template('browse.html', suggestions=suggestions)
 
 @main.route('/upload_photo', methods=['POST'])
 def upload_photo():
@@ -404,7 +462,7 @@ def upload_photo():
         picture.save(picture_path)
         new_picture = ProfilePicture(image_path=f'{picture_filename}', is_profile_picture=False, user_id=user_id)
         new_picture.save()
-        print(user_data.username)
+        #print(user_data.username)
         flash_message('Photo uploaded successfully!', 'success')
     return redirect(url_for('main.profile_settings', username=user_data.username))
 
@@ -430,7 +488,7 @@ def set_profile_photo(photo_id):
     photo = ProfilePicture.get_by_id(photo_id)
     if photo and photo.user_id == user_id:
         # Tüm fotoğrafların profil fotoğrafı durumunu false yap
-        with sqlite3.connect('database.db') as conn:
+        with sqlite3.connect(Config.DATABASE_URL) as conn:
             c = conn.cursor()
             c.execute("UPDATE profile_pictures SET is_profile_picture = 0 WHERE user_id = ?", (user_id,))
             conn.commit()
@@ -441,3 +499,84 @@ def set_profile_photo(photo_id):
     else:
         flash_message('Photo not found or unauthorized access.', 'danger')
     return redirect(url_for('main.profile_settings', username=User.get_by_id(user_id).username))
+
+
+# Add these new routes
+@main.route('/notifications')
+def get_notifications():
+    if 'user_id' not in session:
+        return jsonify([])
+    
+    with sqlite3.connect(Config.DATABASE_URL) as conn:
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('''SELECT * FROM notifications 
+                     WHERE user_id = ? 
+                     ORDER BY created_at DESC''', 
+                  (session['user_id'],))
+        notifications = [dict(row) for row in c.fetchall()]
+        
+        # Mark as read
+        c.execute('''UPDATE notifications 
+                     SET is_read = 1 
+                     WHERE user_id = ?''', 
+                  (session['user_id'],))
+        conn.commit()
+    
+    return jsonify(notifications)
+
+@main.route('/like/<int:user_id>', methods=['POST'])
+def like_user(user_id):
+    if 'user_id' not in session:
+        return jsonify({'status': 'error'})
+    
+    current_user_id = session['user_id']
+    
+    with sqlite3.connect(Config.DATABASE_URL) as conn:
+        c = conn.cursor()
+        
+        # Check if already liked
+        c.execute('''SELECT * FROM likes 
+                     WHERE sender_id = ? AND receiver_id = ?''',
+                  (current_user_id, user_id))
+        existing_like = c.fetchone()
+        
+        if existing_like:
+            # Unlike
+            c.execute('''DELETE FROM likes 
+                         WHERE sender_id = ? AND receiver_id = ?''',
+                      (current_user_id, user_id))
+            message = 'unlike'
+        else:
+            # New like
+            c.execute('''INSERT INTO likes (sender_id, receiver_id)
+                         VALUES (?, ?)''', (current_user_id, user_id))
+            message = 'like'
+            
+            # Check for mutual like
+            c.execute('''SELECT * FROM likes 
+                         WHERE sender_id = ? AND receiver_id = ?''',
+                      (user_id, current_user_id))
+            if c.fetchone():
+                # Create connection
+                user1, user2 = sorted([current_user_id, user_id])
+                c.execute('''INSERT INTO connections (user1_id, user2_id)
+                             VALUES (?, ?)''', (user1, user2))
+                
+                # Create notifications
+                c.execute('''INSERT INTO notifications (user_id, type, message, related_user_id)
+                             VALUES (?, ?, ?, ?)''',
+                          (current_user_id, 'match', 'New match!', user_id))
+                c.execute('''INSERT INTO notifications (user_id, type, message, related_user_id)
+                             VALUES (?, ?, ?, ?)''',
+                          (user_id, 'match', 'New match!', current_user_id))
+        
+        # Create notification for receiver
+        if message == 'like':
+            c.execute('''INSERT INTO notifications (user_id, type, message, related_user_id)
+                         VALUES (?, ?, ?, ?)''',
+                      (user_id, 'like', 'Someone liked you!', current_user_id))
+        
+        conn.commit()
+    
+    return jsonify({'status': 'success', 'action': message})

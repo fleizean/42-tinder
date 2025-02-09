@@ -4,9 +4,11 @@ from flask_mail import Mail
 from config import Config
 from markupsafe import Markup
 from app.database import create_database
+from flask_socketio import SocketIO
 
 csrf = CSRFProtect()
 mail = Mail()
+socketio = SocketIO()
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -21,6 +23,7 @@ def create_app(config_class=Config):
     csrf.exempt(main_blueprint)
 
     with app.app_context():
-        create_database()  # Veritabanını oluştur
+        create_database()
 
+    socketio.init_app(app)
     return app

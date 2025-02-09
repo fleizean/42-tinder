@@ -20,8 +20,8 @@ class User:
         self.birthday = birthday
         self.verification_token = verification_token
         self.verify_email = verify_email
-        self.created_at = created_at or datetime.utcnow()
-        self.updated_at = updated_at or datetime.utcnow()
+        self.created_at = created_at or datetime.now(datetime.timezone.local)
+        self.updated_at = updated_at or datetime.now(datetime.timezone.local)
         self.profile_pictures = profile_pictures or []
         self.interests = interests or []
 
@@ -222,7 +222,7 @@ class Message:
         self.sender_id = sender_id
         self.receiver_id = receiver_id
         self.content = content
-        self.timestamp = timestamp or datetime.utcnow()
+        self.timestamp = timestamp or datetime.now(datetime.timezone.local)
 
 class Notification:
     def __init__(self, id, user_id, message, is_read=False, timestamp=None):
@@ -230,4 +230,4 @@ class Notification:
         self.user_id = user_id
         self.message = message
         self.is_read = is_read
-        self.timestamp = timestamp or datetime.utcnow()
+        self.timestamp = timestamp or datetime.now(datetime.timezone.local)

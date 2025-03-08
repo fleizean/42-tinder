@@ -4,6 +4,6 @@ export type LoginResponse = {
   data: {
     accessToken: string;
     expiration: string;
-    refreshToken: string;
+    //refreshToken: string;
   }
 }

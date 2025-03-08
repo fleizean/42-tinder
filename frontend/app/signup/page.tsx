@@ -22,8 +22,9 @@ import { GoogleLogin } from '@react-oauth/google';
 const SignupPage = () => {
   const router = useRouter();
   const [error, setError] = useState("");
-  const [nameSurname, setNameSurname] = useState("");
-  const [userName, setUserName] = useState("");
+  const [name, setName] = useState("");
+  const [surname, setSurname] = useState("");
+  const [username, setUserName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -44,7 +45,7 @@ const SignupPage = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nameSurname || !userName || !email || !password || !passwordConfirm) {
+    if (!name || !surname || !username || !email || !password || !passwordConfirm) {
       toast.error("Lütfen tüm alanları doldurunuz.");
       return;
     }
@@ -60,15 +61,17 @@ const SignupPage = () => {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/Auth/signup`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/auth/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({
-          nameSurname,
-          userName,
+          first_name: name,
+          last_name: surname,
+          username,
           email,
           password,
-          passwordConfirm,
+          is_active: true,
         }),
       });
       if (!response.ok) {
@@ -76,7 +79,7 @@ const SignupPage = () => {
       }
       // Kaydolma başarılı, yönlendirme veya işlem yapılabilir
       toast.success("Kayıt başarılı! Giriş sayfasına yönlendiriliyorsunuz...");
-      router.push("/signin");
+      //router.push("/signin");
     } catch (error) {
       console.error("Signup error:", error);
       toast.error("Kayıt sırasında bir hata oluştu.");
@@ -85,7 +88,7 @@ const SignupPage = () => {
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/Auth/google-login`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/auth/google-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -100,13 +103,13 @@ const SignupPage = () => {
         const result = await signIn("credentials", {
           loginType: 'google',
           accessToken: data.data.accessToken,
-          refreshToken: data.data.refreshToken,
+          //refreshToken: data.data.refreshToken,
           redirect: false,
         });
 
         if (result?.ok) {
           localStorage.setItem('accessToken', data.data.accessToken);
-          localStorage.setItem('refreshToken', data.data.refreshToken);
+          //localStorage.setItem('refreshToken', data.data.refreshToken);
           toast.success('Giriş başarılı! Yönlendiriliyorsunuz...');
           router.push('/dashboard');
         } else {
@@ -170,28 +173,43 @@ const SignupPage = () => {
 
                 <form onSubmit={handleSignup}>
                   {/* Input fields template - repeat for all inputs */}
-                  <div className="mb-8">
-                    <label htmlFor="name" className="mb-3 block text-sm text-gray-300">
-                      Tam Adınız
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      placeholder="Tam Adınızı Girin"
-                      value={nameSurname}
-                      onChange={(e) => setNameSurname(e.target.value)}
-                      className="w-full rounded-lg border border-transparent bg-[#3C3C3E] px-6 py-3 text-base text-white outline-none transition-all duration-300 focus:border-[#D63384] focus:shadow-[0_0_0_2px_rgba(214,51,132,0.2)]"
-                    />
+                  <div className="flex gap-4 mb-8">
+                    <div className="flex-1">
+                      <label htmlFor="name" className="mb-3 block text-sm text-gray-300">
+                        Adınız
+                      </label>
+                      <input
+                        type="text"
+                        name="name"
+                        placeholder="Adınızı Girin"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full rounded-lg border border-transparent bg-[#3C3C3E] px-6 py-3 text-base text-white outline-none transition-all duration-300 focus:border-[#D63384] focus:shadow-[0_0_0_2px_rgba(214,51,132,0.2)]"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label htmlFor="surname" className="mb-3 block text-sm text-gray-300">
+                        Soyadınız
+                      </label>
+                      <input
+                        type="text"
+                        name="surname"
+                        placeholder="Soyadınızı Girin"
+                        value={surname}
+                        onChange={(e) => setSurname(e.target.value)}
+                        className="w-full rounded-lg border border-transparent bg-[#3C3C3E] px-6 py-3 text-base text-white outline-none transition-all duration-300 focus:border-[#D63384] focus:shadow-[0_0_0_2px_rgba(214,51,132,0.2)]"
+                      />
+                    </div>
                   </div>
                   <div className="mb-8">
-                    <label htmlFor="userName" className="mb-3 block text-sm text-gray-300">
+                    <label htmlFor="username" className="mb-3 block text-sm text-gray-300">
                       Kullanıcı Adı
                     </label>
                     <input
                       type="text"
-                      name="userName"
+                      name="username"
                       placeholder="Kullanıcı Adınızı Girin"
-                      value={userName}
+                      value={username}
                       onChange={(e) => setUserName(e.target.value)}
                       className="w-full rounded-lg border border-transparent bg-[#3C3C3E] px-6 py-3 text-base text-white outline-none transition-all duration-300 focus:border-[#D63384] focus:shadow-[0_0_0_2px_rgba(214,51,132,0.2)]"
                     />

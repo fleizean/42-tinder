@@ -48,44 +48,47 @@ const SigninPage = () => {
 
     try {
       // First, authenticate with backend API
-      const apiResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/Auth/login`, {
+      const apiResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/auth/login/json`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          "Accept": "application/json"
         },
+        credentials: 'include',
         body: JSON.stringify({
-          usernameOrEmail,
+          username: usernameOrEmail,
           password
         })
       });
-
+    
       const data = await apiResponse.json();
-
+    
       if (!apiResponse.ok) {
-        toast.error(data.message || "Giriş başarısız!");
-        return;
+        throw new Error(data.message || "Authentication failed");
       }
-
-      // Store token
-      localStorage.setItem('accessToken', data.data.accessToken);
-      localStorage.setItem('refreshToken', data.data.refreshToken);
-      // Then proceed with NextAuth session
+    
+      // Store token in session storage instead of localStorage for better security
+      sessionStorage.setItem('accessToken', data.access_token);
+    
+      // Modify NextAuth signIn call with token
       const result = await signIn("credentials", {
+        token: data.access_token, // Pass token to credentials provider
         usernameOrEmail,
         password,
         redirect: false,
+        callbackUrl: '/dashboard'
       });
-
-      if (result?.error) {
-        toast.error("Oturum oluşturulamadı!");
-        return;
+    
+      if (!result?.ok) {
+        throw new Error(result?.error || "Failed to create session");
       }
-
-      toast.success("Giriş başarılı! Yönlendiriliyorsunuz...");
+    
+      toast.success("Login successful! Redirecting...");
       router.push("/dashboard");
+    
     } catch (error) {
       console.error("Login error:", error);
-      toast.error("Giriş sırasında bir hata oluştu!");
+      toast.error(error instanceof Error ? error.message : "An error occurred during login");
     }
   };
 
@@ -101,22 +104,22 @@ const SigninPage = () => {
       });
 
       const data = await response.json();
-
+      console.log(data);
       if (data.status) {
         const result = await signIn("credentials", {
           loginType: 'google',
           accessToken: data.data.accessToken,
-          refreshToken: data.data.refreshToken,
+          //refreshToken: data.data.refreshToken,
           redirect: false,
         });
 
         if (result?.ok) {
-          localStorage.setItem('accessToken', data.data.accessToken);
-          localStorage.setItem('refreshToken', data.data.refreshToken);
+          localStorage.setItem('accessToken', data.accessToken);
+          //localStorage.setItem('refreshToken', data.data.refreshToken);
           toast.success('Giriş başarılı! Yönlendiriliyorsunuz...');
           router.push('/dashboard');
         } else {
-          toast.error('Giriş başarısız.');
+          toast.error('Giriş başarısız');
         }
       } else {
         toast.error(data.message || 'Google ile giriş başarısız.');

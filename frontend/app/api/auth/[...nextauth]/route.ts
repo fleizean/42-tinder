@@ -10,7 +10,7 @@ const handler = NextAuth({
         password: { label: "Password", type: "password" },
         loginType: { label: "Login Type", type: "text" },
         accessToken: { label: "Access Token", type: "text" },
-        refreshToken: { label: "Refresh Token", type: "text" }
+   /*      refreshToken: { label: "Refresh Token", type: "text" } */
       },
       async authorize(credentials) {
         try {
@@ -21,31 +21,35 @@ const handler = NextAuth({
             return {
               id: '1',
               accessToken: credentials.accessToken,
-              refreshToken: credentials.refreshToken,
+/*               refreshToken: credentials.refreshToken, */
               expiration: new Date(expirationTime).toISOString()
             };
           }
 
           // Regular Login
-          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/Auth/login`, {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/auth/login/json`, {
             method: 'POST',
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              'Content-Type': 'application/json',
+              "Accept": "application/json"
+            },
+            credentials: 'include',
             body: JSON.stringify({
-              usernameOrEmail: credentials?.usernameOrEmail,
+              username: credentials?.usernameOrEmail,
               password: credentials?.password,
             })
           });
 
           const data = await res.json();
 
-          if (data.status) {
-            const tokenData = JSON.parse(atob(data.data.accessToken.split('.')[1]));
+         if (data?.access_token) {
+            const tokenData = JSON.parse(atob(data.access_token.split('.')[1]));
             const expirationTime = tokenData.exp * 1000;
 
             return {
               id: credentials?.usernameOrEmail || '1',
-              accessToken: data.data.accessToken,
-              refreshToken: data.data.refreshToken,
+              accessToken: data.access_token,
+/*               refreshToken: data.data.refreshToken, */
               expiration: new Date(expirationTime).toISOString()
             };
           }
@@ -61,7 +65,7 @@ const handler = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.accessToken = user.accessToken;
-        token.refreshToken = user.refreshToken;
+/*         token.refreshToken = user.refreshToken; */
         token.expiration = user.expiration;
       }
       return token;
@@ -69,7 +73,7 @@ const handler = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.accessToken = token.accessToken;
-        session.user.refreshToken = token.refreshToken;
+/*         session.user.refreshToken = token.refreshToken; */
         session.user.expiration = token.expiration;
       }
       if (token.expiration && new Date(token.expiration) < new Date()) {

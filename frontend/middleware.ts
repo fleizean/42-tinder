@@ -26,7 +26,7 @@ export default withAuth(
       response.cookies.delete("next-auth.session-token");
       response.cookies.delete("next-auth.callback-url");
       response.cookies.delete("accessToken");
-      response.cookies.delete("refreshToken");
+      //response.cookies.delete("refreshToken");
 
       return response;
     }

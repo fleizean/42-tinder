@@ -1,0 +1,32 @@
+# FastAPI and ASGI server
+fastapi==0.109.0
+uvicorn==0.27.0
+
+# Database
+sqlalchemy==2.0.25
+alembic==1.13.1
+psycopg2-binary==2.9.9  # PostgreSQL driver
+asyncpg==0.29.0  # Async PostgreSQL driver
+
+# Authentication and security
+python-jose==3.3.0  # JWT tokens
+passlib==1.7.4  # Password hashing
+bcrypt==4.1.2  # Password hashing
+python-multipart==0.0.6  # Form data parsing
+
+# Email
+fastapi-mail==1.4.1
+
+# WebSockets for chat
+websockets==12.0
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Utilities
+pydantic==2.5.3
+pydantic-settings==2.1.0
+email-validator==2.1.0.post1
+
+# Geolocation
+geopy==2.4.1

@@ -1,12 +1,26 @@
-# Project Name
+# Matcha
 
-A full-stack web application built with FastAPI backend and Next.js frontend.
+A modern dating web application inspired by Tinder, built as part of 42 School's curriculum.
 
 ## Features
 
-- Feature 1
-- Feature 2
-- Feature 3
+- User authentication & profile management
+- Advanced user matching algorithm
+- Real-time chat system
+- Geolocation-based matching
+- Interest tags and filtering
+- Profile rating system
+- Notification system
+- User blocking & reporting
+
+## Tech Stack
+
+- Frontend: React.js
+- Backend: Node.js, Express
+- Database: PostgreSQL
+- Real-time: Socket.io
+- Authentication: JWT
+- Storage: AWS S3
 
 ## Prerequisites
 

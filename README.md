@@ -15,12 +15,11 @@ A modern dating web application inspired by Tinder, built as part of 42 School's
 
 ## Tech Stack
 
-- Frontend: React.js
-- Backend: Node.js, Express
+- Frontend: Next.js
+- Backend: FastApi
 - Database: PostgreSQL
 - Real-time: Socket.io
 - Authentication: JWT
-- Storage: AWS S3
 
 ## Prerequisites
 

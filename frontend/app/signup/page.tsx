@@ -79,7 +79,7 @@ const SignupPage = () => {
       }
       // Kaydolma başarılı, yönlendirme veya işlem yapılabilir
       toast.success("Kayıt başarılı! Giriş sayfasına yönlendiriliyorsunuz...");
-      //router.push("/signin");
+      router.push("/signin");
     } catch (error) {
       console.error("Signup error:", error);
       toast.error("Kayıt sırasında bir hata oluştu.");

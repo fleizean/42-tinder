@@ -47,32 +47,9 @@ const SigninPage = () => {
     }
 
     try {
-      // First, authenticate with backend API
-      const apiResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/auth/login/json`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          "Accept": "application/json"
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          username: usernameOrEmail,
-          password
-        })
-      });
-    
-      const data = await apiResponse.json();
-    
-      if (!apiResponse.ok) {
-        throw new Error(data.message || "Authentication failed");
-      }
-    
-      // Store token in session storage instead of localStorage for better security
-      sessionStorage.setItem('accessToken', data.access_token);
     
       // Modify NextAuth signIn call with token
       const result = await signIn("credentials", {
-        token: data.access_token, // Pass token to credentials provider
         usernameOrEmail,
         password,
         redirect: false,
@@ -80,15 +57,15 @@ const SigninPage = () => {
       });
     
       if (!result?.ok) {
-        throw new Error(result?.error || "Failed to create session");
+        toast.error(result.error || "Giriş sırasında bir hata oluştu.");
+        return;
       }
     
-      toast.success("Login successful! Redirecting...");
+      toast.success("Giriş başarılı! Yönlendiriliyorsunuz...");
       router.push("/dashboard");
     
     } catch (error) {
-      console.error("Login error:", error);
-      toast.error(error instanceof Error ? error.message : "An error occurred during login");
+      toast.error(error instanceof Error ? error.message : "Giriş sırasında bir hata oluştu.");
     }
   };
 

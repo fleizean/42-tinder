@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import { FiUser, FiLock, FiEye, FiBell, FiUserX, FiX, FiPlus } from "react-icons/fi";
+import { toast, Toaster } from "react-hot-toast";
 
 interface BlockedUser {
   id: string;
@@ -23,6 +25,7 @@ const SettingsPage = () => {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const { data: session } = useSession();
 
   const [notifications, setNotifications] = useState({
     emailNotifications: true,
@@ -32,9 +35,47 @@ const SettingsPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const passwordInputRef = useRef(null);
-  const handlePasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setDeletePassword(e.target.value);
-  }, []);
+  const handlePasswordChange = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error("Tüm alanları doldurunuz");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("Yeni şifreler eşleşmiyor");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.user?.accessToken}`,
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Şifre değiştirme başarısız');
+      }
+
+      toast.success('Şifre başarıyla değiştirildi');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      return;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Bir hata oluştu');
+    }
+  };
+
+
 
   // Add this handler function:
   const handleDeleteAccount = () => {
@@ -91,8 +132,8 @@ const SettingsPage = () => {
     <button
       onClick={() => setActiveTab(value)}
       className={`w-full flex items-center space-x-2 p-3 text-left rounded-lg transition-colors ${activeTab === value
-          ? "bg-[#3C3C3E] text-white"
-          : "text-gray-400 hover:bg-[#3C3C3E] hover:text-white"
+        ? "bg-[#3C3C3E] text-white"
+        : "text-gray-400 hover:bg-[#3C3C3E] hover:text-white"
         }`}
     >
       <Icon />
@@ -100,46 +141,13 @@ const SettingsPage = () => {
     </button>
   );
 
-  const CustomInput = ({ type = "text", ...props }) => (
-    <input
-      type={type}
-      className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
-      {...props}
-    />
-  );
 
-  const CustomButton = ({ variant = "primary", children, ...props }) => (
-    <button
-      className={`px-4 py-2 rounded-lg transition-colors ${variant === "primary"
-          ? "bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white hover:opacity-90"
-          : variant === "destructive"
-            ? "bg-red-500 text-white hover:bg-red-600"
-            : "bg-[#3C3C3E] text-white hover:bg-[#4C4C4E]"
-        }`}
-      {...props}
-    >
-      {children}
-    </button>
-  );
 
-  const CustomSwitch = ({ checked, onChange }) => (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${checked ? "bg-[#D63384]" : "bg-[#3C3C3E]"
-        }`}
-    >
-      <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${checked ? "translate-x-6" : "translate-x-1"
-          }`}
-      />
-    </button>
-  );
+
 
   return (
     <section className="pt-[150px] pb-[120px] bg-[#1C1C1E] min-h-screen">
+      <Toaster position="top-right" /> 
       <div className="container mx-auto px-4">
         <h1 className="text-3xl font-bold text-white mb-8">Ayarlar</h1>
 
@@ -198,35 +206,40 @@ const SettingsPage = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-gray-300 mb-2">İsim</label>
-                      <CustomInput
+                      <input
+                        type="text"
                         value={profileInfo.firstName}
                         onChange={(e) => setProfileInfo({ ...profileInfo, firstName: e.target.value })}
                         placeholder="İsminiz"
+                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
                       />
                     </div>
                     <div>
                       <label className="block text-gray-300 mb-2">Soyisim</label>
-                      <CustomInput
+                      <input
                         value={profileInfo.lastName}
                         onChange={(e) => setProfileInfo({ ...profileInfo, lastName: e.target.value })}
                         placeholder="Soyisminiz"
+                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
                       />
                     </div>
                     <div>
                       <label className="block text-gray-300 mb-2">Kullanıcı Adı</label>
-                      <CustomInput
+                      <input
                         value={profileInfo.username}
                         onChange={(e) => setProfileInfo({ ...profileInfo, username: e.target.value })}
                         placeholder="Kullanıcı adınız"
+                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
                       />
                     </div>
                     <div>
                       <label className="block text-gray-300 mb-2">E-posta</label>
-                      <CustomInput
+                      <input
                         type="email"
                         value={profileInfo.email}
                         onChange={(e) => setProfileInfo({ ...profileInfo, email: e.target.value })}
                         placeholder="E-posta adresiniz"
+                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
                       />
                     </div>
                   </div>
@@ -235,18 +248,20 @@ const SettingsPage = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-gray-300 mb-2">Doğum Tarihi</label>
-                      <CustomInput
+                      <input
                         type="date"
                         value={profileInfo.birthDate}
                         onChange={(e) => setProfileInfo({ ...profileInfo, birthDate: e.target.value })}
+                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
                       />
                     </div>
                     <div>
                       <label className="block text-gray-300 mb-2">Etiket</label>
-                      <CustomInput
+                      <input
                         value={profileInfo.tag}
                         onChange={(e) => setProfileInfo({ ...profileInfo, tag: e.target.value })}
                         placeholder="#etiket"
+                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
                       />
                     </div>
                     <div>
@@ -280,10 +295,11 @@ const SettingsPage = () => {
                   {/* Location & Bio */}
                   <div>
                     <label className="block text-gray-300 mb-2">Konum</label>
-                    <CustomInput
+                    <input
                       value={profileInfo.location}
                       onChange={(e) => setProfileInfo({ ...profileInfo, location: e.target.value })}
                       placeholder="Şehir, Ülke"
+                      className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
                     />
                   </div>
                   <div>
@@ -296,39 +312,12 @@ const SettingsPage = () => {
                     />
                   </div>
 
-                  {/* Password Change */}
-                  <div className="border-t border-[#3C3C3E] pt-6">
-                    <h3 className="text-xl font-semibold text-white mb-4">Şifre Değiştir</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-gray-300 mb-2">Mevcut Şifre</label>
-                        <CustomInput
-                          type="password"
-                          value={currentPassword}
-                          onChange={(e) => setCurrentPassword(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-gray-300 mb-2">Yeni Şifre</label>
-                        <CustomInput
-                          type="password"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-gray-300 mb-2">Yeni Şifre (Tekrar)</label>
-                        <CustomInput
-                          type="password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
+
 
                   <div className="flex justify-end">
-                    <CustomButton>Değişiklikleri Kaydet</CustomButton>
+                    <button
+                      className="bg-[#D63384] text-white py-2 px-4 rounded-lg hover:bg-[#D63384] transition-colors"
+                    >Değişiklikleri Kaydet</button>
                   </div>
                 </div>
               </div>
@@ -339,17 +328,65 @@ const SettingsPage = () => {
               <div>
                 <h2 className="text-2xl font-semibold text-white mb-6">Gizlilik</h2>
                 <div className="space-y-8">
+                  {/* Password Change Section */}
+                  <div className="border-b border-[#3C3C3E] pb-6">
+                    <h3 className="text-xl font-semibold text-white mb-4">Şifre Değiştir</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-gray-300 mb-2">Mevcut Şifre</label>
+                        <input
+                          type="password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          placeholder="Mevcut şifrenizi girin"
+                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-300 mb-2">Yeni Şifre</label>
+                        <input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Yeni şifrenizi girin"
+                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-300 mb-2">Yeni Şifre (Tekrar)</label>
+                        <input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Yeni şifrenizi tekrar girin"
+                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
+                        />
+                      </div>
+                      <div className="flex justify-start space-x-3">
+                        
+                        <button
+                          className="bg-[#D63384] text-white py-2 px-4 rounded-lg hover:bg-[#D63384] transition-colors"
+                          onClick={handlePasswordChange}
+                          type="button"
+                        >
+                          Şifreyi Değiştir
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Account Deletion Section */}
                   <div>
                     <h3 className="text-xl font-semibold text-red-500 mb-4">Hesap Silme</h3>
                     <p className="text-gray-400 mb-4">
                       Hesabınızı silmek geri alınamaz bir işlemdir. Tüm verileriniz kalıcı olarak silinecektir.
                     </p>
-                    <CustomButton
-                      variant="destructive"
+                    <button
+                      className="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors"
                       onClick={() => setShowDeleteModal(true)}
                     >
                       Hesabımı Sil
-                    </CustomButton>
+                    </button>
                   </div>
                 </div>
 
@@ -362,30 +399,31 @@ const SettingsPage = () => {
                         Hesabınızı silmek için lütfen şifrenizi girin.
                       </p>
                       <div className="space-y-4">
-                        <CustomInput
+                        <input
                           type="password"
-                          autoFocus
+
                           ref={passwordInputRef}
                           value={deletePassword}
                           onChange={handlePasswordChange}
-                          placeholder="Şifrenizi girin"                         
+                          placeholder="Şifrenizi girin"
+                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
                         />
                         <div className="flex justify-end space-x-3">
-                          <CustomButton
-                            variant="secondary"
+                          <button
+                            className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
                             onClick={() => {
                               setShowDeleteModal(false);
                               setDeletePassword("");
                             }}
                           >
                             İptal
-                          </CustomButton>
-                          <CustomButton
-                            variant="destructive"
+                          </button>
+                          <button
+                            className="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors"
                             onClick={handleDeleteAccount}
                           >
                             Hesabı Sil
-                          </CustomButton>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -403,17 +441,35 @@ const SettingsPage = () => {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-300">Yeni bir mesaj aldığımda</span>
-                        <CustomSwitch
-                          checked={notifications.emailNotifications}
-                          onChange={(value) => setNotifications({ ...notifications, emailNotifications: value })}
-                        />
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={notifications.emailNotifications}
+                          onClick={() => setNotifications(prev => ({ ...prev, emailNotifications: !prev.emailNotifications }))}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notifications.emailNotifications ? "bg-[#D63384]" : "bg-[#3C3C3E]"
+                            }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notifications.emailNotifications ? "translate-x-6" : "translate-x-1"
+                              }`}
+                          />
+                        </button>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-300">Yeni bir eşleşme olduğunda</span>
-                        <CustomSwitch
-                          checked={notifications.matchNotifications}
-                          onChange={(value) => setNotifications({ ...notifications, matchNotifications: value })}
-                        />
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={notifications.matchNotifications}
+                          onClick={() => setNotifications(prev => ({ ...prev, matchNotifications: !prev.matchNotifications }))}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notifications.matchNotifications ? "bg-[#D63384]" : "bg-[#3C3C3E]"
+                            }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notifications.matchNotifications ? "translate-x-6" : "translate-x-1"
+                              }`}
+                          />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -422,10 +478,19 @@ const SettingsPage = () => {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-300">Yeni bir mesaj aldığımda</span>
-                        <CustomSwitch
-                          checked={notifications.messageNotifications}
-                          onChange={(value) => setNotifications({ ...notifications, messageNotifications: value })}
-                        />
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={notifications.messageNotifications}
+                          onClick={() => setNotifications(prev => ({ ...prev, messageNotifications: !prev.messageNotifications }))}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notifications.messageNotifications ? "bg-[#D63384]" : "bg-[#3C3C3E]"
+                            }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notifications.messageNotifications ? "translate-x-6" : "translate-x-1"
+                              }`}
+                          />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -453,12 +518,12 @@ const SettingsPage = () => {
                       </div>
                       <div className="flex items-center space-x-4">
                         <span className="text-gray-300">{user.blockedDate}</span>
-                        <CustomButton
-                          variant="destructive"
+                        <button
+                          className="bg-[#D63384] text-white py-2 px-4 rounded-lg hover:bg-[#D63384] transition-colors"
                           onClick={() => handleUnblock(user.id)}
                         >
                           Engeli Kaldır
-                        </CustomButton>
+                        </button>
                       </div>
                     </div>
                   ))}

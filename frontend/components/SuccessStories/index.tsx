@@ -41,7 +41,7 @@ const SuccessStories = () => {
   };
 
   return (
-    <section className="relative z-10 py-16 md:py-20 lg:py-28 bg-[#1C1C1E]">
+    <section className="relative z-10 py-16 md:py-20 lg:py-28 bg-gradient-to-br from-[#1C1C1E] via-[#8A2BE2]/10 to-[#D63384]/10">
       <div className="container">
         <SectionTitle
           title="Başarı Hikayeleri"

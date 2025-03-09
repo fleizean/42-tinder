@@ -1,6 +1,11 @@
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 
+interface LoginError {
+  error: string;
+  status: number;
+}
+
 const handler = NextAuth({
   providers: [
     CredentialsProvider({
@@ -33,7 +38,6 @@ const handler = NextAuth({
               'Content-Type': 'application/json',
               "Accept": "application/json"
             },
-            credentials: 'include',
             body: JSON.stringify({
               username: credentials?.usernameOrEmail,
               password: credentials?.password,
@@ -41,15 +45,19 @@ const handler = NextAuth({
           });
 
           const data = await res.json();
+          console.log("Login response:", data);
 
-         if (data?.access_token) {
+          if (!res.ok) {
+            return Promise.reject(new Error(data.detail));
+          }
+
+          if (data?.access_token) {
             const tokenData = JSON.parse(atob(data.access_token.split('.')[1]));
             const expirationTime = tokenData.exp * 1000;
 
             return {
               id: credentials?.usernameOrEmail || '1',
               accessToken: data.access_token,
-/*               refreshToken: data.data.refreshToken, */
               expiration: new Date(expirationTime).toISOString()
             };
           }

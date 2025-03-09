@@ -97,13 +97,13 @@ async def login_json(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password"
+            detail="Şifre veya kullanıcı adı hatalı",
         )
     
     if not user.is_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email not verified. Please check your email for verification instructions.",
+            detail="Email onaylanmamış. Lütfen emailinizi kontrol edin.",
         )
     
     access_token = create_access_token(user.id)
@@ -122,6 +122,7 @@ async def verify_email(
     """
     Verify email with token
     """
+    print('token:', token)
     user = await verify_user(db, token)
     if not user:
         raise HTTPException(

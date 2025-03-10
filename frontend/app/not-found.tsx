@@ -1,8 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
+
+
 
 const NotFound = () => {
+  useEffect(() => {
+    document.title = "404 - Sayfa Bulunamadı";
+  }
+  , []);
   return (
     <>
       <section className="relative z-10 pb-16 pt-36 md:pb-20 lg:pb-28 lg:pt-[180px] bg-[#1C1C1E]">

@@ -275,7 +275,7 @@ const Header = () => {
                           <FaUserCircle className="mr-2 text-pink-500 transition-all duration-300 group-hover:scale-110" />
                           <span>Hesabım</span>
                         </button>
-                        <div className="absolute right-0 hidden w-48 py-2 mt-1 bg-white/10 backdrop-blur-sm rounded-lg border border-pink-500/20 shadow-xl group-hover:block dark:bg-gray-800/90">
+                        <div className="absolute right-0 hidden w-48 py-2 mt-0 bg-white/10 backdrop-blur-sm rounded-lg border border-pink-500/20 shadow-xl group-hover:block dark:bg-gray-800/90">
                           <Link
                             href="/profile/me"
                             className="flex items-center px-4 py-2 text-sm text-white/90 hover:text-[#D63384] hover:bg-white/5 transition-all duration-300"

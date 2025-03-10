@@ -1,13 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast, Toaster } from "react-hot-toast";
+import { Metadata } from "next";
+
+const metadata: Metadata = {
+  title: "Şifremi Unuttum - CrushIt",
+  description: "Şifrenizi mi unuttunuz? E-posta adresinizi girin, size şifre sıfırlama bağlantısı gönderelim.",
+};
+
 
 const ForgotPasswordPage = () => {
   const router = useRouter();
   const [mail, setEmail] = useState("");
+
+  useEffect(() => {
+    document.title = metadata.title as string;
+  }
+  , []);
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,15 +30,16 @@ const ForgotPasswordPage = () => {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/Auth/password-reset`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/auth/forgot-password?email=${mail}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mail }),
       });
 
       if (res.ok) {
-        toast.success("Şifre sıfırlama talimatları e-posta adresinize gönderildi. Lütfen gelen kutunuzu kontrol ediniz.");
-        router.push("/signin");
+        toast.success("Şifre sıfırlama talimatları e-posta adresinize gönderildi.");
+        setTimeout(() => {
+          router.push("/signin");
+        }, 2000);
       }
     } catch (error) {
       toast.error("Bir hata oluştu. Lütfen daha sonra tekrar deneyiniz.");

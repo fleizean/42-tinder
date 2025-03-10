@@ -3,8 +3,14 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
-import { FiUser, FiLock, FiEye, FiBell, FiUserX, FiX, FiPlus } from "react-icons/fi";
+import { FiUser, FiLock, FiMapPin, FiBell, FiUserX, FiX, FiPlus } from "react-icons/fi";
 import { toast, Toaster } from "react-hot-toast";
+import { FiLoader } from "react-icons/fi";
+
+interface Tag {
+  id: string;
+  name: string;
+}
 
 interface BlockedUser {
   id: string;
@@ -12,6 +18,39 @@ interface BlockedUser {
   avatar: string;
   blockedDate: string;
 }
+
+interface ProfileApiResponse {
+  gender: string;
+  sexual_preference: string;
+  biography: string;
+  latitude: number;
+  longitude: number;
+  id: string;
+  user_id: string;
+  fame_rating: number;
+  is_complete: boolean;
+  created_at: string;
+  updated_at: string;
+  pictures: string[];
+  tags: Tag[];
+  birth_date: string;
+}
+interface UserApiResponse {
+  email: string;
+  username: string;
+  is_active: boolean;
+  id: string;
+  first_name: string;
+  last_name: string;
+  created_at: string;
+  updated_at: string;
+  last_login: string;
+  is_online: boolean;
+  last_online: string;
+  is_verified: boolean;
+}
+
+
 
 import { Metadata } from "next";
 
@@ -21,20 +60,97 @@ const metadata: Metadata = {
 };
 
 const SettingsPage = () => {
+  // Session hook
+  const { data: session } = useSession();
+
+  const LoadingSpinner = () => (
+    <div className="flex flex-col items-center justify-center min-h-[60vh]">
+      <FiLoader className="w-12 h-12 text-[#D63384] animate-spin" />
+      <p className="mt-4 text-gray-400">Yükleniyor...</p>
+    </div>
+  );
+
+  // Tab state
   const [activeTab, setActiveTab] = useState("account");
+
+  // Password change states
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const { data: session } = useSession();
 
+  // Account deletion states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const passwordInputRef = useRef(null);
+
+  // Tags states
+  const [tagInput, setTagInput] = useState("");
+  const [tags, setTags] = useState<Tag[]>([]);
+
+  const BLACKLISTED_TAGS = [
+    'admin',
+    'moderator',
+    'staff',
+    'support',
+    'system',
+    'crushit',
+    'crushitapp'
+    // Add more blacklisted words as needed
+  ];
+  const mockBlockedUsers: BlockedUser[] = [
+    {
+      id: "1",
+      name: "Ahmet Yılmaz",
+      avatar: "https://images7.alphacoders.com/121/1218824.jpg",
+      blockedDate: "2024-03-15",
+    },
+    {
+      id: "2",
+      name: "Mehmet Demir",
+      avatar: "https://images7.alphacoders.com/110/1104374.jpg",
+      blockedDate: "2024-03-14",
+    },
+  ];
+
+
+
+  // Notification states
   const [notifications, setNotifications] = useState({
     emailNotifications: true,
     messageNotifications: true,
     matchNotifications: true,
   });
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deletePassword, setDeletePassword] = useState("");
-  const passwordInputRef = useRef(null);
+
+  // Profile info state
+  const [profileInfo, setProfileInfo] = useState({
+    firstName: "",
+    lastName: "",
+    username: "",
+    email: "",
+    birthDate: "",
+    gender: "",
+    preference: "",
+    location: "",
+    biography: "",
+    photos: [] as string[],
+    latitude: 0,
+    longitude: 0
+  });
+
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Effects
+  useEffect(() => {
+    document.title = metadata.title as string;
+  }, []);
+
+  useEffect(() => {
+    if (session?.user?.accessToken) {
+      fetchProfile();
+    }
+  }, [session]);
+
   const handlePasswordChange = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast.error("Tüm alanları doldurunuz");
@@ -75,9 +191,6 @@ const SettingsPage = () => {
     }
   };
 
-
-
-  // Add this handler function:
   const handleDeleteAccount = () => {
     if (!deletePassword) {
       alert("Lütfen şifrenizi girin");
@@ -89,48 +202,466 @@ const SettingsPage = () => {
     setDeletePassword("");
   };
 
+  const fetchProfile = async () => {
+    try {
+      const [profileResponse, userResponse] = await Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me`, {
+          headers: {
+            'Authorization': `Bearer ${session?.user?.accessToken}`,
+            'Content-Type': 'application/json',
+          }
+        }),
+        fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/users/me`, {
+          headers: {
+            'Authorization': `Bearer ${session?.user?.accessToken}`,
+            'Content-Type': 'application/json',
+          }
+        })
+      ]);
 
-  const [profileInfo, setProfileInfo] = useState({
-    firstName: "",
-    lastName: "",
-    username: "",
-    email: "",
-    tag: "",
-    birthDate: "",
-    gender: "",
-    preference: "",
-    location: "",
-    biography: "",
-    photos: [] as string[]
-  });
+      if (!profileResponse.ok || !userResponse.ok) {
+        throw new Error('Data fetch failed');
+      }
 
-  const mockBlockedUsers: BlockedUser[] = [
-    {
-      id: "1",
-      name: "Ahmet Yılmaz",
-      avatar: "https://images7.alphacoders.com/121/1218824.jpg",
-      blockedDate: "2024-03-15",
-    },
-    {
-      id: "2",
-      name: "Mehmet Demir",
-      avatar: "https://images7.alphacoders.com/110/1104374.jpg",
-      blockedDate: "2024-03-14",
-    },
-  ];
+      const [profileData, userData]: [ProfileApiResponse, UserApiResponse] = await Promise.all([
+        profileResponse.json(),
+        userResponse.json()
+      ]);
 
-  useEffect(() => {
-    document.title = metadata.title as string;
-  }, []);
+      // Update profile info state with both API responses
+      setProfileInfo(prevState => ({
+        ...prevState,
+        firstName: userData.first_name || "",
+        lastName: userData.last_name || "",
+        username: userData.username || "",
+        email: userData.email || "",
+        gender: profileData.gender || "",
+        preference: profileData.sexual_preference || "",
+        biography: profileData.biography || "",
+        latitude: profileData.latitude || 0,
+        longitude: profileData.longitude || 0,
+        photos: profileData.pictures || [],
+        tag: profileData.tags.join(", "),
+        birthDate: profileData.birth_date ? new Date(profileData.birth_date).toISOString().split('T')[0] : "",
+      }));
 
+      setTags(profileData.tags);
+      const locationString = await getCityCountryFromCoords(profileData.latitude, profileData.longitude);
+
+      // Update profileInfo with both coordinates and location string
+      setProfileInfo(prev => ({
+        ...prev,
+        latitude: profileData.latitude,
+        longitude: profileData.longitude,
+        location: locationString
+      }));
+
+    } catch (error) {
+      toast.error('Profil bilgileri yüklenemedi');
+      console.error('Profile fetch error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isValidTag = (tag: string): boolean => {
+    const normalizedTag = tag.toLowerCase().trim();
+
+    // Check against blacklist
+    if (BLACKLISTED_TAGS.includes(normalizedTag)) {
+      toast.error('Bu etiket kullanılamaz');
+      return false;
+    }
+
+    // Check length
+    if (normalizedTag.length < 2 || normalizedTag.length > 20) {
+      toast.error('Etiket 2-20 karakter uzunluğunda olmalıdır');
+      return false;
+    }
+
+    // Check if already exists
+    if (tags.some(tag => tag.name === normalizedTag)) {
+      toast.error('Bu etiket zaten eklenmiş');
+      return false;
+    }
+
+    // Only allow letters, numbers and dashes
+    if (!/^[a-z0-9-]+$/.test(normalizedTag)) {
+      toast.error('Etiket sadece harf, rakam ve tire içerebilir');
+      return false;
+    }
+
+    return true;
+  };
+
+  // Add tag handler
+  const handleTagKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+  
+      const tagName = tagInput.toLowerCase().trim();
+  
+      if (!tagName) return;
+  
+      if (!isValidTag(tagName)) {
+        setTagInput('');
+        return;
+      }
+  
+      try {
+        const newTag: Tag = {
+          id: crypto.randomUUID(),
+          name: tagName
+        };
+  
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me/tags`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.user?.accessToken}`,
+          },
+          body: JSON.stringify({
+            tags: [...tags.map(tag => tag.name), tagName] // Send only tag names
+          })
+        });
+  
+        const data = await response.json();
+  
+        if (!response.ok) {
+          // Check if response has validation error details
+          if (data.detail && Array.isArray(data.detail)) {
+            // Show the first validation error message
+            toast.error(data.detail[0].msg || 'Etiket eklenirken bir hata oluştu');
+          } else {
+            throw new Error('Failed to add tag');
+          }
+          return;
+        }
+  
+        setTags(prev => [...prev, newTag]);
+        setTagInput('');
+        toast.success('Etiket başarıyla eklendi');
+  
+      } catch (error) {
+        toast.error('Etiket eklenirken bir hata oluştu');
+        console.error('Tag adding error:', error);
+      }
+    }
+  };
+
+  // Add tag removal handler
+  const handleRemoveTag = async (tagName: string) => {
+    try {
+      const updatedTags = tags.filter(tag => tag.name !== tagName);
+  
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me/tags`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.user?.accessToken}`,
+        },
+        body: JSON.stringify({
+          tags: updatedTags.map(tag => tag.name)
+        })
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        if (data.detail && Array.isArray(data.detail)) {
+          toast.error(data.detail[0].msg || 'Etiket kaldırılırken bir hata oluştu');
+        } else {
+          throw new Error('Failed to remove tag');
+        }
+        return;
+      }
+  
+      setTags(updatedTags);
+      toast.success('Etiket başarıyla kaldırıldı');
+  
+    } catch (error) {
+      toast.error('Etiket kaldırılırken bir hata oluştu');
+      console.error('Tag removal error:', error);
+    }
+  };
+
+  // Add this function after other imports
+  const getCityCountryFromCoords = async (latitude: number, longitude: number): Promise<string> => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`
+      );
+
+      if (!response.ok) {
+        throw new Error('Geocoding failed');
+      }
+
+      const data = await response.json();
+      const city = data.address.province || '';
+      const country = data.address.country || '';
+
+
+      return `${city}, ${country}`;
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      return '';
+    }
+  };
+
+  // Update handleLocationDetect function
+  const handleLocationDetect = async () => {
+    setIsLoading(true);
+
+    const updateLocationInfo = async (latitude: number, longitude: number) => {
+      setIsLoading(true);
+
+      const updateLocationViaAPI = async (latitude: number, longitude: number) => {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me/location`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${session?.user?.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ latitude, longitude })
+        });
+
+        if (!response.ok) {
+          throw new Error('Location update failed');
+        }
+
+        setProfileInfo(prev => ({
+          ...prev,
+          latitude,
+          longitude
+        }));
+      };
+
+      try {
+        // Update coordinates via API
+        await updateLocationViaAPI(latitude, longitude);
+
+        // Get city and country
+        const locationString = await getCityCountryFromCoords(latitude, longitude);
+
+        // Update profileInfo with both coordinates and location string
+        setProfileInfo(prev => ({
+          ...prev,
+          latitude,
+          longitude,
+          location: locationString
+        }));
+
+        toast.success('Konum başarıyla güncellendi');
+      } catch (error) {
+        throw error;
+      }
+    };
+
+    try {
+      // Browser geolocation
+      if ("geolocation" in navigator) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, (error) => {
+              if (error.code === error.PERMISSION_DENIED) {
+                reject(new Error('PERMISSION_DENIED'));
+              } else {
+                reject(error);
+              }
+            });
+          });
+
+          await updateLocationInfo(pos.coords.latitude, pos.coords.longitude);
+          return;
+        } catch (geoError) {
+          console.log('Geolocation failed, falling back to IP:', geoError);
+        }
+      }
+
+      // IP Geolocation fallback
+      try {
+        const ipResponse = await fetch('https://ipapi.co/json/');
+        if (!ipResponse.ok) throw new Error('IP geolocation failed');
+
+        const ipData = await ipResponse.json();
+
+        if (!ipData.latitude || !ipData.longitude) {
+          throw new Error('Invalid location data from IP');
+        }
+
+        await updateLocationInfo(ipData.latitude, ipData.longitude);
+      } catch (ipError) {
+        throw new Error('IP üzerinden konum alınamadı');
+      }
+
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Konum güncellenirken bir hata oluştu');
+      console.error('Location update error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Show loading state
+    setIsLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('is_primary', (!profileInfo.photos.length).toString()); // First photo is primary
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me/pictures`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.user?.accessToken}`,
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload photo');
+      }
+
+      // Refresh profile to get updated photos
+      await fetchProfile();
+      toast.success('Fotoğraf başarıyla yüklendi');
+
+    } catch (error) {
+      toast.error('Fotoğraf yüklenirken bir hata oluştu');
+      console.error('Photo upload error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePhotoRemove = async (pictureId: string) => {
+    if (!confirm('Bu fotoğrafı silmek istediğinize emin misiniz?')) {
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me/pictures/${pictureId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${session?.user?.accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to delete photo');
+      }
+
+      // Refresh profile to get updated photos
+      await fetchProfile();
+      toast.success('Fotoğraf başarıyla silindi');
+
+    } catch (error) {
+      toast.error('Fotoğraf silinirken bir hata oluştu');
+      console.error('Photo delete error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
+
+    const handleProfileUpdate = async () => {
+    try {
+      // Update user data first
+      const userResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/users/me`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session?.user?.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          first_name: profileInfo.firstName,
+          last_name: profileInfo.lastName,
+          username: profileInfo.username,
+          email: profileInfo.email,
+        })
+      });
+  
+      if (!userResponse.ok) {
+        const userError = await userResponse.json();
+        if (userError.detail && Array.isArray(userError.detail)) {
+          throw new Error(userError.detail[0].msg);
+        }
+        throw new Error(userError.detail || 'Kullanıcı bilgileri güncellenemedi');
+      }
+  
+      // Format birth_date to ISO string
+      let formattedBirthDate = null;
+    if (profileInfo.birthDate) {
+      const date = new Date(profileInfo.birthDate);
+      formattedBirthDate = new Date(Date.UTC(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        0, 0, 0
+      )).toISOString();
+    }
+  
+      // Then update profile data
+      const profileResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session?.user?.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          gender: profileInfo.gender,
+          sexual_preference: profileInfo.preference,
+          biography: profileInfo.biography,
+          latitude: profileInfo.latitude,
+          longitude: profileInfo.longitude,
+          birth_date: formattedBirthDate
+        })
+      });
+  
+      if (!profileResponse.ok) {
+        const profileError = await profileResponse.json();
+        if (profileError.detail && Array.isArray(profileError.detail)) {
+          throw new Error(profileError.detail[0].msg);
+        }
+        throw new Error(profileError.detail || 'Profil güncellenemedi');
+      }
+  
+      toast.success('Profil başarıyla güncellendi');
+      await fetchProfile();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Profil güncellenirken bir hata oluştu');
+      console.error('Profile update error:', error);
+    }
+  };
 
   const handleUnblock = (userId: string) => {
     // API call to unblock user
     alert(`Kullanıcının engeli kaldırıldı: ${userId}`);
   };
+
+
+
+  // Update TabButton definition
   const TabButton = ({ value, icon: Icon, label }: { value: string; icon: any; label: string }) => (
     <button
-      onClick={() => setActiveTab(value)}
+      onClick={() => {
+        setActiveTab(value);
+        if (value === "account") {
+          fetchProfile();
+        }
+      }}
       className={`w-full flex items-center space-x-2 p-3 text-left rounded-lg transition-colors ${activeTab === value
         ? "bg-[#3C3C3E] text-white"
         : "text-gray-400 hover:bg-[#3C3C3E] hover:text-white"
@@ -141,13 +672,9 @@ const SettingsPage = () => {
     </button>
   );
 
-
-
-
-
   return (
     <section className="pt-[150px] pb-[120px] bg-[#1C1C1E] min-h-screen">
-      <Toaster position="top-right" /> 
+      <Toaster position="top-right" />
       <div className="container mx-auto px-4">
         <h1 className="text-3xl font-bold text-white mb-8">Ayarlar</h1>
 
@@ -160,378 +687,434 @@ const SettingsPage = () => {
             <TabButton value="blocked" icon={FiUserX} label="Engellenen Kullanıcılar" />
           </div>
           {/* Content */}
-          <div className="bg-[#2C2C2E] rounded-xl p-8">
-            {activeTab === "account" && (
-              <div>
-                <h2 className="text-2xl font-semibold text-white mb-6">Hesap Ayarları</h2>
-                <div className="space-y-8">
-                  {/* Profile Photos */}
-                  <div>
-                    <h3 className="text-xl font-semibold text-white mb-4">Profil Fotoğrafları</h3>
-                    <div className="grid grid-cols-5 gap-4">
-                      {[...Array(5)].map((_, index) => (
-                        <div key={index} className="aspect-square rounded-lg bg-[#3C3C3E] overflow-hidden relative">
-                          {profileInfo.photos[index] ? (
-                            <>
-                              <Image
-                                src={profileInfo.photos[index]}
-                                alt={`Photo ${index + 1}`}
-                                fill
-                                className="object-cover"
-                              />
+          {isLoading ? (
+            <LoadingSpinner />
+          ) : (
+            <div className="bg-[#2C2C2E] rounded-xl p-8">
+
+              {activeTab === "account" && (
+
+                <div>
+
+                  <h2 className="text-2xl font-semibold text-white mb-6">Hesap Ayarları</h2>
+                  <div className="space-y-8">
+                    {/* Profile Photos */}
+                    <div>
+                      <h3 className="text-xl font-semibold text-white mb-4">Profil Fotoğrafları</h3>
+                      <div className="grid grid-cols-5 gap-4">
+                        {[...Array(5)].map((_, index) => (
+                          <div key={index} className="aspect-square rounded-lg bg-[#3C3C3E] overflow-hidden relative">
+                            {profileInfo.photos[index] ? (
+                              <>
+                                <Image
+                                  src={profileInfo.photos[index]}
+                                  alt={`Photo ${index + 1}`}
+                                  fill
+                                  className="object-cover"
+                                />
+                                <button
+                                  onClick={() => handlePhotoRemove(profileInfo.photos[index])}
+                                  className="absolute top-2 right-2 p-1 bg-red-500 rounded-full hover:bg-red-600 transition-colors"
+                                >
+                                  <FiX className="text-white" />
+                                </button>
+                              </>
+                            ) : (
+                              <label className="flex items-center justify-center h-full cursor-pointer hover:bg-[#4C4C4E] transition-colors">
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept="image/*"
+                                  onChange={(e) => handlePhotoUpload(e, index)}
+                                />
+                                <FiPlus className="text-gray-400 w-8 h-8" />
+                              </label>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Basic Info */}
+                    <h3 className="text-2xl font-semibold text-white mb-6">Profil Bilgileri</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-gray-300 mb-2">İsim</label>
+                        <input
+                          type="text"
+                          value={profileInfo.firstName}
+                          onChange={(e) => setProfileInfo({ ...profileInfo, firstName: e.target.value })}
+                          placeholder="İsminiz"
+                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-300 mb-2">Soyisim</label>
+                        <input
+                          value={profileInfo.lastName}
+                          onChange={(e) => setProfileInfo({ ...profileInfo, lastName: e.target.value })}
+                          placeholder="Soyisminiz"
+                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-300 mb-2">Kullanıcı Adı</label>
+                        <input
+                          value={profileInfo.username}
+                          onChange={(e) => setProfileInfo({ ...profileInfo, username: e.target.value })}
+                          placeholder="Kullanıcı adınız"
+                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-300 mb-2">E-posta</label>
+                        <input
+                          type="email"
+                          value={profileInfo.email}
+                          onChange={(e) => setProfileInfo({ ...profileInfo, email: e.target.value })}
+                          placeholder="E-posta adresiniz"
+                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Personal Info */}
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <label className="block text-gray-300 mb-2">Doğum Tarihi</label>
+                        <input
+                          type="date"
+                          value={profileInfo.birthDate}
+                          onChange={(e) => setProfileInfo({ ...profileInfo, birthDate: e.target.value })}
+                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-gray-300 mb-2">Cinsiyet</label>
+                        <select
+                          value={profileInfo.gender}
+                          onChange={(e) => setProfileInfo({ ...profileInfo, gender: e.target.value })}
+                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2"
+                        >
+                          <option value="">Seçiniz</option>
+                          <option value="male">Erkek</option>
+                          <option value="female">Kadın</option>
+                          <option value="non_binary">Non-binary</option>
+                          <option value="other">Diğer</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-gray-300 mb-2">Cinsiyet Tercihi</label>
+                        <select
+                          value={profileInfo.preference}
+                          onChange={(e) => setProfileInfo({ ...profileInfo, preference: e.target.value })}
+                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2"
+                        >
+                          <option value="">Seçiniz</option>
+                          <option value="heterosexual">Heteroseksüel</option>
+                          <option value="homosexual">Homoseksüel</option>
+                          <option value="bisexual">Biseksüel</option>
+                          <option value="other">Diğer</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 mb-2">Biyografi</label>
+                      <textarea
+                        value={profileInfo.biography}
+                        onChange={(e) => setProfileInfo({ ...profileInfo, biography: e.target.value })}
+                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 min-h-[100px]"
+                        placeholder="Kendinizden bahsedin..."
+                      />
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleProfileUpdate}
+                        className="bg-[#D63384] text-white py-2 px-4 rounded-lg hover:bg-[#D63384] transition-colors"
+                      >Değişiklikleri Kaydet</button>
+                    </div>
+      
+
+                    {/* Tags */}
+                    <hr className="border-[#3C3C3E]" />
+                    <h3 className="text-xl font-semibold text-white mb-4">Etiketler</h3>
+                    <div>
+                      <label className="block text-gray-300 mb-2">Etiketler</label>
+                      <div className="space-y-2">
+                        <input
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
+                          onKeyDown={handleTagKeyDown}
+                          placeholder="Etiket eklemek için yazın ve Enter'a basın"
+                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
+                        />
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {tags.map(tag => (
+                            <span
+                              key={tag.id}
+                              className="inline-flex items-center bg-[#3C3C3E] text-white px-3 py-1 rounded-full text-sm"
+                            >
+                              #{tag.name}
                               <button
-                                onClick={() => {/* Handle photo remove */ }}
-                                className="absolute top-2 right-2 p-1 bg-red-500 rounded-full"
+                                onClick={() => handleRemoveTag(tag.name)}
+                                className="ml-2 text-gray-400 hover:text-red-500 transition-colors"
                               >
-                                <FiX className="text-white" />
+                                <FiX className="w-4 h-4" />
                               </button>
-                            </>
-                          ) : (
-                            <label className="flex items-center justify-center h-full cursor-pointer">
-                              <input
-                                type="file"
-                                className="hidden"
-                                accept="image/*"
-                                onChange={(e) => {/* Handle photo upload */ }}
-                              />
-                              <FiPlus className="text-gray-400 w-8 h-8" />
-                            </label>
-                          )}
+                            </span>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Basic Info */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-gray-300 mb-2">İsim</label>
-                      <input
-                        type="text"
-                        value={profileInfo.firstName}
-                        onChange={(e) => setProfileInfo({ ...profileInfo, firstName: e.target.value })}
-                        placeholder="İsminiz"
-                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-300 mb-2">Soyisim</label>
-                      <input
-                        value={profileInfo.lastName}
-                        onChange={(e) => setProfileInfo({ ...profileInfo, lastName: e.target.value })}
-                        placeholder="Soyisminiz"
-                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-300 mb-2">Kullanıcı Adı</label>
-                      <input
-                        value={profileInfo.username}
-                        onChange={(e) => setProfileInfo({ ...profileInfo, username: e.target.value })}
-                        placeholder="Kullanıcı adınız"
-                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-300 mb-2">E-posta</label>
-                      <input
-                        type="email"
-                        value={profileInfo.email}
-                        onChange={(e) => setProfileInfo({ ...profileInfo, email: e.target.value })}
-                        placeholder="E-posta adresiniz"
-                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Personal Info */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-gray-300 mb-2">Doğum Tarihi</label>
-                      <input
-                        type="date"
-                        value={profileInfo.birthDate}
-                        onChange={(e) => setProfileInfo({ ...profileInfo, birthDate: e.target.value })}
-                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-300 mb-2">Etiket</label>
-                      <input
-                        value={profileInfo.tag}
-                        onChange={(e) => setProfileInfo({ ...profileInfo, tag: e.target.value })}
-                        placeholder="#etiket"
-                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-300 mb-2">Cinsiyet</label>
-                      <select
-                        value={profileInfo.gender}
-                        onChange={(e) => setProfileInfo({ ...profileInfo, gender: e.target.value })}
-                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2"
-                      >
-                        <option value="">Seçiniz</option>
-                        <option value="male">Erkek</option>
-                        <option value="female">Kadın</option>
-                        <option value="other">Diğer</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-gray-300 mb-2">Cinsiyet Tercihi</label>
-                      <select
-                        value={profileInfo.preference}
-                        onChange={(e) => setProfileInfo({ ...profileInfo, preference: e.target.value })}
-                        className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2"
-                      >
-                        <option value="">Seçiniz</option>
-                        <option value="male">Erkek</option>
-                        <option value="female">Kadın</option>
-                        <option value="both">Her ikisi</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Location & Bio */}
-                  <div>
-                    <label className="block text-gray-300 mb-2">Konum</label>
-                    <input
-                      value={profileInfo.location}
-                      onChange={(e) => setProfileInfo({ ...profileInfo, location: e.target.value })}
-                      placeholder="Şehir, Ülke"
-                      className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-300 mb-2">Biyografi</label>
-                    <textarea
-                      value={profileInfo.biography}
-                      onChange={(e) => setProfileInfo({ ...profileInfo, biography: e.target.value })}
-                      className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 min-h-[100px]"
-                      placeholder="Kendinizden bahsedin..."
-                    />
-                  </div>
-
-
-
-                  <div className="flex justify-end">
-                    <button
-                      className="bg-[#D63384] text-white py-2 px-4 rounded-lg hover:bg-[#D63384] transition-colors"
-                    >Değişiklikleri Kaydet</button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Privacy Tab */}
-            {activeTab === "privacy" && (
-              <div>
-                <h2 className="text-2xl font-semibold text-white mb-6">Gizlilik</h2>
-                <div className="space-y-8">
-                  {/* Password Change Section */}
-                  <div className="border-b border-[#3C3C3E] pb-6">
-                    <h3 className="text-xl font-semibold text-white mb-4">Şifre Değiştir</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-gray-300 mb-2">Mevcut Şifre</label>
-                        <input
-                          type="password"
-                          value={currentPassword}
-                          onChange={(e) => setCurrentPassword(e.target.value)}
-                          placeholder="Mevcut şifrenizi girin"
-                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
-                        />
                       </div>
-                      <div>
-                        <label className="block text-gray-300 mb-2">Yeni Şifre</label>
+                    </div>
+                    
+                    {/* Location */}
+                    <hr className="border-[#3C3C3E]" />
+                    <h3 className="text-xl font-semibold text-white mb-4">Konum</h3>
+                    <div>
+                      <label className="block text-gray-300 mb-2">Konum</label>
+                      <div className="flex space-x-2">
                         <input
-                          type="password"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder="Yeni şifrenizi girin"
-                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
+                          value={profileInfo.location}
+                          readOnly
+                          placeholder="Şehir, Ülke"
+                          className="flex-1 bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
                         />
-                      </div>
-                      <div>
-                        <label className="block text-gray-300 mb-2">Yeni Şifre (Tekrar)</label>
-                        <input
-                          type="password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder="Yeni şifrenizi tekrar girin"
-                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
-                        />
-                      </div>
-                      <div className="flex justify-start space-x-3">
-                        
                         <button
-                          className="bg-[#D63384] text-white py-2 px-4 rounded-lg hover:bg-[#D63384] transition-colors"
-                          onClick={handlePasswordChange}
-                          type="button"
+                          onClick={handleLocationDetect}
+                          className="bg-[#3C3C3E] text-white px-4 py-2 rounded-lg hover:bg-[#4C4C4E] transition-colors flex items-center space-x-2"
                         >
-                          Şifreyi Değiştir
+                          <FiMapPin />
+                          <span>Konumu Algıla</span>
                         </button>
                       </div>
+                      {profileInfo.latitude && profileInfo.longitude && (
+                        <p className="mt-2 text-sm text-gray-400">
+                          Lat: {profileInfo.latitude.toFixed(4)}, Long: {profileInfo.longitude.toFixed(4)}
+                        </p>
+                      )}
                     </div>
-                  </div>
 
-                  {/* Account Deletion Section */}
-                  <div>
-                    <h3 className="text-xl font-semibold text-red-500 mb-4">Hesap Silme</h3>
-                    <p className="text-gray-400 mb-4">
-                      Hesabınızı silmek geri alınamaz bir işlemdir. Tüm verileriniz kalıcı olarak silinecektir.
-                    </p>
-                    <button
-                      className="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors"
-                      onClick={() => setShowDeleteModal(true)}
-                    >
-                      Hesabımı Sil
-                    </button>
+
+
+                   
                   </div>
                 </div>
 
-                {/* Delete Account Modal */}
-                {showDeleteModal && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-[#2C2C2E] p-6 rounded-lg max-w-md w-full mx-4">
-                      <h3 className="text-xl font-semibold text-white mb-4">Hesap Silme Onayı</h3>
-                      <p className="text-gray-400 mb-4">
-                        Hesabınızı silmek için lütfen şifrenizi girin.
-                      </p>
+              )}
+
+              {/* Privacy Tab */}
+              {activeTab === "privacy" && (
+                <div>
+                  <h2 className="text-2xl font-semibold text-white mb-6">Gizlilik</h2>
+                  <div className="space-y-8">
+                    {/* Password Change Section */}
+                    <div className="border-b border-[#3C3C3E] pb-6">
+                      <h3 className="text-xl font-semibold text-white mb-4">Şifre Değiştir</h3>
                       <div className="space-y-4">
-                        <input
-                          type="password"
-
-                          ref={passwordInputRef}
-                          value={deletePassword}
-                          onChange={handlePasswordChange}
-                          placeholder="Şifrenizi girin"
-                          className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
-                        />
-                        <div className="flex justify-end space-x-3">
-                          <button
+                        <div>
+                          <label className="block text-gray-300 mb-2">Mevcut Şifre</label>
+                          <input
+                            type="password"
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            placeholder="Mevcut şifrenizi girin"
                             className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
-                            onClick={() => {
-                              setShowDeleteModal(false);
-                              setDeletePassword("");
-                            }}
-                          >
-                            İptal
-                          </button>
-                          <button
-                            className="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors"
-                            onClick={handleDeleteAccount}
-                          >
-                            Hesabı Sil
-                          </button>
+                          />
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            {/* Notifications Tab */}
-            {activeTab === "notifications" && (
-              <div>
-                <h2 className="text-2xl font-semibold text-white mb-6">Bildirimler</h2>
-                <div className="space-y-8">
-                  <div>
-                    <h3 className="text-xl font-semibold text-white mb-4">E-posta Bildirimleri</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300">Yeni bir mesaj aldığımda</span>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={notifications.emailNotifications}
-                          onClick={() => setNotifications(prev => ({ ...prev, emailNotifications: !prev.emailNotifications }))}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notifications.emailNotifications ? "bg-[#D63384]" : "bg-[#3C3C3E]"
-                            }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notifications.emailNotifications ? "translate-x-6" : "translate-x-1"
-                              }`}
+                        <div>
+                          <label className="block text-gray-300 mb-2">Yeni Şifre</label>
+                          <input
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="Yeni şifrenizi girin"
+                            className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
                           />
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300">Yeni bir eşleşme olduğunda</span>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={notifications.matchNotifications}
-                          onClick={() => setNotifications(prev => ({ ...prev, matchNotifications: !prev.matchNotifications }))}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notifications.matchNotifications ? "bg-[#D63384]" : "bg-[#3C3C3E]"
-                            }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notifications.matchNotifications ? "translate-x-6" : "translate-x-1"
-                              }`}
+                        </div>
+                        <div>
+                          <label className="block text-gray-300 mb-2">Yeni Şifre (Tekrar)</label>
+                          <input
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Yeni şifrenizi tekrar girin"
+                            className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
                           />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-white mb-4">Mobil Bildirimleri</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300">Yeni bir mesaj aldığımda</span>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={notifications.messageNotifications}
-                          onClick={() => setNotifications(prev => ({ ...prev, messageNotifications: !prev.messageNotifications }))}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notifications.messageNotifications ? "bg-[#D63384]" : "bg-[#3C3C3E]"
-                            }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notifications.messageNotifications ? "translate-x-6" : "translate-x-1"
-                              }`}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+                        </div>
+                        <div className="flex justify-start space-x-3">
 
-            {/* Blocked Users Tab */}
-            {activeTab === "blocked" && (
-              <div>
-                <h2 className="text-2xl font-semibold text-white mb-6">Engellenen Kullanıcılar</h2>
-                <div className="space-y-8">
-                  {mockBlockedUsers.map((user) => (
-                    <div key={user.id} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 relative overflow-hidden rounded-full">
-                          <Image
-                            src={user.avatar}
-                            alt={user.name}
-                            fill
-                            className="object-cover"
-                          />
+                          <button
+                            className="bg-[#D63384] text-white py-2 px-4 rounded-lg hover:bg-[#D63384] transition-colors"
+                            onClick={handlePasswordChange}
+                            type="button"
+                          >
+                            Şifreyi Değiştir
+                          </button>
                         </div>
-                        <span className="text-white">{user.name}</span>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <span className="text-gray-300">{user.blockedDate}</span>
-                        <button
-                          className="bg-[#D63384] text-white py-2 px-4 rounded-lg hover:bg-[#D63384] transition-colors"
-                          onClick={() => handleUnblock(user.id)}
-                        >
-                          Engeli Kaldır
-                        </button>
                       </div>
                     </div>
-                  ))}
+
+                    {/* Account Deletion Section */}
+                    <div>
+                      <h3 className="text-xl font-semibold text-red-500 mb-4">Hesap Silme</h3>
+                      <p className="text-gray-400 mb-4">
+                        Hesabınızı silmek geri alınamaz bir işlemdir. Tüm verileriniz kalıcı olarak silinecektir.
+                      </p>
+                      <button
+                        className="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors"
+                        onClick={() => setShowDeleteModal(true)}
+                      >
+                        Hesabımı Sil
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Delete Account Modal */}
+                  {showDeleteModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                      <div className="bg-[#2C2C2E] p-6 rounded-lg max-w-md w-full mx-4">
+                        <h3 className="text-xl font-semibold text-white mb-4">Hesap Silme Onayı</h3>
+                        <p className="text-gray-400 mb-4">
+                          Hesabınızı silmek için lütfen şifrenizi girin.
+                        </p>
+                        <div className="space-y-4">
+                          <input
+                            type="password"
+
+                            ref={passwordInputRef}
+                            value={deletePassword}
+                            onChange={handlePasswordChange}
+                            placeholder="Şifrenizi girin"
+                            className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
+                          />
+                          <div className="flex justify-end space-x-3">
+                            <button
+                              className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
+                              onClick={() => {
+                                setShowDeleteModal(false);
+                                setDeletePassword("");
+                              }}
+                            >
+                              İptal
+                            </button>
+                            <button
+                              className="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors"
+                              onClick={handleDeleteAccount}
+                            >
+                              Hesabı Sil
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+              {/* Notifications Tab */}
+              {activeTab === "notifications" && (
+                <div>
+                  <h2 className="text-2xl font-semibold text-white mb-6">Bildirimler</h2>
+                  <div className="space-y-8">
+                    <div>
+                      <h3 className="text-xl font-semibold text-white mb-4">E-posta Bildirimleri</h3>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-300">Yeni bir mesaj aldığımda</span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={notifications.emailNotifications}
+                            onClick={() => setNotifications(prev => ({ ...prev, emailNotifications: !prev.emailNotifications }))}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notifications.emailNotifications ? "bg-[#D63384]" : "bg-[#3C3C3E]"
+                              }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notifications.emailNotifications ? "translate-x-6" : "translate-x-1"
+                                }`}
+                            />
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-300">Yeni bir eşleşme olduğunda</span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={notifications.matchNotifications}
+                            onClick={() => setNotifications(prev => ({ ...prev, matchNotifications: !prev.matchNotifications }))}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notifications.matchNotifications ? "bg-[#D63384]" : "bg-[#3C3C3E]"
+                              }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notifications.matchNotifications ? "translate-x-6" : "translate-x-1"
+                                }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-white mb-4">Mobil Bildirimleri</h3>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-300">Yeni bir mesaj aldığımda</span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={notifications.messageNotifications}
+                            onClick={() => setNotifications(prev => ({ ...prev, messageNotifications: !prev.messageNotifications }))}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notifications.messageNotifications ? "bg-[#D63384]" : "bg-[#3C3C3E]"
+                              }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notifications.messageNotifications ? "translate-x-6" : "translate-x-1"
+                                }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Blocked Users Tab */}
+              {activeTab === "blocked" && (
+                <div>
+                  <h2 className="text-2xl font-semibold text-white mb-6">Engellenen Kullanıcılar</h2>
+                  <div className="space-y-8">
+                    {mockBlockedUsers.map((user) => (
+                      <div key={user.id} className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 relative overflow-hidden rounded-full">
+                            <Image
+                              src={user.avatar}
+                              alt={user.name}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                          <span className="text-white">{user.name}</span>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <span className="text-gray-300">{user.blockedDate}</span>
+                          <button
+                            className="bg-[#D63384] text-white py-2 px-4 rounded-lg hover:bg-[#D63384] transition-colors"
+                            onClick={() => handleUnblock(user.id)}
+                          >
+                            Engeli Kaldır
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
       </div>
     </section>
   );

@@ -1,6 +1,9 @@
+from ast import Delete
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
+from sqlalchemy import delete
 from typing import Any, List, Optional
 import uuid
 import os
@@ -19,10 +22,12 @@ from app.schemas.profile import (
     Tag as TagSchema,
     ProfilePicture as ProfilePictureSchema,
     LocationUpdate,
-    PublicProfile
+    PublicProfile,
+    TagUpdateSchema
 )
 from app.services.profile import (
     get_profile_by_user_id,
+    is_profile_complete,
     update_profile,
     add_tag_to_profile,
     remove_tag_from_profile,
@@ -37,16 +42,24 @@ from app.services.interactions import visit_profile
 
 router = APIRouter()
 
-
 @router.get("/me", response_model=ProfileSchema)
 async def get_my_profile(
     current_user: User = Depends(get_current_verified_user),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
-    """
-    Get current user's profile
-    """
-    profile = await get_profile_by_user_id(db, current_user.id)
+    # Use selectinload to eagerly load relationships
+    query = (
+        select(Profile)
+        .options(
+            selectinload(Profile.pictures),
+            selectinload(Profile.tags)
+        )
+        .filter(Profile.user_id == current_user.id)
+    )
+    
+    result = await db.execute(query)
+    profile = result.scalar_one_or_none()
+    
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -62,70 +75,133 @@ async def update_my_profile(
     current_user: User = Depends(get_current_verified_user),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
-    """
-    Update current user's profile
-    """
-    profile = await get_profile_by_user_id(db, current_user.id)
-    if not profile:
+    try:
+        # Get profile with relationships
+        stmt = select(Profile).options(
+            selectinload(Profile.pictures),
+            selectinload(Profile.tags)
+        ).where(Profile.user_id == current_user.id)
+        
+        result = await db.execute(stmt)
+        profile = result.scalar_one_or_none()
+
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Profile not found"
+            )
+
+        # Update profile fields
+        for field, value in profile_data.dict(exclude_unset=True).items():
+            setattr(profile, field, value)
+
+        # Update is_complete status
+        profile.is_complete = is_profile_complete(profile)
+        
+        # Save changes
+        await db.commit()
+        await db.refresh(profile)
+        return profile
+
+    except Exception as e:
+        await db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profile not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
         )
-    
-    updated_profile = await update_profile(db, profile.id, profile_data.dict(exclude_unset=True))
-    return updated_profile
 
-
-@router.put("/me/tags", response_model=List[TagSchema])
+@router.put("/me/tags", response_model=ProfileSchema)
 async def update_my_tags(
-    tag_data: ProfileTagUpdate,
+    tag_data: TagUpdateSchema,
     current_user: User = Depends(get_current_verified_user),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
-    """
-    Update current user's profile tags
-    """
-    profile = await get_profile_by_user_id(db, current_user.id)
+    query = (
+        select(Profile)
+        .options(
+            selectinload(Profile.tags),
+            selectinload(Profile.pictures)
+        )
+        .filter(Profile.user_id == current_user.id)
+    )
+    result = await db.execute(query)
+    profile = result.scalar_one_or_none()
+
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profile not found"
+            detail="Profil bulunamadı"
         )
-    
-    tags = await update_profile_tags(db, profile.id, tag_data.tags)
-    return tags
 
+    try:
+        # Clear existing tags
+        profile.tags = []
+        
+        # Add new tags
+        for tag_name in tag_data.tags:
+            # Check if tag already exists
+            existing_tag_query = select(Tag).filter(Tag.name == tag_name)
+            result = await db.execute(existing_tag_query)
+            existing_tag = result.scalar_one_or_none()
+            
+            if existing_tag:
+                # Use existing tag
+                profile.tags.append(existing_tag)
+            else:
+                # Create new tag
+                new_tag = Tag(name=tag_name)
+                profile.tags.append(new_tag)
+        
+        await db.commit()
+        await db.refresh(profile)
+        
+        return profile
+        
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 @router.put("/me/location", response_model=ProfileSchema)
-async def update_my_location(
-    location_data: LocationUpdate,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
-    """
-    Update current user's location
-    """
-    profile = await get_profile_by_user_id(db, current_user.id)
-    if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profile not found"
-        )
-    
-    # Update both user and profile locations
-    profile_updates = {
-        "latitude": location_data.latitude,
-        "longitude": location_data.longitude
-    }
-    
-    current_user.latitude = location_data.latitude
-    current_user.longitude = location_data.longitude
-    db.add(current_user)
-    await db.commit()
-    
-    updated_profile = await update_profile(db, profile.id, profile_updates)
-    return updated_profile
+async def update_location(
+    location: LocationUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_verified_user)
+):
+    try:
+        async with db.begin():
+            # Get current profile with relationships loaded
+            stmt = select(Profile).options(
+                selectinload(Profile.pictures),
+                selectinload(Profile.tags)
+            ).where(Profile.user_id == current_user.id)
+            
+            result = await db.execute(stmt)
+            profile = result.scalar_one_or_none()
 
+            if not profile:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Profile not found"
+                )
+
+            # Update location
+            profile.latitude = location.latitude
+            profile.longitude = location.longitude
+            
+            await db.commit()
+            
+            # Return updated profile with relationships
+            return profile
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 @router.post("/me/pictures", response_model=ProfilePictureSchema)
 async def upload_profile_picture(
@@ -359,7 +435,8 @@ async def get_profile(
         is_online=user.is_online,
         last_online=user.last_online,
         pictures=profile.pictures,
-        tags=profile.tags
+        tags=profile.tags,
+        birth_date=user.birth_date
     )
     
     return public_profile

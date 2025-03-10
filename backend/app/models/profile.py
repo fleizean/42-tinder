@@ -86,6 +86,8 @@ class Profile(Base):
     user = relationship("User", foreign_keys=[user_id])
     pictures = relationship("ProfilePicture", back_populates="profile", cascade="all, delete-orphan")
     tags = relationship("Tag", secondary=profile_tags, backref="profiles")
+
+    birth_date = Column(DateTime(timezone=True), nullable=True)
     
     # Profile interactions (defined in respective models)
     # likes = relationship("Like", foreign_keys="Like.liker_id", back_populates="liker")

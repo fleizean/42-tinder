@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { FiSend, FiMoreVertical, FiSearch, FiCircle, FiSlash, FiFlag } from "react-icons/fi";
+import { FiSend, FiMoreVertical, FiSearch, FiCircle, FiSlash, FiFlag, FiArrowLeft } from "react-icons/fi";
 import { Metadata } from "next";
 
 const metadata: Metadata = {
@@ -137,26 +137,32 @@ const ChatPage = () => {
   };
 
   return (
-    <section className="pt-[150px] pb-[120px] bg-[#1C1C1E] min-h-screen">
+    <section className="pt-[80px] md:pt-[150px] pb-[60px] md:pb-[120px] bg-[#1C1C1E] min-h-screen">
       <div className="container mx-auto px-4">
-        <div className="flex bg-[#2C2C2E] rounded-xl overflow-hidden" style={{ height: "calc(100vh - 300px)" }}>
-          {/* Chat List */}
-          <div className="w-1/3 border-r border-[#3C3C3E]">
-            <div className="p-4 border-b border-[#3C3C3E]">
+        <div className="flex flex-col lg:flex-row bg-[#2C2C2E] rounded-xl overflow-hidden"
+          style={{ height: "calc(100vh - 160px)" }}>
+          {/* Chat List - Make it full width on mobile */}
+          <div className={`${activeChat ? 'hidden lg:block' : 'block'} lg:w-1/3 border-r border-[#3C3C3E]`}>
+            <div className="sticky top-0 bg-[#2C2C2E] p-4 border-b border-[#3C3C3E] z-10">
               <div className="relative">
                 <input
                   type="text"
                   placeholder="Sohbet ara..."
-                  className="w-full bg-[#3C3C3E] text-white rounded-lg pl-10 pr-4 py-2"
+                  className="w-full bg-[#3C3C3E] text-white rounded-lg pl-10 pr-4 py-3 focus:ring-2 focus:ring-[#D63384] transition-all"
                 />
                 <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               </div>
             </div>
-            <div className="overflow-y-auto" style={{ height: "calc(100% - 72px)" }}>
+
+            {/* Chat List Scrollable Area */}
+            <div className="overflow-y-auto h-[calc(100vh-240px)] scrollbar-thin scrollbar-thumb-[#3C3C3E] scrollbar-track-transparent">
               {mockChats.map((chat) => (
-                <div
+                <motion.div
                   key={chat.id}
-                  className={`p-4 flex items-center cursor-pointer hover:bg-[#3C3C3E] transition-colors ${activeChat === chat.id ? "bg-[#3C3C3E]" : ""
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className={`p-4 flex items-center cursor-pointer hover:bg-[#3C3C3E] transition-all ${activeChat === chat.id ? "bg-[#3C3C3E]" : ""
                     }`}
                   onClick={() => setActiveChat(chat.id)}
                 >
@@ -173,6 +179,7 @@ const ChatPage = () => {
                       <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2 border-[#2C2C2E]" />
                     )}
                   </div>
+
                   <div className="ml-3 flex-1">
                     <div className="flex justify-between items-start">
                       <h3 className="text-white font-semibold">{chat.name}</h3>
@@ -180,12 +187,13 @@ const ChatPage = () => {
                     </div>
                     <p className="text-gray-400 text-sm truncate">{chat.lastMessage}</p>
                   </div>
+
                   {chat.unreadCount && (
                     <div className="ml-2 bg-[#D63384] rounded-full w-5 h-5 flex items-center justify-center">
                       <span className="text-white text-xs">{chat.unreadCount}</span>
                     </div>
                   )}
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
@@ -270,13 +278,19 @@ const ChatPage = () => {
             </div>
           )}
 
-          {/* Chat Area */}
-          <div className="flex-1 flex flex-col">
+                  {/* Chat Area */}
+          <div className={`${activeChat ? 'block' : 'hidden lg:block'} flex-1 flex flex-col`}>
             {activeChat ? (
               <>
-                {/* Chat Header */}
-                <div className="p-4 border-b border-[#3C3C3E] flex items-center justify-between">
+                {/* Chat Header with Back Button on Mobile */}
+                <div className="sticky top-0 bg-[#2C2C2E] p-4 border-b border-[#3C3C3E] flex items-center justify-between z-10">
                   <div className="flex items-center">
+                    <button
+                      className="lg:hidden mr-3 text-gray-400 hover:text-white"
+                      onClick={() => setActiveChat(null)}
+                    >
+                      <FiArrowLeft size={20} />
+                    </button>
                     <div className="relative">
                       <div className="w-10 h-10 rounded-full overflow-hidden">
                         <Image
@@ -294,6 +308,7 @@ const ChatPage = () => {
                       <p className="text-xs text-gray-400">Çevrimiçi</p>
                     </div>
                   </div>
+          
                   <div className="relative" ref={menuRef}>
                     <button
                       className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-[#3C3C3E]"
@@ -301,7 +316,7 @@ const ChatPage = () => {
                     >
                       <FiMoreVertical size={20} />
                     </button>
-
+          
                     {showMenu && (
                       <div className="absolute right-0 mt-2 w-48 bg-[#2C2C2E] rounded-lg shadow-lg py-2 z-50">
                         <button
@@ -322,61 +337,84 @@ const ChatPage = () => {
                     )}
                   </div>
                 </div>
-
+          
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-[#3C3C3E] scrollbar-track-transparent">
                   {mockMessages.map((message) => (
-                    <div
+                    <motion.div
                       key={message.id}
-                      className={`flex ${message.senderId === "current-user" ? "justify-end" : "justify-start"
-                        }`}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.2 }}
+                      className={`flex ${message.senderId === "current-user" ? "justify-end" : "justify-start"}`}
                     >
+                      {message.senderId !== "current-user" && (
+                        <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0">
+                          <Image
+                            src={mockChats.find(c => c.id === activeChat)?.avatar || ""}
+                            alt="User avatar"
+                            width={32}
+                            height={32}
+                            className="object-cover"
+                          />
+                        </div>
+                      )}
                       <div
-                        className={`max-w-[70%] rounded-2xl px-4 py-2 ${message.senderId === "current-user"
+                        className={`max-w-[70%] rounded-2xl px-4 py-3 ${
+                          message.senderId === "current-user"
                             ? "bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white"
                             : "bg-[#3C3C3E] text-white"
-                          }`}
+                        }`}
                       >
-                        <p>{message.text}</p>
-                        <span className="text-xs text-gray-300 mt-1 block">
+                        <p className="leading-relaxed">{message.text}</p>
+                        <span className="text-xs text-gray-300 mt-2 block">
                           {message.timestamp}
                         </span>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                   <div ref={messagesEndRef} />
                 </div>
-
+          
                 {/* Message Input */}
-                <form onSubmit={handleSendMessage} className="p-4 border-t border-[#3C3C3E]">
+                <form onSubmit={handleSendMessage} className="sticky bottom-0 bg-[#2C2C2E] p-4 border-t border-[#3C3C3E]">
                   <div className="flex items-center space-x-4">
                     <input
                       type="text"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       placeholder="Mesajınızı yazın..."
-                      className="flex-1 bg-[#3C3C3E] text-white rounded-lg px-4 py-2"
+                      className="flex-1 bg-[#3C3C3E] text-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#D63384] transition-all"
                     />
-                    <button
+                    <motion.button
                       type="submit"
-                      className="p-2 rounded-full bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white"
+                      whileTap={{ scale: 0.95 }}
                       disabled={!newMessage.trim()}
+                      className="p-3 rounded-full bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white disabled:opacity-50 transition-all hover:shadow-lg"
                     >
                       <FiSend size={20} />
-                    </button>
+                    </motion.button>
                   </div>
                 </form>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center">
-                <p className="text-gray-400">Sohbet başlatmak için bir kişi seçin</p>
+              <div className="h-[calc(100vh-300px)] flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-gray-400 text-lg">
+                  Sohbet başlatmak için bir kişi seçin
+                </p>
+                <p className="text-gray-500 text-sm mt-2">
+                  Sol taraftan bir sohbet seçebilirsiniz
+                </p>
               </div>
+            </div>
             )}
           </div>
-        </div>
-      </div>
-    </section>
-  );
+                
+              </div>
+          </div>
+        </section>
+      );
 };
 
 export default ChatPage;

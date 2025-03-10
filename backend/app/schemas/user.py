@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional
 from datetime import datetime
-
+from unidecode import unidecode
 
 # Shared properties
 class UserBase(BaseModel):
@@ -20,8 +20,18 @@ class UserCreate(UserBase):
     
     @validator('username')
     def username_alphanumeric(cls, v):
-        assert v.isalnum(), 'Kullanıcı adı yalnızca harf ve rakamlardan oluşabilir'
-        return v
+        # Convert Turkish characters to ASCII equivalents
+        normalized = unidecode(v)
+        
+        # Check if contains only allowed characters
+        if not normalized.isalnum():
+            raise ValueError('Kullanıcı adı yalnızca harf ve rakamlardan oluşabilir')
+            
+        # Check if original had Turkish characters
+        if v != normalized:
+            raise ValueError('Kullanıcı adında Türkçe karakter kullanılamaz (ğ,ü,ş,i,ö,ç)')
+            
+        return normalized
     
     @validator('password')
     def password_min_length(cls, v):
@@ -82,7 +92,7 @@ class PasswordReset(BaseModel):
     
     @validator('new_password')
     def password_min_length(cls, v):
-        assert len(v) >= 8, 'Password must be at least 8 characters'
+        assert len(v) >= 8, 'Şifre en az 8 karakter olmalıdır'
         return v
 
 
@@ -93,5 +103,5 @@ class PasswordChange(BaseModel):
     
     @validator('new_password')
     def password_min_length(cls, v):
-        assert len(v) >= 8, 'Password must be at least 8 characters'
+        assert len(v) >= 8, 'Şifre en az 8 karakter olmalıdır'
         return v

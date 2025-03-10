@@ -28,6 +28,7 @@ from app.schemas.profile import (
 )
 from app.services.profile import (
     get_profile_by_user_id,
+    get_profile_by_username,
     is_profile_complete,
     update_profile,
     add_tag_to_profile,
@@ -406,9 +407,9 @@ async def get_suggested(
     return profiles
 
 
-@router.get("/{profile_id}", response_model=PublicProfile)
+@router.get("/{username}", response_model=PublicProfile)
 async def get_profile(
-    profile_id: str,
+    username: str,
     current_user: User = Depends(get_current_verified_user),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
@@ -416,7 +417,7 @@ async def get_profile(
     Get a profile by ID
     """
     # Get user's profile
-    user_profile = await get_profile_by_user_id(db, current_user.id)
+    user_profile = await get_profile_by_username(db, username)
     if not user_profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -428,7 +429,7 @@ async def get_profile(
         select(Profile, User)
         .join(User, Profile.user_id == User.id)
         .options(selectinload(Profile.pictures), selectinload(Profile.tags))
-        .filter(Profile.id == profile_id)
+        .filter(Profile.id == user_profile.id)
     )
     profile_data = result.first()
     
@@ -441,8 +442,8 @@ async def get_profile(
     profile, user = profile_data
     
     # Record visit if not own profile
-    if user_profile.id != profile_id:
-        await visit_profile(db, user_profile.id, profile_id)
+    if user_profile.id != current_user.id:
+        await visit_profile(db, user_profile.id, current_user.id)
     
     # Create public profile
     public_profile = PublicProfile(
@@ -460,7 +461,7 @@ async def get_profile(
         last_online=user.last_online,
         pictures=profile.pictures,
         tags=profile.tags,
-        birth_date=user.birth_date
+        birth_date=profile.birth_date
     )
     
     return public_profile

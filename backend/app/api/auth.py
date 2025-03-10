@@ -29,7 +29,7 @@ async def register(
     if result.scalars().first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered"
+            detail="Bu kullanıcı adı zaten kayıtlı"
         )
     
     # Check if email already exists
@@ -37,7 +37,7 @@ async def register(
     if result.scalars().first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            detail="Bu email adresi zaten kayıtlı"
         )
     
     # Create user

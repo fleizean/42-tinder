@@ -25,6 +25,18 @@ async def get_profile_by_user_id(db: AsyncSession, user_id: str) -> Optional[Pro
     )
     return result.scalars().first()
 
+async def get_profile_by_username(db: AsyncSession, username: str) -> Optional[Profile]:
+    """
+    Get a profile by username
+    """
+    result = await db.execute(
+        select(Profile)
+        .options(selectinload(Profile.pictures), selectinload(Profile.tags))
+        .join(User)
+        .filter(User.username == username)
+    )
+    return result.scalars().first()
+
 
 async def get_profile_by_id(db: AsyncSession, profile_id: str) -> Optional[Profile]:
     """

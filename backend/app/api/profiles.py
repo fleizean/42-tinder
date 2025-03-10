@@ -15,7 +15,7 @@ from app.core.db import get_db
 from app.core.security import get_current_user, get_current_verified_user
 from app.core.config import settings
 from app.models.user import User
-from app.models.profile import Profile, Tag, Gender, SexualPreference
+from app.models.profile import Profile, Tag, Gender, SexualPreference, ProfilePicture
 from app.schemas.profile import (
     Profile as ProfileSchema,
     ProfileUpdate,
@@ -269,51 +269,67 @@ async def delete_profile_picture(
     """
     Delete a profile picture
     """
-    profile = await get_profile_by_user_id(db, current_user.id)
-    if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profile not found"
-        )
-    
-    result = await remove_profile_picture(db, profile.id, picture_id)
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Picture not found"
-        )
-    
-    return {
-        "message": "Picture deleted successfully"
-    }
+    try:
+        # Get profile with relationships
+        stmt = select(Profile).options(
+            selectinload(Profile.pictures),
+            selectinload(Profile.tags)
+        ).where(Profile.user_id == current_user.id)
+        
+        result = await db.execute(stmt)
+        profile = result.scalar_one_or_none()
 
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Profile not found"
+            )
+        
+        # Get picture
+        picture_stmt = select(ProfilePicture).where(
+            ProfilePicture.id == picture_id,
+            ProfilePicture.profile_id == profile.id
+        )
+        result = await db.execute(picture_stmt)
+        picture = result.scalar_one_or_none()
 
-@router.put("/me/pictures/{picture_id}/primary", response_model=dict)
-async def set_primary_profile_picture(
-    picture_id: int,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
-    """
-    Set a picture as primary profile picture
-    """
-    profile = await get_profile_by_user_id(db, current_user.id)
-    if not profile:
+        if not picture:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Picture not found"
+            )
+
+        # Check if this is the primary picture
+        was_primary = picture.is_primary
+
+        # Remove picture from filesystem if it exists
+        if os.path.exists(picture.file_path):
+            os.remove(picture.file_path)
+
+        # Remove picture from database
+        await db.delete(picture)
+        
+        # If this was the primary picture and there are other pictures, set a new primary
+        if was_primary and len(profile.pictures) > 1:
+            remaining_pictures = [p for p in profile.pictures if p.id != picture_id]
+            if remaining_pictures:
+                remaining_pictures[0].is_primary = True
+                db.add(remaining_pictures[0])
+
+        # Update profile's is_complete status
+        profile.is_complete = is_profile_complete(profile)
+        db.add(profile)
+        
+        await db.commit()
+
+        return {"message": "Picture deleted successfully"}
+
+    except Exception as e:
+        await db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profile not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
         )
-    
-    result = await set_primary_picture(db, profile.id, picture_id)
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Picture not found"
-        )
-    
-    return {
-        "message": "Primary picture updated successfully"
-    }
 
 
 @router.get("/suggested", response_model=List[PublicProfile])

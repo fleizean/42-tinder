@@ -39,7 +39,7 @@ interface ProfileApiResponse {
   is_complete: boolean;
   created_at: string;
   updated_at: string;
-  photos: ProfilePicture[];
+  pictures: ProfilePicture[];
   tags: Tag[];
   birth_date: string;
 }
@@ -56,6 +56,21 @@ interface UserApiResponse {
   is_online: boolean;
   last_online: string;
   is_verified: boolean;
+}
+
+interface ProfileState {
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  birthDate: string;
+  gender: string;
+  preference: string;
+  location: string;
+  biography: string;
+  photos: ProfilePicture[]; // Type is correct, just need to map from pictures
+  latitude: number;
+  longitude: number;
 }
 
 
@@ -140,7 +155,7 @@ const SettingsPage = () => {
     preference: "",
     location: "",
     biography: "",
-    photos: [] as string[],
+    photos: [],
     latitude: 0,
     longitude: 0
   });
@@ -248,7 +263,7 @@ const SettingsPage = () => {
         biography: profileData.biography || "",
         latitude: profileData.latitude || 0,
         longitude: profileData.longitude || 0,
-        photos: profileData.pictures || [],
+        photos: profileData.pictures || [], // Changed from photos to pictures
         tag: profileData.tags.join(", "),
         birthDate: profileData.birth_date ? new Date(profileData.birth_date).toISOString().split('T')[0] : "",
       }));

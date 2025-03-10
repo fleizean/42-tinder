@@ -13,8 +13,8 @@ from app.core.config import settings
 os.makedirs(os.path.join(settings.MEDIA_ROOT, "profile_pictures"), exist_ok=True)
 
 app = FastAPI(
-    title="Matcha API",
-    description="API for Matcha dating app",
+    title="CrushIt API",
+    description="API for CrushIt dating app",
     version="1.0.0"
 )
 
@@ -29,7 +29,7 @@ app.add_middleware(
 
 """ @app.get("/")
 async def root():
-    return {"message": "Welcome to Matcha API"} """
+    return {"message": "Welcome to CrushIt API"} """
 
 
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["Authentication"])

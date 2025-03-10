@@ -7,31 +7,57 @@ export default withAuth(
     const isAuthPage = authPages.includes(req.nextUrl.pathname);
     const token = req.nextauth?.token;
 
-
+    // Profile path handling
     if (req.nextUrl.pathname.startsWith('/profile')) {
       const segments = req.nextUrl.pathname.split('/');
-      // Check if there's a username after /profile/
-      if (segments.length < 3 || !segments[2]) {
-        if (token)
-          return NextResponse.redirect(new URL("/dashboard", req.url));
-        else
+      const username = segments[2];
+
+      // Check if path has username
+      if (segments.length > 2 && username) {
+        if (!token) {
           return NextResponse.redirect(new URL("/signin", req.url));
+        }
+
+        try {
+          // Check if profile exists
+          const profileResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/username/${username}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token.accessToken}`,
+              },
+            }
+          );
+
+          if (!profileResponse.ok) {
+            // Profile doesn't exist, redirect to 404
+            return NextResponse.redirect(new URL("/404", req.url));
+          }
+
+          return NextResponse.next();
+        } catch (error) {
+          console.error('Profile check error:', error);
+          return NextResponse.redirect(new URL("/404", req.url));
+        }
+      } else {
+        return token 
+          ? NextResponse.redirect(new URL("/dashboard", req.url))
+          : NextResponse.redirect(new URL("/signin", req.url));
       }
     }
-    
-    if ((token?.expiration && Date.now() >= new Date(token.expiration).getTime()) || (!token && !isAuthPage && req.nextUrl.pathname !== "/")) {
-      const response = NextResponse.redirect(new URL("/signin", req.url));
 
-      // Çerezleri temizle
+    // Token expiration check
+    if ((token?.expiration && Date.now() >= new Date(token.expiration).getTime()) || 
+        (!token && !isAuthPage && req.nextUrl.pathname !== "/")) {
+      const response = NextResponse.redirect(new URL("/signin", req.url));
+      
       response.cookies.delete("next-auth.session-token");
       response.cookies.delete("next-auth.callback-url");
       response.cookies.delete("accessToken");
-      //response.cookies.delete("refreshToken");
-
+      
       return response;
     }
 
-    // Kullanıcı giriş yapmışsa ve auth sayfasına gidiyorsa, yönlendir
     if (token && isAuthPage) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }

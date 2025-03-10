@@ -2,7 +2,7 @@ import ScrollUp from "@/components/Common/ScrollUp";
 import Features from "@/components/Features";
 import Hero from "@/components/Hero";
 import Pricing from "@/components/SuccessStories";
-import Video from "@/components/Video";
+import Quote from "@/components/Quote";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -17,7 +17,7 @@ export default function Home() {
       <ScrollUp />
       <Hero />
       <Features />
-      <Video />
+      <Quote />
       <Pricing />
     </>
   );

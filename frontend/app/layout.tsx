@@ -8,7 +8,6 @@ import "node_modules/react-modal-video/css/modal-video.css";
 import "../styles/index.css";
 import { SessionProvider } from "next-auth/react";
 import { Providers } from "./providers";
-import { GoogleOAuthProvider } from '@react-oauth/google';
 const inter = Inter({ subsets: ["latin"] });
 
 export default function RootLayout({
@@ -20,7 +19,6 @@ export default function RootLayout({
     <html suppressHydrationWarning lang="en">
       <head />
       <body className={`bg-[#FCFCFC] dark:bg-black ${inter.className}`}>
-        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
           <SessionProvider>
             <Providers>
               <Header />
@@ -29,7 +27,6 @@ export default function RootLayout({
               <ScrollToTop />
             </Providers>
           </SessionProvider>
-        </GoogleOAuthProvider>
       </body>
     </html>
   );

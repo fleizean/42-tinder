@@ -18,18 +18,7 @@ const handler = NextAuth({
    /*      refreshToken: { label: "Refresh Token", type: "text" } */
       },
       async authorize(credentials) {
-        try {
-          // Google Login
-          if (credentials?.loginType === 'google') {
-            const tokenData = JSON.parse(atob(credentials.accessToken.split('.')[1]));
-            const expirationTime = tokenData.exp * 1000
-            return {
-              id: '1',
-              accessToken: credentials.accessToken,
-/*               refreshToken: credentials.refreshToken, */
-              expiration: new Date(expirationTime).toISOString()
-            };
-          }
+        try {          
 
           // Regular Login
           const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/auth/login/json`, {

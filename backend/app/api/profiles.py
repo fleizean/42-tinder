@@ -228,7 +228,7 @@ async def upload_profile_picture(
     if file_ext not in allowed_extensions:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File type not allowed. Allowed types: {', '.join(allowed_extensions)}"
+            detail=f"Dosya türü desteklenmiyor. Desteklenen türler: {', '.join(allowed_extensions)}"
         )
     
     # Create upload directory if it doesn't exist
@@ -247,7 +247,7 @@ async def upload_profile_picture(
     relative_path = os.path.relpath(file_path, start=os.path.dirname(settings.MEDIA_ROOT))
     
     # Create backend URL
-    backend_url = f"{settings.BACKEND_URL}/media/{relative_path.replace(os.sep, '/')}"
+    backend_url = f"{settings.BACKEND_URL}/{relative_path.replace(os.sep, '/')}"
     
     # Add picture to profile
     picture = await add_profile_picture(db, profile.id, relative_path, backend_url, is_primary)

@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { toast, Toaster } from "react-hot-toast";
-import { GoogleLogin } from '@react-oauth/google';
 import { Metadata } from 'next'
 
 const metadata: Metadata = {
@@ -69,43 +68,7 @@ const SigninPage = () => {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/Auth/google-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          idToken: credentialResponse.credential,
-          accessTokenLifeTime: 15
-        })
-      });
-
-      const data = await response.json();
-      console.log(data);
-      if (data.status) {
-        const result = await signIn("credentials", {
-          loginType: 'google',
-          accessToken: data.data.accessToken,
-          //refreshToken: data.data.refreshToken,
-          redirect: false,
-        });
-
-        if (result?.ok) {
-          localStorage.setItem('accessToken', data.accessToken);
-          //localStorage.setItem('refreshToken', data.data.refreshToken);
-          toast.success('Giriş başarılı! Yönlendiriliyorsunuz...');
-          router.push('/dashboard');
-        } else {
-          toast.error('Giriş başarısız');
-        }
-      } else {
-        toast.error(data.message || 'Google ile giriş başarısız.');
-      }
-    } catch (error) {
-      console.error('Google login error:', error);
-      toast.error('Giriş sırasında bir hata oluştu.');
-    }
-  };
+  
 
   return (
     <>
@@ -122,30 +85,12 @@ const SigninPage = () => {
                   Hemen giriş yapın ve yeni insanlarla tanışın.
                 </p>
 
-                <div className="relative mb-8 group">
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-[#8A2BE2] to-[#D63384] rounded-lg blur opacity-30 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
-                  <div className="relative bg-[#2C2C2E] rounded-lg p-1">
-                    <GoogleLogin
-                      theme="filled_black"
-                      size="large"
-                      width="100%"
-                      text="signup_with"
-                      shape="rectangular"
-                      locale="tr"
-                      onSuccess={handleGoogleSuccess}
-                      onError={() => toast.error('Google ile kayıt başarısız.')}
-                      useOneTap
-                      containerProps={{
-                        className: "w-full transition-transform duration-300 hover:scale-[1.02]"
-                      }}
-                    />
-                  </div>
-                </div>
+               
 
                 <div className="mb-8 flex items-center justify-center">
                   <span className="hidden h-[1px] w-full max-w-[70px] bg-gray-600 sm:block"></span>
                   <p className="w-full px-5 text-center text-base font-medium text-gray-400">
-                    Veya E-posta ve Şifrenizle Giriş Yapın
+                    E-posta ve Şifrenizle Giriş Yapın
                   </p>
                   <span className="hidden h-[1px] w-full max-w-[70px] bg-gray-600 sm:block"></span>
                 </div>

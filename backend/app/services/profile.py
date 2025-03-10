@@ -175,7 +175,7 @@ async def update_profile_tags(db: AsyncSession, profile_id: str, tag_names: List
     return tags
 
 
-async def add_profile_picture(db: AsyncSession, profile_id: str, file_path: str, is_primary: bool = False) -> Optional[ProfilePicture]:
+async def add_profile_picture(db: AsyncSession, profile_id: str, file_path: str, backend_url: str, is_primary: bool = False) -> Optional[ProfilePicture]:
     """
     Add a profile picture
     """
@@ -198,33 +198,21 @@ async def add_profile_picture(db: AsyncSession, profile_id: str, file_path: str,
     if count == 0 or is_primary:
         # If setting as primary, unset any existing primary pictures
         if is_primary:
-            # Get all profile pictures
             result = await db.execute(select(ProfilePicture).filter(ProfilePicture.profile_id == profile_id))
             pictures = result.scalars().all()
             
-            # Unset primary
             for pic in pictures:
                 pic.is_primary = False
                 db.add(pic)
         
         is_primary = True
     
-    # Fix file path - remove leading ./ if present
-    if file_path.startswith('./'):
-        file_path = file_path[2:]
-
-    clean_path = file_path
-    if clean_path.startswith('./'):
-        clean_path = clean_path[2:]
-    if clean_path.startswith('media/'):
-        clean_path = clean_path[6:]
-    
     # Create profile picture
     picture = ProfilePicture(
         profile_id=profile_id,
         file_path=file_path,
-        is_primary=is_primary,
-        backend_url=f"{settings.BACKEND_URL}/media/{clean_path}"
+        backend_url=backend_url,
+        is_primary=is_primary
     )
     
     db.add(picture)

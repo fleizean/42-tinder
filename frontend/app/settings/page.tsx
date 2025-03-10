@@ -533,7 +533,8 @@ const SettingsPage = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to upload photo');
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Fotoğraf yüklenirken bir hata oluştu');
       }
 
       // Refresh profile to get updated photos
@@ -541,8 +542,8 @@ const SettingsPage = () => {
       toast.success('Fotoğraf başarıyla yüklendi');
 
     } catch (error) {
-      toast.error('Fotoğraf yüklenirken bir hata oluştu');
-      console.error('Photo upload error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Fotoğraf yüklenirken bir hata oluştu';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

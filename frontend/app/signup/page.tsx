@@ -17,7 +17,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast, Toaster } from "react-hot-toast";
 import { signIn } from "next-auth/react";
-import { GoogleLogin } from '@react-oauth/google';
 
 const SignupPage = () => {
   const router = useRouter();
@@ -86,43 +85,7 @@ const SignupPage = () => {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/auth/google-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          idToken: credentialResponse.credential,
-          accessTokenLifeTime: 15
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.status) {
-        const result = await signIn("credentials", {
-          loginType: 'google',
-          accessToken: data.data.accessToken,
-          //refreshToken: data.data.refreshToken,
-          redirect: false,
-        });
-
-        if (result?.ok) {
-          localStorage.setItem('accessToken', data.data.accessToken);
-          //localStorage.setItem('refreshToken', data.data.refreshToken);
-          toast.success('Giriş başarılı! Yönlendiriliyorsunuz...');
-          router.push('/dashboard');
-        } else {
-          toast.error('Giriş başarısız.');
-        }
-      } else {
-        toast.error(data.message || 'Google ile giriş başarısız.');
-      }
-    } catch (error) {
-      console.error('Google login error:', error);
-      toast.error('Giriş sırasında bir hata oluştu.');
-    }
-  };
+  
 
   return (
     <>
@@ -143,30 +106,12 @@ const SignupPage = () => {
                   Hemen üye olun ve yeni insanlarla tanışın.
                 </p>
 
-                <div className="relative mb-8 group">
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-[#8A2BE2] to-[#D63384] rounded-lg blur opacity-30 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
-                  <div className="relative bg-[#2C2C2E] rounded-lg p-1">
-                    <GoogleLogin
-                      theme="filled_black"
-                      size="large"
-                      width="100%"
-                      text="signup_with"
-                      shape="rectangular"
-                      locale="tr"
-                      onSuccess={handleGoogleSuccess}
-                      onError={() => toast.error('Google ile kayıt başarısız.')}
-                      useOneTap
-                      containerProps={{
-                        className: "w-full transition-transform duration-300 hover:scale-[1.02]"
-                      }}
-                    />
-                  </div>
-                </div>
+              
 
                 <div className="mb-8 flex items-center justify-center">
                   <span className="hidden h-[1px] w-full max-w-[60px] bg-gray-600 sm:block"></span>
                   <p className="w-full px-5 text-center text-base font-medium text-gray-400">
-                    Veya e-posta ile kayıt ol
+                    E-posta ile kayıt ol
                   </p>
                   <span className="hidden h-[1px] w-full max-w-[60px] bg-gray-600 sm:block"></span>
                 </div>
@@ -296,12 +241,12 @@ const SignupPage = () => {
                       </div>
                       <span>
                         Hesap oluşturarak
-                        <a href="#0" className="text-[#D63384] hover:text-[#8A2BE2] transition-colors duration-300">
+                        <a href="/terms" className="text-[#D63384] hover:text-[#8A2BE2] transition-colors duration-300">
                           {" "}
                           Şartlar ve Koşullar{" "}
                         </a>
                         'ı ve
-                        <a href="#0" className="text-[#D63384] hover:text-[#8A2BE2] transition-colors duration-300">
+                        <a href="/privacy" className="text-[#D63384] hover:text-[#8A2BE2] transition-colors duration-300">
                           {" "}
                           Gizlilik Politikası{" "}
                         </a>

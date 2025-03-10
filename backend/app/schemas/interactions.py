@@ -15,7 +15,7 @@ class Like(BaseModel):
     created_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Visit schemas
@@ -26,7 +26,7 @@ class Visit(BaseModel):
     created_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Block schemas
@@ -41,7 +41,7 @@ class Block(BaseModel):
     created_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Report schemas
@@ -60,4 +60,4 @@ class Report(BaseModel):
     resolved_at: Optional[datetime] = None
     
     class Config:
-        orm_mode = True
+        from_attributes = True

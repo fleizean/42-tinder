@@ -209,3 +209,27 @@ async def logout(
     return {
         "message": "Logged out successfully"
     }
+
+
+@router.post("/refresh-token", response_model=Token)
+async def refresh_token(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Refresh access token
+    """
+    # Since we're using get_current_user, this endpoint will only
+    # work if the token is still valid. To make this more effective,
+    # you should implement refresh tokens, but this is a simpler solution.
+    
+    # Create new access token
+    access_token = create_access_token(current_user.id)
+    
+    # Update last activity
+    await update_last_activity(db, current_user.id, is_online=True)
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer"
+    }

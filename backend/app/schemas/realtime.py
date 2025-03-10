@@ -22,7 +22,7 @@ class Message(BaseModel):
     read_at: Optional[datetime] = None
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Notification schemas
@@ -37,7 +37,7 @@ class Notification(BaseModel):
     read_at: Optional[datetime] = None
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Connection schemas
@@ -50,7 +50,7 @@ class Connection(BaseModel):
     updated_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # WebSocket message schemas

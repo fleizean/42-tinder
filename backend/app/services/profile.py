@@ -3,6 +3,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, and_, or_
+from sqlalchemy.orm import selectinload
 import uuid
 import os
 from datetime import datetime
@@ -17,7 +18,11 @@ async def get_profile_by_user_id(db: AsyncSession, user_id: str) -> Optional[Pro
     """
     Get a profile by user ID
     """
-    result = await db.execute(select(Profile).filter(Profile.user_id == user_id))
+    result = await db.execute(
+        select(Profile)
+        .options(selectinload(Profile.pictures), selectinload(Profile.tags))
+        .filter(Profile.user_id == user_id)
+    )
     return result.scalars().first()
 
 
@@ -33,7 +38,11 @@ async def update_profile(db: AsyncSession, profile_id: str, profile_data: Dict[s
     """
     Update a profile
     """
-    result = await db.execute(select(Profile).filter(Profile.id == profile_id))
+    result = await db.execute(
+        select(Profile)
+        .options(selectinload(Profile.pictures), selectinload(Profile.tags))
+        .filter(Profile.id == profile_id)
+    )
     profile = result.scalars().first()
     
     if not profile:
@@ -199,6 +208,10 @@ async def add_profile_picture(db: AsyncSession, profile_id: str, file_path: str,
                 db.add(pic)
         
         is_primary = True
+    
+    # Fix file path - remove leading ./ if present
+    if file_path.startswith('./'):
+        file_path = file_path[2:]
     
     # Create profile picture
     picture = ProfilePicture(

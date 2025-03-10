@@ -20,7 +20,7 @@ class Tag(TagBase):
     id: int
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Profile picture schemas
@@ -40,7 +40,7 @@ class ProfilePicture(ProfilePictureBase):
     created_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Profile schemas
@@ -152,7 +152,7 @@ class Profile(ProfileBase):
     tags: List[Tag] = []
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Public profile schema (for other users to view)
@@ -174,7 +174,7 @@ class PublicProfile(BaseModel):
     birth_date: Optional[datetime] = None
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Location update schema

@@ -10,6 +10,7 @@ import os
 import shutil
 from math import cos
 
+
 from app.core.db import get_db
 from app.core.security import get_current_user, get_current_verified_user
 from app.core.config import settings
@@ -242,8 +243,12 @@ async def upload_profile_picture(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     
+    # Normalize the file path for database storage
+    # Remove the MEDIA_ROOT prefix for storage to ensure consistent paths
+    relative_path = os.path.relpath(file_path, start=os.path.dirname(settings.MEDIA_ROOT))
+    
     # Add picture to profile
-    picture = await add_profile_picture(db, profile.id, file_path, is_primary)
+    picture = await add_profile_picture(db, profile.id, relative_path, is_primary)
     if not picture:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -400,10 +405,11 @@ async def get_profile(
             detail="Your profile not found"
         )
     
-    # Get requested profile
+    # Get requested profile with pictures and tags eagerly loaded
     result = await db.execute(
         select(Profile, User)
         .join(User, Profile.user_id == User.id)
+        .options(selectinload(Profile.pictures), selectinload(Profile.tags))
         .filter(Profile.id == profile_id)
     )
     profile_data = result.first()
@@ -416,8 +422,8 @@ async def get_profile(
     
     profile, user = profile_data
     
-    # Record visit
-    if user_profile.id != profile_id:  # Don't record visits to own profile
+    # Record visit if not own profile
+    if user_profile.id != profile_id:
         await visit_profile(db, user_profile.id, profile_id)
     
     # Create public profile

@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
-
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from app.api.auth import router as auth_router
 from app.api.users import router as users_router
 from app.api.profiles import router as profiles_router
@@ -26,6 +27,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Define the path to your media directory
+media_path = Path(settings.MEDIA_ROOT)
+
+# Mount the media directory to serve static files
+app.mount("/media", StaticFiles(directory=media_path), name="media")
 
 """ @app.get("/")
 async def root():

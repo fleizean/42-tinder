@@ -5,7 +5,7 @@ from pydantic import EmailStr, AnyHttpUrl
 
 class Settings(BaseSettings):
     # Application settings
-    PROJECT_NAME: str = "Matcha"
+    PROJECT_NAME: str = "CrushIt"
     API_V1_STR: str = "/api"
     
     # CORS settings

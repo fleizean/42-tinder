@@ -59,7 +59,7 @@ async def send_verification_email(email: EmailStr, username: str, token: str):
     
     await send_email(
         email=email,
-        subject="Verify your Matcha account",
+        subject="Verify your CrushIt account",
         template_name="verification",
         template_data={
             "username": username,
@@ -76,7 +76,7 @@ async def send_password_reset_email(email: EmailStr, username: str, token: str):
     
     await send_email(
         email=email,
-        subject="Reset your Matcha password",
+        subject="Reset your CrushIt password",
         template_name="password_reset",
         template_data={
             "username": username,
@@ -90,16 +90,16 @@ async def send_notification_email(email: EmailStr, username: str, notification_t
     Send a notification email for important events
     """
     notification_text = {
-        "like": f"{sender_name} liked your profile!",
-        "match": f"You matched with {sender_name}!",
-        "message": f"You have a new message from {sender_name}!",
-    }.get(notification_type, "You have a new notification on Matcha!")
+        "like": f"{sender_name} sizi beğendi!",
+        "match": f"{sender_name} ile eşleştiniz!",
+        "message": f"{sender_name}'den yeni bir mesaj!",
+    }.get(notification_type, "CrushIt'den yeni bir bildirim!")
     
     login_url = f"{settings.FRONTEND_URL}/login"
     
     await send_email(
         email=email,
-        subject=f"Matcha - {notification_text}",
+        subject=f"CrushIt - {notification_text}",
         template_name="notification",
         template_data={
             "username": username,

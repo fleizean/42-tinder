@@ -152,13 +152,13 @@ const SigninPage = () => {
                 <form onSubmit={handleSignIn}>
                   <div className="mb-8">
                     <label htmlFor="email" className="mb-3 block text-sm text-gray-300">
-                      Kullanıcı Adı veya E-posta
+                      Kullanıcı Adı
                     </label>
                     <input
                       type="text"
                       value={usernameOrEmail}
                       onChange={(e) => setUsernameOrEmail(e.target.value)}
-                      placeholder="Kullanıcı adı veya e-posta adresinizi girin"
+                      placeholder="Kullanıcı adınızı giriniz"
                       className="w-full rounded-lg border border-transparent bg-[#3C3C3E] px-6 py-3 text-base text-white outline-none transition-all duration-300 focus:border-[#D63384] focus:shadow-[0_0_0_2px_rgba(214,51,132,0.2)]"
                     />
                   </div>

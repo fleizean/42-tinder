@@ -2,78 +2,129 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Matcha Notification</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrushIt Bildirim</title>
     <style>
+        :root {
+            --primary-color: #D63384;
+            --secondary-color: #6c757d;
+            --background-color: #f8f9fa;
+            --text-color: #212529;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: var(--text-color);
+            background-color: var(--background-color);
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        .container {
             max-width: 600px;
             margin: 0 auto;
-            padding: 20px;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 40px;
         }
-        .container {
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            padding: 20px;
-        }
+
         .header {
             text-align: center;
-            padding: 10px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f8f9fa;
         }
+
         .logo {
-            font-size: 24px;
+            font-size: 32px;
             font-weight: bold;
-            color: #ff6b6b;
+            color: var(--primary-color);
+            text-transform: uppercase;
+            letter-spacing: 2px;
         }
+
         .notification {
-            background-color: #f9f9f9;
-            padding: 15px;
-            border-radius: 5px;
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
             margin: 20px 0;
+            border-left: 4px solid var(--primary-color);
         }
+
         .button {
             display: inline-block;
-            background-color: #ff6b6b;
-            color: white;
+            background-color: #D63384;
+            color: white !important;
             text-decoration: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            margin: 20px 0;
+            padding: 15px 30px;
+            border-radius: 8px;
+            margin: 30px 0;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: background-color 0.3s ease;
         }
+
+        .button:hover {
+            background-color: #bf2d73;
+        }
+
         .footer {
             text-align: center;
-            margin-top: 20px;
-            font-size: 12px;
-            color: #999;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+            color: var(--secondary-color);
+        }
+
+        .footer p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+            }
+
+            .logo {
+                font-size: 24px;
+            }
+
+            .button {
+                display: block;
+                text-align: center;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">Matcha</div>
+            <div class="logo">CrushIt</div>
         </div>
         
-        <p>Hello {{ username }},</p>
+        <h1 style="font-size: 24px; margin-bottom: 20px;">Merhaba {{ username }},</h1>
         
         <div class="notification">
             <p>{{ notification_text }}</p>
         </div>
         
-        <p>Log in to your account to see more details:</p>
+        <p>Daha fazla detay görmek için hesabına giriş yap:</p>
         
         <p style="text-align: center;">
-            <a href="{{ login_url }}" class="button">Go to Matcha</a>
+            <a href="{{ login_url }}" class="button">CrushIt'ya Git</a>
         </p>
         
-        <p>The Matcha Team</p>
+        <p>Sevgilerle,<br>CrushIt Ekibi</p>
         
         <div class="footer">
-            <p>&copy; {{ year }} Matcha. All rights reserved.</p>
-            <p>This is an automated email, please do not reply.</p>
+            <p>&copy; {{ year }} CrushIt. Tüm hakları saklıdır.</p>
+            <p>Bu otomatik bir e-postadır, lütfen yanıtlamayınız.</p>
             <p>
-                You can adjust your notification settings in your account preferences.
+                Bildirim ayarlarını hesap tercihlerinden düzenleyebilirsin.
             </p>
         </div>
     </div>

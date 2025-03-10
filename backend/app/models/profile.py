@@ -48,6 +48,7 @@ class ProfilePicture(Base):
     profile_id = Column(String, ForeignKey("profiles.id"))
     file_path = Column(String, nullable=False)
     is_primary = Column(Boolean, default=False)
+    backend_url = Column(String)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

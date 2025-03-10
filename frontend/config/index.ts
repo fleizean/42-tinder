@@ -6,7 +6,7 @@ interface Config {
   
   const config: Config = {
     api: {
-      url: process.env.BACKEND_API_URL || 'http://localhost:5187'
+      url: process.env.BACKEND_API_URL || 'http://localhost:8000'
     }
   };
   

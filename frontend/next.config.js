@@ -4,21 +4,21 @@ const nextConfig = {
     remotePatterns: [
       'localhost',
       '127.0.0.1',
-       process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/https?:\/\//, '') || 'localhost',
+      process.env.NEXT_PUBLIC_BACKEND_HOST || 'localhost',
       'images7.alphacoders.com'
     ],
     remotePatterns: [
       {
         protocol: 'http',
         hostname: 'localhost',
-        port: '5187',
-        pathname: '/uploads/**',
+        port: '8000',
+        pathname: '/media/**',
       },
       {
         protocol: 'http',
         hostname: '127.0.0.1',
-        port: '5187',
-        pathname: '/uploads/**',
+        port: '8000',
+        pathname: '/media/**',
       },
       {
         protocol: 'https',

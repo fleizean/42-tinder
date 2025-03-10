@@ -20,12 +20,12 @@ class UserCreate(UserBase):
     
     @validator('username')
     def username_alphanumeric(cls, v):
-        assert v.isalnum(), 'Username must be alphanumeric'
+        assert v.isalnum(), 'Kullanıcı adı yalnızca harf ve rakamlardan oluşabilir'
         return v
     
     @validator('password')
     def password_min_length(cls, v):
-        assert len(v) >= 8, 'Password must be at least 8 characters'
+        assert len(v) >= 8, 'Şifre en az 8 karakter olmalıdır'
         return v
 
 
@@ -38,7 +38,7 @@ class UserUpdate(UserBase):
     @validator('password')
     def password_min_length(cls, v):
         if v is not None:
-            assert len(v) >= 8, 'Password must be at least 8 characters'
+            assert len(v) >= 8, 'Şifre en az 8 karakter olmalıdır'
         return v
 
 

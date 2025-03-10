@@ -212,12 +212,19 @@ async def add_profile_picture(db: AsyncSession, profile_id: str, file_path: str,
     # Fix file path - remove leading ./ if present
     if file_path.startswith('./'):
         file_path = file_path[2:]
+
+    clean_path = file_path
+    if clean_path.startswith('./'):
+        clean_path = clean_path[2:]
+    if clean_path.startswith('media/'):
+        clean_path = clean_path[6:]
     
     # Create profile picture
     picture = ProfilePicture(
         profile_id=profile_id,
         file_path=file_path,
-        is_primary=is_primary
+        is_primary=is_primary,
+        backend_url=f"{settings.BACKEND_URL}/media/{clean_path}"
     )
     
     db.add(picture)

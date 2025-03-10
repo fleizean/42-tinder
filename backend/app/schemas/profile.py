@@ -37,6 +37,7 @@ class ProfilePicture(ProfilePictureBase):
     id: int
     profile_id: str
     file_path: str
+    backend_url: str
     created_at: datetime
     
     class Config:

@@ -244,11 +244,13 @@ async def upload_profile_picture(
         shutil.copyfileobj(file.file, buffer)
     
     # Normalize the file path for database storage
-    # Remove the MEDIA_ROOT prefix for storage to ensure consistent paths
     relative_path = os.path.relpath(file_path, start=os.path.dirname(settings.MEDIA_ROOT))
     
+    # Create backend URL
+    backend_url = f"{settings.BACKEND_URL}/media/{relative_path.replace(os.sep, '/')}"
+    
     # Add picture to profile
-    picture = await add_profile_picture(db, profile.id, relative_path, is_primary)
+    picture = await add_profile_picture(db, profile.id, relative_path, backend_url, is_primary)
     if not picture:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

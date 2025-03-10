@@ -7,6 +7,14 @@ import { FiUser, FiLock, FiMapPin, FiBell, FiUserX, FiX, FiPlus } from "react-ic
 import { toast, Toaster } from "react-hot-toast";
 import { FiLoader } from "react-icons/fi";
 
+
+interface ProfilePicture {
+  id: string;
+  file_path: string;
+  backend_url: string;
+  is_primary: boolean;
+}
+
 interface Tag {
   id: string;
   name: string;
@@ -31,7 +39,7 @@ interface ProfileApiResponse {
   is_complete: boolean;
   created_at: string;
   updated_at: string;
-  pictures: string[];
+  photos: ProfilePicture[];
   tags: Tag[];
   birth_date: string;
 }
@@ -298,22 +306,22 @@ const SettingsPage = () => {
   const handleTagKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-  
+
       const tagName = tagInput.toLowerCase().trim();
-  
+
       if (!tagName) return;
-  
+
       if (!isValidTag(tagName)) {
         setTagInput('');
         return;
       }
-  
+
       try {
         const newTag: Tag = {
           id: crypto.randomUUID(),
           name: tagName
         };
-  
+
         const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me/tags`, {
           method: 'PUT',
           headers: {
@@ -324,9 +332,9 @@ const SettingsPage = () => {
             tags: [...tags.map(tag => tag.name), tagName] // Send only tag names
           })
         });
-  
+
         const data = await response.json();
-  
+
         if (!response.ok) {
           // Check if response has validation error details
           if (data.detail && Array.isArray(data.detail)) {
@@ -337,11 +345,11 @@ const SettingsPage = () => {
           }
           return;
         }
-  
+
         setTags(prev => [...prev, newTag]);
         setTagInput('');
         toast.success('Etiket başarıyla eklendi');
-  
+
       } catch (error) {
         toast.error('Etiket eklenirken bir hata oluştu');
         console.error('Tag adding error:', error);
@@ -353,7 +361,7 @@ const SettingsPage = () => {
   const handleRemoveTag = async (tagName: string) => {
     try {
       const updatedTags = tags.filter(tag => tag.name !== tagName);
-  
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me/tags`, {
         method: 'PUT',
         headers: {
@@ -364,9 +372,9 @@ const SettingsPage = () => {
           tags: updatedTags.map(tag => tag.name)
         })
       });
-  
+
       const data = await response.json();
-  
+
       if (!response.ok) {
         if (data.detail && Array.isArray(data.detail)) {
           toast.error(data.detail[0].msg || 'Etiket kaldırılırken bir hata oluştu');
@@ -375,10 +383,10 @@ const SettingsPage = () => {
         }
         return;
       }
-  
+
       setTags(updatedTags);
       toast.success('Etiket başarıyla kaldırıldı');
-  
+
     } catch (error) {
       toast.error('Etiket kaldırılırken bir hata oluştu');
       console.error('Tag removal error:', error);
@@ -576,7 +584,7 @@ const SettingsPage = () => {
 
 
 
-    const handleProfileUpdate = async () => {
+  const handleProfileUpdate = async () => {
     try {
       // Update user data first
       const userResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/users/me`, {
@@ -592,7 +600,7 @@ const SettingsPage = () => {
           email: profileInfo.email,
         })
       });
-  
+
       if (!userResponse.ok) {
         const userError = await userResponse.json();
         if (userError.detail && Array.isArray(userError.detail)) {
@@ -600,19 +608,19 @@ const SettingsPage = () => {
         }
         throw new Error(userError.detail || 'Kullanıcı bilgileri güncellenemedi');
       }
-  
+
       // Format birth_date to ISO string
       let formattedBirthDate = null;
-    if (profileInfo.birthDate) {
-      const date = new Date(profileInfo.birthDate);
-      formattedBirthDate = new Date(Date.UTC(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-        0, 0, 0
-      )).toISOString();
-    }
-  
+      if (profileInfo.birthDate) {
+        const date = new Date(profileInfo.birthDate);
+        formattedBirthDate = new Date(Date.UTC(
+          date.getFullYear(),
+          date.getMonth(),
+          date.getDate(),
+          0, 0, 0
+        )).toISOString();
+      }
+
       // Then update profile data
       const profileResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me`, {
         method: 'PUT',
@@ -629,7 +637,7 @@ const SettingsPage = () => {
           birth_date: formattedBirthDate
         })
       });
-  
+
       if (!profileResponse.ok) {
         const profileError = await profileResponse.json();
         if (profileError.detail && Array.isArray(profileError.detail)) {
@@ -637,7 +645,7 @@ const SettingsPage = () => {
         }
         throw new Error(profileError.detail || 'Profil güncellenemedi');
       }
-  
+
       toast.success('Profil başarıyla güncellendi');
       await fetchProfile();
     } catch (error) {
@@ -707,13 +715,13 @@ const SettingsPage = () => {
                             {profileInfo.photos[index] ? (
                               <>
                                 <Image
-                                  src={profileInfo.photos[index]}
+                                  src={profileInfo.photos[index].backend_url}
                                   alt={`Photo ${index + 1}`}
                                   fill
                                   className="object-cover"
                                 />
                                 <button
-                                  onClick={() => handlePhotoRemove(profileInfo.photos[index])}
+                                  onClick={() => handlePhotoRemove(profileInfo.photos[index].id)}
                                   className="absolute top-2 right-2 p-1 bg-red-500 rounded-full hover:bg-red-600 transition-colors"
                                 >
                                   <FiX className="text-white" />
@@ -835,7 +843,7 @@ const SettingsPage = () => {
                         className="bg-[#D63384] text-white py-2 px-4 rounded-lg hover:bg-[#D63384] transition-colors"
                       >Değişiklikleri Kaydet</button>
                     </div>
-      
+
 
                     {/* Tags */}
                     <hr className="border-[#3C3C3E]" />
@@ -868,7 +876,7 @@ const SettingsPage = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Location */}
                     <hr className="border-[#3C3C3E]" />
                     <h3 className="text-xl font-semibold text-white mb-4">Konum</h3>
@@ -898,7 +906,7 @@ const SettingsPage = () => {
 
 
 
-                   
+
                   </div>
                 </div>
 

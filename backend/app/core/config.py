@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     # CORS settings
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
 
+    BACKEND_URL: str = "http://localhost:8000"
+
     # Database settings
     DATABASE_URL: str
     

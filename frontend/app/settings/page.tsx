@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { FiUser, FiLock, FiMapPin, FiBell, FiUserX, FiX, FiPlus } from "react-icons/fi";
 import { toast, Toaster } from "react-hot-toast";
 import { FiLoader } from "react-icons/fi";
@@ -305,7 +305,7 @@ const SettingsPage = () => {
 
       // Redirect to home page after short delay
       setTimeout(() => {
-        window.location.href = "/signout";
+        signOut({ callbackUrl: '/' });
       }, 2000);
 
     } catch (error) {
@@ -363,13 +363,15 @@ const SettingsPage = () => {
       }));
 
       setTags(profileData.tags);
-      const locationString = await getCityCountryFromCoords(profileData.latitude, profileData.longitude);
+      const locationString = profileData.latitude && profileData.longitude ? 
+      await getCityCountryFromCoords(profileData.latitude, profileData.longitude) :
+      'Konum bilgisi yok';
 
       // Update profileInfo with both coordinates and location string
       setProfileInfo(prev => ({
         ...prev,
-        latitude: profileData.latitude,
-        longitude: profileData.longitude,
+        latitude: profileData.latitude || 0,
+        longitude: profileData.longitude || 0,
         location: locationString
       }));
 
@@ -503,25 +505,29 @@ const SettingsPage = () => {
   };
 
   // Add this function after other imports
-  const getCityCountryFromCoords = async (latitude: number, longitude: number): Promise<string> => {
+  const getCityCountryFromCoords = async (latitude: number | null, longitude: number | null): Promise<string> => {
+    // Return early if coordinates are null/undefined
+    if (!latitude || !longitude) {
+      return 'Konum bilgisi yok';
+    }
+  
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`
       );
-
+  
       if (!response.ok) {
         throw new Error('Geocoding failed');
       }
-
+  
       const data = await response.json();
-      const city = data.address.province || '';
-      const country = data.address.country || '';
-
-
-      return `${city}, ${country}`;
+      const city = data.address?.province || data.address?.city || '';
+      const country = data.address?.country || '';
+  
+      return city && country ? `${city}, ${country}` : 'Konum bilgisi bulunamadı';
     } catch (error) {
       console.error('Geocoding error:', error);
-      return '';
+      return 'Konum bilgisi alınamadı';
     }
   };
 

@@ -537,7 +537,7 @@ async def delete_account(
             )
         
         # Check password
-        if not current_user.check_password(request.password):
+        if not current_user.verify_password(request.password):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Hatalı şifre"

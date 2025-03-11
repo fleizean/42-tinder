@@ -2,9 +2,10 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float
 from sqlalchemy.sql import func
 import uuid
 from datetime import datetime
-
+from passlib.context import CryptContext
 from app.core.db import Base
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class User(Base):
     __tablename__ = "users"
@@ -34,3 +35,10 @@ class User(Base):
     # Location data (fallback if profile location is not set)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
+
+    def verify_password(self, password: str) -> bool:
+        return pwd_context.verify(password, self.hashed_password)
+    
+    @staticmethod
+    def get_password_hash(password: str) -> str:
+        return pwd_context.hash(password)

@@ -52,6 +52,24 @@ interface CurrentUserProfile {
   longitude: number;
 }
 
+// Update interface for block status
+interface BlockInfo {
+  is_blocked: boolean;
+  block_info: null | {
+    block_date: string;
+    blocker_id: string;
+    blocked_id: string;
+  };
+}
+
+interface BlockStatus {
+  is_blocked: BlockInfo;
+  blocked_by_me: BlockInfo;
+  blocked_by_them: BlockInfo;
+  blocker_id: string | null;
+}
+
+
 
 interface Tag {
   id: number;
@@ -97,6 +115,12 @@ const ProfilePage = () => {
   const [isLoadingVisitors, setIsLoadingVisitors] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [blockStatus, setBlockStatus] = useState<BlockStatus>({
+    is_blocked: { is_blocked: false, block_info: null },
+    blocked_by_me: { is_blocked: false, block_info: null },
+    blocked_by_them: { is_blocked: false, block_info: null },
+    blocker_id: null
+  });
 
 
 
@@ -105,7 +129,6 @@ const ProfilePage = () => {
   }
     , []);
 
-  useEffect(() => {
     const fetchProfile = async () => {
       try {
         const response = await fetch(
@@ -116,11 +139,11 @@ const ProfilePage = () => {
             }
           }
         );
-
+  
         if (!response.ok) {
           throw new Error('Failed to fetch profile');
         }
-
+  
         const data = await response.json();
         setProfile(data);
       } catch (error) {
@@ -130,11 +153,13 @@ const ProfilePage = () => {
         setIsLoading(false);
       }
     };
-
-    if (session?.user?.accessToken) {
-      fetchProfile();
-    }
-  }, [session, params.username]);
+  
+    // Move the original useEffect below the function definition
+    useEffect(() => {
+      if (session?.user?.accessToken) {
+        fetchProfile();
+      }
+    }, [session, params.username]);
 
   const handleLike = async () => {
     if (!session?.user?.accessToken || !profile) return;
@@ -182,38 +207,122 @@ const ProfilePage = () => {
       setShowBlockModal(true);
     }
   };
-  
-  // Block/Unblock functionality
+
   const confirmBlock = async () => {
     if (!session?.user?.accessToken || !profile) return;
-  
+
     try {
-      const endpoint = isBlocked
-        ? `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/block/${profile.id}`
-        : `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/block`;
-  
-      const response = await fetch(endpoint, {
-        method: isBlocked ? 'DELETE' : 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.user.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: isBlocked ? undefined : JSON.stringify({
-          blocked_id: profile.id
-        })
-      });
-  
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/block`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            blocked_id: profile.id
+          })
+        }
+      );
+
       if (!response.ok) {
         throw new Error('Failed to process block');
       }
-  
-      setIsBlocked(!isBlocked);
+
+      // Update block statuses with proper BlockInfo structure
+      setIsBlocked(true);
+      setBlockStatus(prev => ({
+        ...prev,
+        is_blocked: {
+          is_blocked: true,
+          block_info: null
+        },
+        blocked_by_me: {
+          is_blocked: true,
+          block_info: null
+        },
+        blocked_by_them: prev.blocked_by_them,
+        blocker_id: null
+      }));
+      
       setShowBlockModal(false);
-      toast.success(isBlocked ? 'Engel kaldırıldı' : 'Kullanıcı engellendi');
+      toast.success('Kullanıcı engellendi');
+
     } catch (error) {
       console.error('Block error:', error);
-      toast.error(isBlocked ? 'Engel kaldırılamadı' : 'Kullanıcı engellenemedi');
+      toast.error('Kullanıcı engellenemedi');
     }
+  };
+  
+  const confirmUnBlock = async () => {
+    if (!session?.user?.accessToken || !profile) return;
+  
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/block/${profile.id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+          }
+        }
+      );
+  
+      if (!response.ok) {
+        throw new Error('Failed to process unblock');
+      }
+  
+      // Update block statuses with proper BlockInfo structure
+      setIsBlocked(false);
+      setBlockStatus(prev => ({
+        ...prev,
+        is_blocked: {
+          is_blocked: false,
+          block_info: null
+        },
+        blocked_by_me: {
+          is_blocked: false,
+          block_info: null
+        },
+        blocked_by_them: prev.blocked_by_them,
+        blocker_id: null
+      }));
+      
+      setShowBlockModal(false);
+      toast.success('Engel kaldırıldı');
+  
+      // Refresh profile data
+      await fetchProfile();
+  
+    } catch (error) {
+      console.error('Block error:', error);
+      toast.error('Engel kaldırılamadı');
+    }
+  };
+  
+  // Update renderBlockedView to use proper onClick handler
+  const renderBlockedView = () => {
+    if (blockStatus.blocked_by_me.is_blocked) {
+      return (
+        <div className="container mx-auto px-4 text-center">
+          <div className="bg-[#2C2C2E] rounded-xl p-8">
+            <FiSlash className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-4">Bu Kullanıcıyı Engellediniz</h2>
+            <p className="text-gray-300 mb-6">
+              Bu kullanıcıyı engellediğiniz için profilini görüntüleyemezsiniz.
+            </p>
+            <button
+              onClick={confirmUnBlock}
+              className="px-6 py-3 bg-[#D63384] text-white rounded-lg hover:bg-[#B52B6F]"
+            >
+              Engeli Kaldır
+            </button>
+          </div>
+        </div>
+      );
+    }
+    // ...rest of the code
   };
 
     const handleReport = () => {
@@ -381,41 +490,51 @@ const ProfilePage = () => {
   };
 
   const sliderSettings = {
-    dots: true,
-    infinite: true,
+    dots: profile?.pictures?.length > 1,
+    infinite: profile?.pictures?.length > 1,
     speed: 500,
     slidesToShow: 1,
-    slidesToScroll: 1,
-    beforeChange: (current: number, next: number) => setCurrentSlide(next)
+    slidesToScroll: 1,  
+    beforeChange: (current: number, next: number) => setCurrentSlide(next),
+    arrows: profile?.pictures?.length > 1
   };
 
-  const mockProfile = {
-    location: "İstanbul",
-    distance: 5,
-    fameRating: 4,
-    bio: "Hayatı dolu dolu yaşamayı seven, sürekli kendini geliştiren biriyim. Seyahat etmeyi ve yeni yerler keşfetmeyi seviyorum.",
-    gender: "Kadın",
-    preference: "Erkek",
-    lastSeen: "2 saat önce",
-    isOnline: true,
-    images: [
-      "https://images7.alphacoders.com/121/1218824.jpg",
-      "https://images7.alphacoders.com/110/1104374.jpg",
-      "https://images7.alphacoders.com/121/1218826.jpg"
-    ],
-    hasLiked: true,
-    isMatched: true,
-    recentVisitors: [
-      { id: "1", name: "Mehmet", avatar: "https://images7.alphacoders.com/121/1218824.jpg" },
-      { id: "2", name: "Ali", avatar: "https://images7.alphacoders.com/121/1218824.jpg" }
-    ]
-  };
+  useEffect(() => {
+    const checkBlockStatus = async () => {
+      if (!session?.user?.accessToken || !params.username) return;
+  
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/is_blocked?blocked_username=${params.username}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.user.accessToken}`,
+            }
+          }
+        );
+  
+        if (!response.ok) throw new Error('Failed to check block status');
+        const data = await response.json();
+        console.log('Block status:', data);
+        setBlockStatus(data);
+      } catch (error) {
+        console.error('Block status check error:', error);
+      }
+    };
+  
+    checkBlockStatus();
+  }, [session, params.username]);
+  
+  
 
 
   return (
     <section className="pt-[150px] pb-[120px] bg-[#1C1C1E]">
       {isLoading ? (
         <LoadingSpinner />
+      ) : blockStatus.is_blocked.is_blocked ? (
+        renderBlockedView()
       ) : profile ? (
         <div className="container mx-auto px-4">
           {/* Profile Header */}
@@ -621,7 +740,34 @@ const ProfilePage = () => {
           <div className="bg-[#2C2C2E] rounded-xl p-8 mb-8">
             <h2 className="text-xl font-semibold text-white mb-4">Fotoğraflar</h2>
             {profile.pictures && profile.pictures.length > 0 ? (
-              <div className="h-[500px]">
+  <div className="h-[500px]">
+    {profile.pictures.length === 1 ? (
+      <div className="px-2 h-[450px]">
+        <div
+          className="relative w-full h-full rounded-xl overflow-hidden cursor-pointer"
+          onClick={() => {
+            setCurrentSlide(0);
+            setShowLightbox(true);
+          }}
+        >
+          <Image
+            src={profile.pictures[0].backend_url}
+            alt={`${profile.first_name}'in fotoğrafı`}
+            fill
+            className="object-cover"
+            priority
+            onError={(e) => {
+              e.currentTarget.src = '/images/defaults/man-default.png';
+            }}
+          />
+          {profile.pictures[0].is_primary && (
+            <div className="absolute top-2 right-2 bg-[#D63384] text-white text-xs px-2 py-1 rounded-full">
+              Ana Fotoğraf
+            </div>
+          )}
+        </div>
+      </div>
+    ) : (
                 <Slider {...sliderSettings}>
                   {profile.pictures.map((picture, index) => (
                     <div key={picture.id} className="px-2 h-[450px]">
@@ -651,8 +797,9 @@ const ProfilePage = () => {
                     </div>
                   ))}
                 </Slider>
-              </div>
-            ) : (
+               )}
+               </div>
+             ) : (
               <div className="flex flex-col items-center justify-center h-48 text-gray-400">
                 <p>Henüz fotoğraf yüklenmemiş</p>
                 {profile.id === currentUserProfile?.id && (
@@ -665,14 +812,22 @@ const ProfilePage = () => {
           {/* Lightbox */}
           {showLightbox && profile.pictures[currentSlide] && (
             <div
-              className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
+              className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center"
               onClick={() => setShowLightbox(false)}
             >
+              <h3 className="text-white text-xl font-semibold mb-4">
+                {profile.first_name} {profile.last_name}
+                {profile.pictures[currentSlide].is_primary && 
+                  <span className="ml-2 text-sm bg-[#D63384] px-2 py-1 rounded-full">
+                    Ana Fotoğraf
+                  </span>
+                }
+              </h3>
               <Image
                 src={profile.pictures[currentSlide].backend_url}
                 alt={`${profile.first_name}'in tam boy fotoğrafı`}
-                width={800}
-                height={600}
+                width={500}
+                height={500}
                 className="max-w-full max-h-[90vh] object-contain"
                 priority
               />

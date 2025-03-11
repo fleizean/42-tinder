@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { toast, Toaster } from "react-hot-toast";
 import { Metadata } from 'next'
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 const metadata: Metadata = {
   title: 'Giriş Yap | CrushIt',
@@ -22,6 +23,8 @@ const SigninPage = () => {
   const router = useRouter();
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
 
 
   useEffect(() => {
@@ -108,17 +111,30 @@ const SigninPage = () => {
                     />
                   </div>
 
-                  <div className="mb-8">
+                  <div className="mb-8 relative">
                     <label htmlFor="password" className="mb-3 block text-sm text-gray-300">
                       Şifreniz
                     </label>
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Şifrenizi girin"
-                      className="w-full rounded-lg border border-transparent bg-[#3C3C3E] px-6 py-3 text-base text-white outline-none transition-all duration-300 focus:border-[#D63384] focus:shadow-[0_0_0_2px_rgba(214,51,132,0.2)]"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Şifrenizi girin"
+                        className="w-full rounded-lg border border-transparent bg-[#3C3C3E] px-6 py-3 text-base text-white outline-none transition-all duration-300 focus:border-[#D63384] focus:shadow-[0_0_0_2px_rgba(214,51,132,0.2)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      >
+                        {showPassword ? (
+                          <FiEyeOff className="w-5 h-5" />
+                        ) : (
+                          <FiEye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="mb-8 flex flex-col sm:flex-row sm:justify-end sm:items-center">
@@ -142,7 +158,7 @@ const SigninPage = () => {
                 <p className="text-center text-base font-medium text-gray-400">
                   Hesabınız yok mu?{" "}
                   <Link href="/signup" className="text-[#D63384] hover:text-[#8A2BE2] transition-colors duration-300">
-                    Üye Ol
+                    Kayıt Ol
                   </Link>
                 </p>
               </div>

@@ -58,6 +58,15 @@ interface UserApiResponse {
   is_verified: boolean;
 }
 
+interface PublicProfile {
+  id: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  is_online: boolean;
+  pictures: ProfilePicture[];
+}
+
 interface ProfileState {
   firstName: string;
   lastName: string;
@@ -120,20 +129,6 @@ const SettingsPage = () => {
     'crushitapp'
     // Add more blacklisted words as needed
   ];
-  const mockBlockedUsers: BlockedUser[] = [
-    {
-      id: "1",
-      name: "Ahmet Yılmaz",
-      avatar: "https://images7.alphacoders.com/121/1218824.jpg",
-      blockedDate: "2024-03-15",
-    },
-    {
-      id: "2",
-      name: "Mehmet Demir",
-      avatar: "https://images7.alphacoders.com/110/1104374.jpg",
-      blockedDate: "2024-03-14",
-    },
-  ];
 
 
 
@@ -162,6 +157,69 @@ const SettingsPage = () => {
 
   // Loading state
   const [isLoading, setIsLoading] = useState(true);
+
+  const [blockedUsers, setBlockedUsers] = useState<PublicProfile[]>([]);
+  const [isLoadingBlocked, setIsLoadingBlocked] = useState(false);
+
+  // Add fetch function
+  const fetchBlockedUsers = async () => {
+    setIsLoadingBlocked(true);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/block?limit=10`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session?.user?.accessToken}`,
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch blocked users');
+      }
+
+      const data = await response.json();
+      setBlockedUsers(data);
+    } catch (error) {
+      console.error('Blocked users fetch error:', error);
+      toast.error('Engellenen kullanıcılar yüklenemedi');
+    } finally {
+      setIsLoadingBlocked(false);
+    }
+  };
+
+  // Update handleUnblock function
+  const handleUnblock = async (userId: string) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/block/${userId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${session?.user?.accessToken}`,
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to unblock user');
+      }
+
+      toast.success('Kullanıcının engeli kaldırıldı');
+      await fetchBlockedUsers(); // Refresh list after unblocking
+    } catch (error) {
+      console.error('Unblock error:', error);
+      toast.error('Kullanıcının engeli kaldırılamadı');
+    }
+  };
+
+  // Add useEffect to fetch blocked users when tab changes
+  useEffect(() => {
+    if (activeTab === "blocked" && session?.user?.accessToken) {
+      fetchBlockedUsers();
+    }
+  }, [activeTab, session]);
+
 
   // Effects
   useEffect(() => {
@@ -214,15 +272,51 @@ const SettingsPage = () => {
     }
   };
 
-  const handleDeleteAccount = () => {
-    if (!deletePassword) {
-      alert("Lütfen şifrenizi girin");
+  const handleDeleteAccount = async () => {
+    if (!deletePassword || !session?.user?.accessToken) {
+      toast.error("Lütfen şifrenizi girin");
       return;
     }
-    // API call would go here
-    alert("Hesap silme işlemi başlatıldı");
-    setShowDeleteModal(false);
-    setDeletePassword("");
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me/delete-account`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            password: deletePassword
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Hesap silme işlemi başarısız');
+      }
+
+      // Hesap başarıyla silindi, kullanıcıyı logout yap
+      toast.success('Hesabınız başarıyla silindi');
+      setShowDeleteModal(false);
+      setDeletePassword("");
+
+      // Redirect to home page after short delay
+      setTimeout(() => {
+        window.location.href = "/signout";
+      }, 2000);
+
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Hesap silme işlemi başarısız');
+      console.error('Account deletion error:', error);
+    }
+  };
+
+  // Update modal input handler
+  const handleDeletePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setDeletePassword(e.target.value);
   };
 
   const fetchProfile = async () => {
@@ -430,6 +524,37 @@ const SettingsPage = () => {
       return '';
     }
   };
+
+  const handleSetPrimaryPhoto = async (pictureId: string) => {
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me/pictures/${pictureId}/primary`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${session?.user?.accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to set primary photo');
+      }
+
+      // Refresh profile to get updated photos
+      await fetchProfile();
+      toast.success('Ana fotoğraf başarıyla güncellendi');
+
+    } catch (error) {
+      toast.error('Ana fotoğraf güncellenirken bir hata oluştu');
+      console.error('Primary photo update error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
   // Update handleLocationDetect function
   const handleLocationDetect = async () => {
@@ -670,12 +795,6 @@ const SettingsPage = () => {
     }
   };
 
-  const handleUnblock = (userId: string) => {
-    // API call to unblock user
-    alert(`Kullanıcının engeli kaldırıldı: ${userId}`);
-  };
-
-
 
   // Update TabButton definition
   const TabButton = ({ value, icon: Icon, label }: { value: string; icon: any; label: string }) => (
@@ -736,6 +855,20 @@ const SettingsPage = () => {
                                   fill
                                   className="object-cover"
                                 />
+                                <div className="absolute top-2 left-2 flex space-x-2">
+                                  {profileInfo.photos[index].is_primary ? (
+                                    <span className="bg-[#D63384] text-white text-xs px-2 py-1 rounded-full">
+                                      Ana Fotoğraf
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleSetPrimaryPhoto(profileInfo.photos[index].id)}
+                                      className="bg-[#3C3C3E] text-white text-xs px-2 py-1 rounded-full hover:bg-[#4C4C4E]"
+                                    >
+                                      Ana Fotoğraf Yap
+                                    </button>
+                                  )}
+                                </div>
                                 <button
                                   onClick={() => handlePhotoRemove(profileInfo.photos[index].id)}
                                   className="absolute top-2 right-2 p-1 bg-red-500 rounded-full hover:bg-red-600 transition-colors"
@@ -1001,21 +1134,20 @@ const SettingsPage = () => {
                       <div className="bg-[#2C2C2E] p-6 rounded-lg max-w-md w-full mx-4">
                         <h3 className="text-xl font-semibold text-white mb-4">Hesap Silme Onayı</h3>
                         <p className="text-gray-400 mb-4">
-                          Hesabınızı silmek için lütfen şifrenizi girin.
+                          Hesabınızı silmek için lütfen şifrenizi girin. Bu işlem geri alınamaz.
                         </p>
                         <div className="space-y-4">
                           <input
                             type="password"
-
                             ref={passwordInputRef}
                             value={deletePassword}
-                            onChange={handlePasswordChange}
+                            onChange={handleDeletePasswordChange}
                             placeholder="Şifrenizi girin"
                             className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
                           />
                           <div className="flex justify-end space-x-3">
                             <button
-                              className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 border border-[#4C4C4E] focus:outline-none focus:border-[#D63384]"
+                              className="px-4 py-2 bg-[#3C3C3E] text-white rounded-lg hover:bg-[#4C4C4E]"
                               onClick={() => {
                                 setShowDeleteModal(false);
                                 setDeletePassword("");
@@ -1024,7 +1156,7 @@ const SettingsPage = () => {
                               İptal
                             </button>
                             <button
-                              className="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors"
+                              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
                               onClick={handleDeleteAccount}
                             >
                               Hesabı Sil
@@ -1078,27 +1210,6 @@ const SettingsPage = () => {
                         </div>
                       </div>
                     </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-white mb-4">Mobil Bildirimleri</h3>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-300">Yeni bir mesaj aldığımda</span>
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={notifications.messageNotifications}
-                            onClick={() => setNotifications(prev => ({ ...prev, messageNotifications: !prev.messageNotifications }))}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notifications.messageNotifications ? "bg-[#D63384]" : "bg-[#3C3C3E]"
-                              }`}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notifications.messageNotifications ? "translate-x-6" : "translate-x-1"
-                                }`}
-                            />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}
@@ -1107,22 +1218,23 @@ const SettingsPage = () => {
               {activeTab === "blocked" && (
                 <div>
                   <h2 className="text-2xl font-semibold text-white mb-6">Engellenen Kullanıcılar</h2>
-                  <div className="space-y-8">
-                    {mockBlockedUsers.map((user) => (
-                      <div key={user.id} className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-12 h-12 relative overflow-hidden rounded-full">
-                            <Image
-                              src={user.avatar}
-                              alt={user.name}
-                              fill
-                              className="object-cover"
-                            />
+                  {isLoadingBlocked ? (
+                    <LoadingSpinner />
+                  ) : blockedUsers.length > 0 ? (
+                    <div className="space-y-8">
+                      {blockedUsers.map((user) => (
+                        <div key={user.id} className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 relative overflow-hidden rounded-full">
+                              <Image
+                                src={user.pictures.find(p => p.is_primary)?.backend_url || '/images/defaults/man-default.png'}
+                                alt={`${user.first_name}'s profile picture`}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                            <span className="text-white">{user.first_name} {user.last_name}</span>
                           </div>
-                          <span className="text-white">{user.name}</span>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <span className="text-gray-300">{user.blockedDate}</span>
                           <button
                             className="bg-[#D63384] text-white py-2 px-4 rounded-lg hover:bg-[#D63384] transition-colors"
                             onClick={() => handleUnblock(user.id)}
@@ -1130,9 +1242,13 @@ const SettingsPage = () => {
                             Engeli Kaldır
                           </button>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-400">
+                      <p>Engellediğiniz kullanıcı bulunmamaktadır.</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

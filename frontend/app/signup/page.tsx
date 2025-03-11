@@ -17,6 +17,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast, Toaster } from "react-hot-toast";
 import { signIn } from "next-auth/react";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 const SignupPage = () => {
   const router = useRouter();
@@ -28,6 +29,9 @@ const SignupPage = () => {
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [hasAcceptedPolicy, setHasAcceptedPolicy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+
 
   useEffect(() => {
     document.title = metadata.title as string;
@@ -85,7 +89,7 @@ const SignupPage = () => {
     }
   };
 
-  
+
 
   return (
     <>
@@ -106,7 +110,7 @@ const SignupPage = () => {
                   Hemen üye olun ve yeni insanlarla tanışın.
                 </p>
 
-              
+
 
                 <div className="mb-8 flex items-center justify-center">
                   <span className="hidden h-[1px] w-full max-w-[60px] bg-gray-600 sm:block"></span>
@@ -177,38 +181,57 @@ const SignupPage = () => {
                     />
                   </div>
                   <div className="mb-8">
-                    <label
-                      htmlFor="password"
-                      className="mb-3 block text-sm text-gray-300"
-                    >
-                      {" "}
-                      Şifreniz{" "}
+                    <label htmlFor="password" className="mb-3 block text-sm text-gray-300">
+                      Şifreniz
                     </label>
-                    <input
-                      type="password"
-                      name="password"
-                      placeholder="Şifrenizi Girin"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full rounded-lg border border-transparent bg-[#3C3C3E] px-6 py-3 text-base text-white outline-none transition-all duration-300 focus:border-[#D63384] focus:shadow-[0_0_0_2px_rgba(214,51,132,0.2)]"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="password"
+                        placeholder="Şifrenizi Girin"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full rounded-lg border border-transparent bg-[#3C3C3E] px-6 py-3 text-base text-white outline-none transition-all duration-300 focus:border-[#D63384] focus:shadow-[0_0_0_2px_rgba(214,51,132,0.2)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      >
+                        {showPassword ? (
+                          <FiEyeOff className="w-5 h-5" />
+                        ) : (
+                          <FiEye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
+
                   <div className="mb-8">
-                    <label
-                      htmlFor="password"
-                      className="mb-3 block text-sm text-gray-300"
-                    >
-                      {" "}
-                      Şifre Onayla{" "}
+                    <label htmlFor="passwordConfirm" className="mb-3 block text-sm text-gray-300">
+                      Şifre Onayla
                     </label>
-                    <input
-                      type="password"
-                      name="password"
-                      placeholder="Şifrenizi Tekrar Girin"
-                      value={passwordConfirm}
-                      onChange={(e) => setPasswordConfirm(e.target.value)}
-                      className="w-full rounded-lg border border-transparent bg-[#3C3C3E] px-6 py-3 text-base text-white outline-none transition-all duration-300 focus:border-[#D63384] focus:shadow-[0_0_0_2px_rgba(214,51,132,0.2)]"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPasswordConfirm ? "text" : "password"}
+                        name="passwordConfirm"
+                        placeholder="Şifrenizi Tekrar Girin"
+                        value={passwordConfirm}
+                        onChange={(e) => setPasswordConfirm(e.target.value)}
+                        className="w-full rounded-lg border border-transparent bg-[#3C3C3E] px-6 py-3 text-base text-white outline-none transition-all duration-300 focus:border-[#D63384] focus:shadow-[0_0_0_2px_rgba(214,51,132,0.2)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      >
+                        {showPasswordConfirm ? (
+                          <FiEyeOff className="w-5 h-5" />
+                        ) : (
+                          <FiEye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <div className="mb-8 flex">
                     <label className="flex cursor-pointer select-none text-sm font-medium text-gray-300">

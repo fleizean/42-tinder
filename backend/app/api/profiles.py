@@ -260,6 +260,57 @@ async def upload_profile_picture(
     
     return picture
 
+@router.put("/me/pictures/{picture_id}/primary", response_model=ProfilePictureSchema)
+async def set_primary_profile_picture(
+    picture_id: int,
+    current_user: User = Depends(get_current_verified_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Set a profile picture as primary
+    """
+    try:
+        # Get profile with relationships
+        stmt = select(Profile).options(
+            selectinload(Profile.pictures),
+            selectinload(Profile.tags)
+        ).where(Profile.user_id == current_user.id)
+        
+        result = await db.execute(stmt)
+        profile = result.scalar_one_or_none()
+
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Profil bulunamadı"
+            )
+        
+        # Get picture
+        picture_stmt = select(ProfilePicture).where(
+            ProfilePicture.id == picture_id,
+            ProfilePicture.profile_id == profile.id
+        )
+        result = await db.execute(picture_stmt)
+        picture = result.scalar_one_or_none()
+
+        if not picture:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Resim bulunamadı"
+            )
+        
+        # Set picture as primary
+        await set_primary_picture(db, profile.id, picture.id)
+        
+        return picture
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
 
 @router.delete("/me/pictures/{picture_id}", response_model=dict)
 async def delete_profile_picture(
@@ -323,7 +374,7 @@ async def delete_profile_picture(
         
         await db.commit()
 
-        return {"message": "Picture deleted successfully"}
+        return {"message": "Resim başarıyla silindi"}
 
     except Exception as e:
         await db.rollback()
@@ -354,14 +405,14 @@ async def get_suggested(
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profile not found"
+            detail="Profil bulunamadı"
         )
     
     # Check if profile is complete
     if not profile.is_complete:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Please complete your profile first"
+            detail="Lütfen profilinizi tamamlayın"
         )
     
     # Get suggested profiles
@@ -421,7 +472,7 @@ async def get_profile(
     if not user_profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Your profile not found"
+            detail="Profilin bulunamadı"
         )
     
     # Get requested profile with pictures and tags eagerly loaded
@@ -436,7 +487,7 @@ async def get_profile(
     if not profile_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profile not found"
+            detail="Profil bulunamadı"
         )
     
     profile, user = profile_data
@@ -465,3 +516,50 @@ async def get_profile(
     )
     
     return public_profile
+
+@router.put("/me/delete-account", response_model=dict)
+async def delete_account(
+    password: str,
+    current_user: User = Depends(get_current_verified_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Delete user account
+    """
+    try:
+        # Get user profile
+        profile = await get_profile_by_user_id(db, current_user.id)
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Profil bulunamadı"
+            )
+        
+        # Check password
+        if not current_user.check_password(password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Hatalı şifre"
+            )
+        
+        # Delete profile pictures
+        for picture in profile.pictures:
+            if os.path.exists(picture.file_path):
+                os.remove(picture.file_path)
+        
+        # Delete profile
+        await db.delete(profile)
+        
+        # Delete user
+        await db.delete(current_user)
+        
+        await db.commit()
+        
+        return {"message": "Hesap başarıyla silindi"}
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )

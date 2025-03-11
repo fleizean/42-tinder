@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, and_, or_
 from datetime import datetime
-
+from sqlalchemy.orm import selectinload
 from app.models.interactions import Like, Visit, Block, Report
 from app.models.realtime import Notification, NotificationType, Connection
 from app.models.profile import Profile
@@ -133,6 +133,97 @@ async def like_profile(db: AsyncSession, liker_id: str, liked_id: str) -> Option
     
     return {"like": like, "is_match": is_match}
 
+async def is_blocked(db: AsyncSession, blocker_id: str, blocked_id: str) -> Dict[str, Any]:
+    """
+    Check if a user is blocked and return block details
+    Returns:
+        Dict containing:
+        - is_blocked: bool
+        - block_info: Dict containing block details if exists
+          - block_date: datetime
+          - blocker_id: str
+          - blocked_id: str
+    """
+    result = await db.execute(
+        select(Block).filter(Block.blocker_id == blocker_id, Block.blocked_id == blocked_id)
+    )
+    block = result.scalars().first()
+
+    if not block:
+        return {
+            "is_blocked": False,
+            "block_info": None
+        }
+
+    return {
+        "is_blocked": True,
+        "block_info": {
+            "block_date": block.created_at,
+            "blocker_id": block.blocker_id,
+            "blocked_id": block.blocked_id
+        }
+    }
+
+
+async def get_blocks_sent(db: AsyncSession, profile_id: str, limit: int = 10, offset: int = 0) -> List[Dict[str, Any]]:
+    """
+    Get blocks sent by a profile with eagerly loaded pictures
+    """
+    result = await db.execute(
+        select(Block, Profile, User)
+        .options(selectinload(Profile.pictures))  # Eagerly load pictures
+        .join(Profile, Block.blocked_id == Profile.id)
+        .join(User, Profile.user_id == User.id)
+        .filter(Block.blocker_id == profile_id)
+        .order_by(Block.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    
+    blocks_data = result.all()
+    blocks = []
+    
+    for block, blocked_profile, blocked_user in blocks_data:
+        blocks.append({
+            "block": block,
+            "profile": blocked_profile,
+            "user": blocked_user,
+        })
+    
+    return blocks
+
+async def get_blocks_received(db: AsyncSession, profile_id: str, limit: int = 10, offset: int = 0) -> List[Dict[str, Any]]:
+    """
+    Get blocks received by a profile
+    """
+    # Check if profile exists
+    result = await db.execute(select(Profile).filter(Profile.id == profile_id))
+    profile = result.scalars().first()
+    
+    if not profile:
+        return []
+    
+    # Get blocks
+    result = await db.execute(
+        select(Block, Profile, User)
+        .join(Profile, Block.blocker_id == Profile.id)
+        .join(User, Profile.user_id == User.id)
+        .filter(Block.blocked_id == profile_id)
+        .order_by(Block.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    blocks_data = result.all()
+    
+    blocks = []
+    for block, blocker_profile, blocker_user in blocks_data:
+        blocks.append({
+            "block": block,
+            "profile": blocker_profile,
+            "user": blocker_user
+        })
+    
+    return blocks
 
 async def unlike_profile(db: AsyncSession, liker_id: str, liked_id: str) -> bool:
     """

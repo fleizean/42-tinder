@@ -9,6 +9,9 @@ from app.schemas.interactions import LikeCreate, Like, Visit, BlockCreate, Block
 from app.schemas.profile import PublicProfile
 from app.services.profile import get_profile_by_user_id, get_profile_by_username
 from app.services.interactions import (
+    get_blocks_received,
+    get_blocks_sent,
+    is_blocked,
     like_profile,
     unlike_profile,
     block_profile,
@@ -154,6 +157,78 @@ async def delete_block(
     
     return {
         "message": "Profile unblocked successfully"
+    }
+
+@router.get("/block", response_model=List[PublicProfile])
+async def get_blocks(
+    limit: int = 10,
+    offset: int = 0,
+    current_user: User = Depends(get_current_verified_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Get profiles that current user blocked
+    """
+    profile = await get_profile_by_user_id(db, current_user.id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Your profile not found"
+        )
+    
+    blocks = await get_blocks_sent(db, profile.id, limit, offset)
+    
+    profiles = []
+    for block_data in blocks:
+        blocked_profile = block_data["profile"]
+        blocked_user = block_data["user"]
+        
+        profiles.append(PublicProfile(
+            id=blocked_profile.id,
+            username=blocked_user.username,
+            first_name=blocked_user.first_name,
+            last_name=blocked_user.last_name,
+            is_online=blocked_user.is_online,
+            pictures=blocked_profile.pictures,
+            fame_rating=blocked_profile.fame_rating
+        ))
+    
+    return profiles
+
+@router.post("/is_blocked", response_model=dict)
+async def check_if_blocked(
+    blocked_username: str,
+    current_user: User = Depends(get_current_verified_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Check if a user is blocked and who initiated the block
+    """
+    # Get user's profile
+    profile = await get_profile_by_user_id(db, current_user.id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Your profile not found"
+        )
+    
+    # Get blocked user
+    blocked_user = await get_profile_by_username(db, blocked_username)
+    if not blocked_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Check if blocked in both directions
+    is_blocked_by_me = await is_blocked(db, profile.id, blocked_user.id)
+    is_blocked_by_them = await is_blocked(db, blocked_user.id, profile.id)
+    
+    return {
+        "is_blocked": is_blocked_by_me or is_blocked_by_them,
+        "blocked_by_me": is_blocked_by_me,
+        "blocked_by_them": is_blocked_by_them,
+        "blocker_id": blocked_user.id if is_blocked_by_them else (profile.id if is_blocked_by_me else None)
     }
 
 

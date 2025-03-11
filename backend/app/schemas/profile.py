@@ -167,7 +167,7 @@ class PublicProfile(BaseModel):
     biography: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    fame_rating: float
+    fame_rating: float = 0.0
     is_online: bool
     last_online: Optional[datetime] = None
     pictures: List[ProfilePicture] = []

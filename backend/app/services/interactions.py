@@ -348,7 +348,7 @@ async def unblock_profile(db: AsyncSession, blocker_id: str, blocked_id: str) ->
     return True
 
 
-async def report_profile(db: AsyncSession, reporter_id: str, reported_id: str, reason: str) -> Optional[Report]:
+async def report_profile(db: AsyncSession, reporter_id: str, reported_id: str, reason: str, description: Optional[str] = None) -> Optional[Report]:
     """
     Report a profile
     """
@@ -367,6 +367,7 @@ async def report_profile(db: AsyncSession, reporter_id: str, reported_id: str, r
         reporter_id=reporter_id,
         reported_id=reported_id,
         reason=reason,
+        description=description,
         is_resolved=False
     )
     

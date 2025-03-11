@@ -54,6 +54,7 @@ class Report(Base):
     is_resolved = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     resolved_at = Column(DateTime, nullable=True)
+    description = Column(Text, nullable=True)
     
     # Define relationships
     reporter = relationship("Profile", foreign_keys=[reporter_id], backref="reports_made")

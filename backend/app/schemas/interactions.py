@@ -48,6 +48,7 @@ class Block(BaseModel):
 class ReportCreate(BaseModel):
     reported_id: str
     reason: str
+    description: Optional[str] = None
 
 
 class Report(BaseModel):

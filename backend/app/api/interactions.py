@@ -7,7 +7,7 @@ from app.core.security import get_current_user, get_current_verified_user
 from app.models.user import User
 from app.schemas.interactions import LikeCreate, Like, Visit, BlockCreate, Block, ReportCreate, Report
 from app.schemas.profile import PublicProfile
-from app.services.profile import get_profile_by_user_id
+from app.services.profile import get_profile_by_user_id, get_profile_by_username
 from app.services.interactions import (
     like_profile,
     unlike_profile,
@@ -171,19 +171,19 @@ async def create_report(
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Your profile not found"
+            detail="Profiliniz bulunamadı"
         )
     
     # Report profile
-    result = await report_profile(db, profile.id, report_data.reported_id, report_data.reason)
+    result = await report_profile(db, profile.id, report_data.reported_id, report_data.reason, report_data.description)
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Could not report profile. The profile may not exist."
+            detail="Profil raporlanamadı. Profil mevcut olmayabilir."
         )
     
     return {
-        "message": "Profile reported successfully"
+        "message": "Profil başarıyla raporlandı"
     }
 
 
@@ -281,6 +281,46 @@ async def get_visits(
         ))
     
     return profiles
+
+@router.get("/visits", response_model=List[PublicProfile])
+async def post_visit(
+    visited_username: str,
+    current_user: User = Depends(get_current_verified_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Post a visit
+    """
+    # Get user's profile
+    profile = await get_profile_by_user_id(db, current_user.id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Your profile not found"
+        )
+    
+    # Get visited user
+    visited_user = await get_profile_by_username(db, visited_username)
+    if not visited_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Get visited user's profile
+    visited_profile = await get_profile_by_user_id(db, visited_user.id)
+    if not visited_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
+        )
+    
+    # Post visit
+    await post_visit(db, profile.id, visited_profile.id)
+    
+    return {
+        "message": "Visit posted successfully"
+    }
 
 
 @router.get("/matches", response_model=List[PublicProfile])

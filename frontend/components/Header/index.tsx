@@ -9,10 +9,26 @@ import ThemeToggler from "./ThemeToggler";
 import menuData from "./menuData";
 import { FaUserCircle, FaSignOutAlt, FaComment, FaBell, FaHeart, FaKissWinkHeart } from "react-icons/fa";
 
+interface UserData {
+  email: string;
+  username: string;
+  is_active: boolean;
+  id: string;
+  first_name: string;
+  last_name: string;
+  created_at: string;
+  updated_at: string;
+  last_login: string;
+  is_online: boolean;
+  last_online: string;
+  is_verified: boolean;
+}
+
 const Header = () => {
   const [navbarOpen, setNavbarOpen] = useState(false);
   const [sticky, setSticky] = useState(false);
   const [openIndex, setOpenIndex] = useState(-1);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -45,6 +61,29 @@ const Header = () => {
       window.removeEventListener("scroll", handleStickyNavbar);
     };
   }, []);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (session?.user?.accessToken) {
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/users/me`, {
+            headers: {
+              'Authorization': `Bearer ${session.user.accessToken}`,
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setUserData(data);
+          }
+        } catch (error) {
+          console.error('Failed to fetch user data:', error);
+        }
+      }
+    };
+
+    fetchUserData();
+  }, [session]);
 
 
   // 4. Event handlers
@@ -199,7 +238,7 @@ const Header = () => {
                           </Link>
 
                           <Link
-                            href="/profile/me"
+                            href={`/profile/${userData?.username || 'me'}`}
                             className="flex items-center px-4 py-2 text-base text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
                           >
                             <FaUserCircle className="mr-2" />
@@ -277,7 +316,7 @@ const Header = () => {
                         </button>
                         <div className="absolute right-0 hidden w-48 py-2 mt-0 bg-white/10 backdrop-blur-sm rounded-lg border border-pink-500/20 shadow-xl group-hover:block dark:bg-gray-800/90">
                           <Link
-                            href="/profile/me"
+                            href={`/profile/${userData?.username || 'me'}`}
                             className="flex items-center px-4 py-2 text-sm text-white/90 hover:text-[#D63384] hover:bg-white/5 transition-all duration-300"
                           >
                             <FaUserCircle className="mr-2 text-pink-500" />

@@ -21,7 +21,7 @@ export default withAuth(
         try {
           // Check if profile exists
           const profileResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/username/${username}`,
+            `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/${username}`,
             {
               headers: {
                 Authorization: `Bearer ${token.accessToken}`,

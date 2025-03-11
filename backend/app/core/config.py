@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
+    # SQLAdmin credentials
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "admin"
+
     FRONTEND_URL: str
     MEDIA_ROOT: str = "./media"
     

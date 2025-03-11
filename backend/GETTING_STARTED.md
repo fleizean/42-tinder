@@ -87,7 +87,7 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-The API will be available at http://localhost:8000, and the API documentation will be at http://localhost:8000/docs.
+The API will be available at http://localhost:8000, and the API documentation will be at http://localhost:8000/docs. Admin panel will be at http://localhost:8000/admin
 
 ## Testing the Backend
 

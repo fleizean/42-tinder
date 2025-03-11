@@ -9,6 +9,9 @@ from app.api.profiles import router as profiles_router
 from app.api.interactions import router as interactions_router
 from app.api.realtime import router as realtime_router
 from app.core.config import settings
+from app.core.admin import setup_admin
+from app.core.db import async_engine
+from starlette.middleware.sessions import SessionMiddleware
 
 # Create upload directories
 os.makedirs(os.path.join(settings.MEDIA_ROOT, "profile_pictures"), exist_ok=True)
@@ -18,6 +21,15 @@ app = FastAPI(
     description="API for CrushIt dating app",
     version="1.0.0"
 )
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    max_age=86400,  # 24 hours in seconds
+    same_site="lax",  # Prevents CSRF
+    https_only=False  # Set to True in production with HTTPS
+)
+# Setup SQLAdmin
+admin = setup_admin(app, async_engine)
 
 # Configure CORS
 app.add_middleware(

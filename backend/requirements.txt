@@ -4,6 +4,8 @@ uvicorn==0.27.0
 
 # Database
 sqlalchemy==2.0.25
+sqladmin==0.20.1
+itsdangerous==2.2.0
 alembic==1.13.1
 psycopg2-binary==2.9.9  # PostgreSQL driver
 asyncpg==0.29.0  # Async PostgreSQL driver
@@ -31,6 +33,7 @@ email-validator==2.1.0.post1
 # Geolocation
 geopy==2.4.1
 
+# Not necessary?
 greenlet==1.1.2
 
 unidecode==1.2.0

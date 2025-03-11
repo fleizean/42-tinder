@@ -1,3 +1,4 @@
+
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
@@ -58,9 +59,15 @@ export default withAuth(
       return response;
     }
 
+    if (token && req.nextUrl.pathname === "/") {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
     if (token && isAuthPage) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
+
+    
 
     return NextResponse.next();
   },
@@ -73,6 +80,7 @@ export default withAuth(
 
 export const config = {
   matcher: [
+    "/",
     "/signin",
     "/signup", 
     "/dashboard",

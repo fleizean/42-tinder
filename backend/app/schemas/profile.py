@@ -32,6 +32,8 @@ class ProfilePictureCreate(ProfilePictureBase):
     # File will be handled separately
     pass
 
+class DeleteAccountRequest(BaseModel):
+    password: str
 
 class ProfilePicture(ProfilePictureBase):
     id: int

@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.models.user import User
 from app.models.profile import Profile, Tag, Gender, SexualPreference, ProfilePicture
 from app.schemas.profile import (
+    DeleteAccountRequest,
     Profile as ProfileSchema,
     ProfileUpdate,
     ProfileTagUpdate,
@@ -519,7 +520,7 @@ async def get_profile(
 
 @router.put("/me/delete-account", response_model=dict)
 async def delete_account(
-    password: str,
+    request: DeleteAccountRequest,
     current_user: User = Depends(get_current_verified_user),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
@@ -536,7 +537,7 @@ async def delete_account(
             )
         
         # Check password
-        if not current_user.check_password(password):
+        if not current_user.check_password(request.password):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Hatalı şifre"

@@ -32,12 +32,17 @@ interface SuggestedProfile {
   is_online: boolean;
   last_online: string;
   pictures: {
-    id: string;
+    id: number;  // Changed from string to number based on your response
+    profile_id: string;
     file_path: string;
     backend_url: string;
     is_primary: boolean;
+    created_at: string;
   }[];
-  tags: string[];
+  tags: {  // Update to match the actual structure
+    id: number;
+    name: string;
+  }[];
   birth_date: string;
 }
 
@@ -53,8 +58,8 @@ interface FilterState {
 
 const Dashboard = () => {
   const [ageRange, setAgeRange] = useState([18, 99]);
-  const [fameRating, setFameRating] = useState([1, 5]);
-  const [distance, setDistance] = useState(100);
+  const [fameRating, setFameRating] = useState([0, 5]);
+  const [distance, setDistance] = useState(5000);
   const [tags, setTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('distance');
   const { data: session } = useSession();
@@ -65,13 +70,20 @@ const Dashboard = () => {
   const [filters, setFilters] = useState<FilterState>({
     min_age: 18,
     max_age: 99,
-    min_fame: 1,
+    min_fame: 0,
     max_fame: 5,
     max_distance: 5000,
     tags: []
   });
   const [likedProfiles, setLikedProfiles] = useState<Set<string>>(new Set());
   const [isLikeLoading, setIsLikeLoading] = useState<string | null>(null);
+  const [filtersApplied, setFiltersApplied] = useState(false);
+  const [userProfile, setUserProfile] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  // Update filter submit to set the filtersApplied flag
   const handleFilterSubmit = () => {
     setFilters({
       min_age: ageRange[0],
@@ -81,6 +93,7 @@ const Dashboard = () => {
       max_distance: distance,
       tags: tags
     });
+    setFiltersApplied(true);
     setPage(0); // Reset page for new filters
   };
 
@@ -102,26 +115,82 @@ const Dashboard = () => {
     if (node) observer.current.observe(node);
   }, [isLoading, hasMore]);
 
+  const fetchUserProfile = async () => {
+    if (!session?.user?.accessToken) return;
+    
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to fetch user profile');
+
+      const data = await response.json();
+      setUserProfile({
+        latitude: data.latitude,
+        longitude: data.longitude
+      });
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  // Sayfa yüklendiğinde kullanıcı profilini getir
+  useEffect(() => {
+    if (session?.user?.accessToken) {
+      fetchUserProfile();
+    }
+  }, [session]);
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Dünya'nın yarıçapı (km)
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    const distance = R * c; // Kilometre cinsinden mesafe
+    return Math.round(distance); // En yakın tam sayıya yuvarla
+  };
+
+  // formatDistance fonksiyonu mesafeyi daha okunabilir hale getirir
+  const formatDistance = (distance: number): string => {
+    if (distance < 1) {
+      return `${Math.round(distance * 1000)} m uzaklıkta`; // 1 km'den azsa metre cinsinden göster
+    } else {
+      return `${distance} km uzaklıkta`;
+    }
+  };
+
   const fetchProfiles = async () => {
     try {
       setIsLoading(true);
       const queryParams = new URLSearchParams({
         limit: '10',
         offset: (page * 10).toString(),
-        min_age: filters.min_age.toString(),
-        max_age: filters.max_age.toString(),
-        min_fame: filters.min_fame.toString(),
-        max_fame: filters.max_fame.toString(),
-        max_distance: filters.max_distance.toString()
       });
 
-      if (filters.tags.length > 0) {
-        filters.tags.forEach(tag => {
-          queryParams.append('tags', tag);
-        });
+      if (page > 0 || filtersApplied) {
+        queryParams.append('min_age', filters.min_age.toString());
+        queryParams.append('max_age', filters.max_age.toString());
+        queryParams.append('min_fame', filters.min_fame.toString());
+        queryParams.append('max_fame', filters.max_fame.toString());
+        queryParams.append('max_distance', filters.max_distance.toString());
+        
+        if (filters.tags.length > 0) {
+          filters.tags.forEach(tag => {
+            queryParams.append('tags', tag);
+          });
+        }
       }
-
-      console.log('Query params:', queryParams.toString());
 
 
       const response = await fetch(
@@ -261,7 +330,7 @@ const Dashboard = () => {
                 <label className="text-gray-300 mb-2 block">Fame Rating</label>
                 <Slider
                   range
-                  min={1}
+                  min={0}
                   max={5}
                   value={fameRating}
                   onChange={(value: number[]) => setFameRating(value)}
@@ -380,7 +449,7 @@ const Dashboard = () => {
                       </h3>
                       <div className="flex items-center">
                         <FiStar className="w-4 h-4 text-[#D63384]" />
-                        <span className="text-gray-300 ml-1">{profile.fame_rating}</span>
+                        <span className="text-gray-300 ml-1">{Math.round(profile.fame_rating)}</span>
                       </div>
                     </div>
 
@@ -392,17 +461,27 @@ const Dashboard = () => {
                     {/* Location */}
                     <div className="flex items-center text-gray-400 text-sm mb-3">
                       <FiMapPin className="w-4 h-4 mr-1" />
-                      <span>5km uzaklıkta</span>
+                      <span>
+                        {userProfile 
+                          ? formatDistance(calculateDistance(
+                              userProfile.latitude,
+                              userProfile.longitude,
+                              profile.latitude,
+                              profile.longitude
+                            ))
+                          : "Mesafe hesaplanıyor..."
+                        }
+                      </span>
                     </div>
 
                     {/* Tags */}
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {profile.tags.map((tag, i) => (
+                    {profile.tags.map((tag, i) => (
                         <span
                           key={i}
                           className="text-xs bg-[#3C3C3E] text-gray-300 px-2 py-1 rounded-full"
                         >
-                          #{tag}
+                          #{tag.name}  {/* Use tag.name instead of tag */}
                         </span>
                       )).slice(0, 3)}
                       {profile.tags.length > 3 && (

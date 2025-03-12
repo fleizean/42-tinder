@@ -12,7 +12,7 @@ asyncpg==0.29.0  # Async PostgreSQL driver
 
 # Authentication and security
 python-jose==3.3.0  # JWT tokens
-passlib==1.7.4  # Password hashing
+passlib[bcrypt]==1.7.4  # Password hashing
 bcrypt==4.1.2  # Password hashing
 python-multipart==0.0.6  # Form data parsing
 
@@ -37,3 +37,5 @@ geopy==2.4.1
 greenlet==1.1.2
 
 unidecode==1.2.0
+Faker==9.0.2
+requests==2.26.0

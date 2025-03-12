@@ -2,12 +2,21 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { IoIosSettings } from "react-icons/io";
 import ThemeToggler from "./ThemeToggler";
 import menuData from "./menuData";
 import { FaUserCircle, FaSignOutAlt, FaComment, FaBell, FaHeart, FaKissWinkHeart } from "react-icons/fa";
+
+interface NotificationType {
+  id: number;
+  type: "like" | "match" | "visit" | "message";
+  message: string;
+  time: string;
+  sender_id?: string;
+  read: boolean;
+}
 
 interface UserData {
   email: string;
@@ -29,23 +38,11 @@ const Header = () => {
   const [sticky, setSticky] = useState(false);
   const [openIndex, setOpenIndex] = useState(-1);
   const [userData, setUserData] = useState<UserData | null>(null);
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: "like",
-      message: "Ayşe profilini beğendi",
-      time: "5 dakika önce",
-      read: false
-    },
-    {
-      id: 2,
-      type: "match",
-      message: "Mehmet ile eşleştin!",
-      time: "1 saat önce",
-      read: true
-    }
-  ]);
+  const [notifications, setNotifications] = useState<NotificationType[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
 
   // 2. useSession hook
   const { data: session, status } = useSession();
@@ -99,7 +96,211 @@ const Header = () => {
     setOpenIndex(openIndex === index ? -1 : index);
   };
 
-
+  const fetchNotifications = async () => {
+    if (!session?.user?.accessToken) return;
+    
+    setIsLoadingNotifications(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/realtime/notifications`, {
+        headers: {
+          'Authorization': `Bearer ${session.user.accessToken}`,
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const formattedNotifications = data.map((notification: any) => {
+          let message = "";
+          switch (notification.type) {
+            case "like":
+              message = "Profilinizi beğendi";
+              break;
+            case "match":
+              message = "Bir eşleşmeniz var!";
+              break;
+            case "message":
+              message = "Size yeni bir mesaj gönderdi";
+              break;
+            case "visit":
+              message = "Profilinizi ziyaret etti";
+              break;
+            default:
+              message = "Yeni bir bildirim";
+          }
+          
+          return {
+            id: notification.id,
+            type: notification.type,
+            message,
+            time: new Date(notification.created_at).toLocaleString('tr-TR', { 
+              hour: '2-digit', 
+              minute: '2-digit',
+              day: '2-digit',
+              month: '2-digit'
+            }),
+            read: notification.is_read,
+            sender_id: notification.sender_id
+          };
+        });
+        
+        setNotifications(formattedNotifications);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  };
+  
+  // Function to fetch unread notification count
+  const fetchNotificationCount = async () => {
+    if (!session?.user?.accessToken) return;
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/realtime/notifications/count`, {
+        headers: {
+          'Authorization': `Bearer ${session.user.accessToken}`,
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setNotificationCount(data.count);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notification count:', error);
+    }
+  };
+  
+  // Mark notification as read
+  const markNotificationAsRead = async (notificationId: number) => {
+    if (!session?.user?.accessToken) return;
+    
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/realtime/notifications/${notificationId}/read`, 
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+          }
+        }
+      );
+      
+      if (response.ok) {
+        setNotifications(prev => 
+          prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+        );
+        fetchNotificationCount();
+      }
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
+  };
+  
+  // Mark all notifications as read
+  const markAllNotificationsAsRead = async () => {
+    if (!session?.user?.accessToken) return;
+    
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/realtime/notifications/read-all`, 
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+          }
+        }
+      );
+      
+      if (response.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        setNotificationCount(0);
+      }
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+    }
+  };
+  
+  // Handle notification click
+  const handleNotificationClick = (notification: NotificationType) => {
+    markNotificationAsRead(notification.id);
+    
+    // Navigate based on notification type
+    switch (notification.type) {
+      case "like":
+      case "visit":
+        // Navigate to the profile of sender
+        if (notification.sender_id) {
+          window.location.href = `/profile/${notification.sender_id}`;
+        }
+        break;
+      case "match":
+        // Navigate to chat with the matched user
+        if (notification.sender_id) {
+          window.location.href = `/chat?user=${notification.sender_id}`;
+        }
+        break;
+      case "message":
+        // Navigate to chat with the message sender
+        if (notification.sender_id) {
+          window.location.href = `/chat?user=${notification.sender_id}`;
+        }
+        break;
+      default:
+        break;
+    }
+  };
+  
+  // Function to toggle notification panel
+  const toggleNotifications = () => {
+    if (!showNotifications) {
+      fetchNotifications();
+    }
+    setShowNotifications(!showNotifications);
+  };
+  
+  // Close notification panel when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+  
+  // Fetch notification count on initial load
+  useEffect(() => {
+    if (session?.user?.accessToken) {
+      fetchNotificationCount();
+      
+      // Set up polling for notification count (every 30 seconds)
+      const intervalId = setInterval(fetchNotificationCount, 30000);
+      return () => clearInterval(intervalId);
+    }
+  }, [session]);
+  
+  // Add notification bell to mobile menu
+  const renderNotificationBell = () => (
+    <div className="relative">
+      <button
+        onClick={toggleNotifications}
+        className="flex items-center text-base font-medium text-white/90 hover:text-[#D63384] transition-colors duration-300"
+      >
+        <FaBell className="text-pink-500 transition-all duration-300 hover:scale-110" />
+        {notificationCount > 0 && (
+          <span className="absolute -top-2 -right-2 bg-[#D63384] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+            {notificationCount > 9 ? '9+' : notificationCount}
+          </span>
+        )}
+      </button>
+    </div>
+  );
 
   // Loading state
   if (status === "loading") {
@@ -237,6 +438,8 @@ const Header = () => {
                             Eşleştirme
                           </Link>
 
+                         
+
                           <Link
                             href={`/profile/${userData?.username || 'me'}`}
                             className="flex items-center px-4 py-2 text-base text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
@@ -252,6 +455,19 @@ const Header = () => {
                             <IoIosSettings className="mr-2" />
                             Ayarlar
                           </Link>
+
+                          <button
+                            onClick={toggleNotifications}
+                            className="flex items-center px-4 py-2 text-base text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
+                          >
+                            <FaBell className="mr-2" />
+                            ler
+                            {notificationCount > 0 && (
+                              <span className="ml-2 bg-[#D63384] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                {notificationCount > 9 ? '9+' : notificationCount}
+                              </span>
+                            )}Bildirim
+                          </button>
 
                           <button
                             onClick={() => signOut({
@@ -309,6 +525,9 @@ const Header = () => {
                         Eşleştirme
                       </Link>
 
+                    
+                      
+
                       <div className="relative group">
                         <button className="flex items-center text-base font-medium text-white/90 hover:text-[#D63384] transition-colors duration-300">
                           <FaUserCircle className="mr-2 text-pink-500 transition-all duration-300 group-hover:scale-110" />
@@ -340,6 +559,67 @@ const Header = () => {
                             Çıkış
                           </button>
                         </div>
+                      </div>
+                      <div className="relative" ref={notificationRef}>
+                      <button
+              onClick={toggleNotifications}
+              className="flex items-center text-base font-medium text-white/90 hover:text-[#D63384] transition-colors duration-300"
+              aria-label="Notifications"
+            >
+              <FaBell className="text-pink-500 transition-all duration-300 hover:scale-110" />
+              {notificationCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-[#D63384] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </span>
+              )}
+            </button>
+            
+            {/* Notification Dropdown */}
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 bg-[#2C2C2E]/95 backdrop-blur-sm rounded-xl shadow-lg border border-pink-500/20 z-50">
+                <div className="p-4 border-b border-[#3C3C3E] flex justify-between items-center">
+                  <h3 className="text-white font-medium">Bildirimler</h3>
+                  {notificationCount > 0 && (
+                    <button 
+                      onClick={markAllNotificationsAsRead}
+                      className="text-sm text-pink-400 hover:text-pink-300"
+                    >
+                      Tümünü okundu işaretle
+                    </button>
+                  )}
+                </div>
+                
+                <div className="max-h-96 overflow-y-auto">
+                  {isLoadingNotifications ? (
+                    <div className="flex justify-center items-center p-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-pink-500"></div>
+                    </div>
+                  ) : notifications.length > 0 ? (
+                    <ul>
+                      {notifications.map((notification) => (
+                        <li 
+                          key={notification.id}
+                          className={`p-3 border-b border-[#3C3C3E] hover:bg-[#3C3C3E] cursor-pointer ${!notification.read ? 'bg-[#3C3C3E]/50' : ''}`}
+                          onClick={() => handleNotificationClick(notification)}
+                        >
+                          <div className="flex items-start">
+                            <div className={`w-2 h-2 rounded-full mt-2 mr-2 flex-shrink-0 ${!notification.read ? 'bg-[#D63384]' : 'bg-transparent'}`}></div>
+                            <div className="flex-1">
+                              <p className="text-sm text-white">{notification.message}</p>
+                              <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="p-4 text-center text-gray-400">
+                      <p>Bildirim bulunmamaktadır</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
                       </div>
                     </>
                   ) : (

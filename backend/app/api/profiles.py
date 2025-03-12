@@ -1,5 +1,5 @@
 from ast import Delete
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -394,7 +394,7 @@ async def get_suggested(
     min_fame: Optional[float] = None,
     max_fame: Optional[float] = None,
     max_distance: Optional[float] = None,
-    tags: Optional[List[str]] = None,
+    tags: Optional[List[str]] = Query(None, description="Tags to filter profiles"),
     current_user: User = Depends(get_current_verified_user),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
@@ -415,7 +415,6 @@ async def get_suggested(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Lütfen profilinizi tamamlayın"
         )
-    
     # Get suggested profiles
     suggested = await get_suggested_profiles(
         db=db,
@@ -432,6 +431,9 @@ async def get_suggested(
     
     # Extract profiles
     profiles = []
+    if not suggested:
+        return profiles
+    
     for item in suggested:
         profile_data = item["profile"]
         user_data = item["user"]

@@ -12,6 +12,7 @@ from app.models.profile import Profile, Tag, ProfilePicture, Gender, SexualPrefe
 from app.models.user import User
 from app.models.interactions import Like, Visit, Block, Report
 from app.core.config import settings
+from tkinter.tix import Select
 
 
 async def get_profile_by_user_id(db: AsyncSession, user_id: str) -> Optional[Profile]:
@@ -365,7 +366,6 @@ async def update_fame_rating(db: AsyncSession, profile_id: str) -> float:
     
     return fame_rating
 
-
 async def get_suggested_profiles(
     db: AsyncSession,
     user_id: str,
@@ -381,159 +381,4 @@ async def get_suggested_profiles(
     """
     Get suggested profiles for a user based on various criteria
     """
-    # Get user's profile
-    result = await db.execute(select(Profile).join(User).filter(Profile.user_id == user_id))
-    user_profile = result.scalars().first()
-    
-    if not user_profile:
-        return []
-    
-    # Get user's gender and sexual preference
-    user_gender = user_profile.gender
-    user_preference = user_profile.sexual_preference
-    
-    # Get blocked users
-    result = await db.execute(select(Block.blocked_id).filter(Block.blocker_id == user_profile.id))
-    blocked_ids = [row[0] for row in result.all()]
-    
-    # Get users who blocked this user
-    result = await db.execute(select(Block.blocker_id).filter(Block.blocked_id == user_profile.id))
-    blocker_ids = [row[0] for row in result.all()]
-    
-    # Combine blocked and blocker IDs
-    excluded_ids = blocked_ids + blocker_ids + [user_profile.id]
-    
-    # Base query for profiles
-    query = select(Profile, User).join(User, Profile.user_id == User.id).filter(
-        Profile.is_complete == True,
-        Profile.id.notin_(excluded_ids)
-    )
-    
-    # Add gender and sexual preference filters
-    if user_gender and user_preference:
-        if user_preference == SexualPreference.HETEROSEXUAL:
-            # Heterosexual: match with opposite gender
-            opposite_gender = Gender.FEMALE if user_gender == Gender.MALE else Gender.MALE
-            query = query.filter(Profile.gender == opposite_gender)
-            # And the other user should be interested in user's gender
-            query = query.filter(or_(
-                Profile.sexual_preference == SexualPreference.HOMOSEXUAL,
-                Profile.sexual_preference == SexualPreference.BISEXUAL
-            ))
-        elif user_preference == SexualPreference.BISEXUAL:
-            # Bisexual: no gender filter, but other user should be interested
-            query = query.filter(or_(
-                # If other is heterosexual, they should be opposite gender
-                and_(
-                    Profile.sexual_preference == SexualPreference.HETEROSEXUAL,
-                    Profile.gender != user_gender
-                ),
-                # If other is homosexual, they should be same gender
-                and_(
-                    Profile.sexual_preference == SexualPreference.HOMOSEXUAL,
-                    Profile.gender == user_gender
-                ),
-                # If other is bisexual, no restrictions
-                Profile.sexual_preference == SexualPreference.BISEXUAL
-            ))
-    
-    # Add age filters if provided
-    if min_age or max_age:
-        current_year = datetime.utcnow().year
-        
-        if min_age:
-            max_birth_year = current_year - min_age
-            # This would require a birth_year field in the profile, which is not in our schema
-            # Alternative: use a calculated field or separate birth date field
-    
-        if max_age:
-            min_birth_year = current_year - max_age
-            # Similarly, would need birth_year or birth date field
-    
-    # Add fame rating filters
-    if min_fame is not None:
-        query = query.filter(Profile.fame_rating >= min_fame)
-    
-    if max_fame is not None:
-        query = query.filter(Profile.fame_rating <= max_fame)
-    
-    # Add geographical distance filter
-    if max_distance is not None and user_profile.latitude and user_profile.longitude:
-        # This would require a geographic distance calculation
-        # For simplicity in this implementation, we'll use a bounding box approximation
-        # A more accurate implementation would use the Haversine formula or PostGIS
-        
-        # Convert distance (km) to approximate degrees
-        # 1 degree latitude ~ 111 km
-        # 1 degree longitude ~ 111 km * cos(latitude)
-        lat_distance = max_distance / 111.0
-        lng_distance = max_distance / (111.0 * cos(user_profile.latitude * 3.14159 / 180.0))
-        
-        query = query.filter(
-            Profile.latitude.between(user_profile.latitude - lat_distance, user_profile.latitude + lat_distance),
-            Profile.longitude.between(user_profile.longitude - lng_distance, user_profile.longitude + lng_distance)
-        )
-    
-    # Add tag filters
-    if tags and len(tags) > 0:
-        # This requires a more complex query with joins to the tag tables
-        # For simplicity, we'll retrieve all profiles and filter in memory
-        
-        # Get tag IDs
-        tag_query = select(Tag.id).filter(func.lower(Tag.name).in_([t.lower() for t in tags]))
-        result = await db.execute(tag_query)
-        tag_ids = [row[0] for row in result.all()]
-        
-        if tag_ids:
-            # For each tag, join to the profile_tags table
-            for tag_id in tag_ids:
-                query = query.filter(
-                    Profile.id.in_(
-                        select(profile_tags.c.profile_id).filter(profile_tags.c.tag_id == tag_id)
-                    )
-                )
-    
-    # Execute query with pagination
-    result = await db.execute(query.offset(offset).limit(limit))
-    profiles_with_users = result.all()
-    
-    # Calculate distance and common tags for each profile
-    suggested_profiles = []
-    for profile, user in profiles_with_users:
-        # Calculate distance if coordinates available
-        distance = None
-        if user_profile.latitude and user_profile.longitude and profile.latitude and profile.longitude:
-            # Simple Euclidean distance (not accurate for geographic coordinates)
-            # A more accurate implementation would use the Haversine formula
-            lat_diff = user_profile.latitude - profile.latitude
-            lng_diff = user_profile.longitude - profile.longitude
-            distance = (lat_diff**2 + lng_diff**2)**0.5 * 111.0  # Rough km conversion
-        
-        # Calculate common tags
-        user_tag_ids = [tag.id for tag in user_profile.tags]
-        profile_tag_ids = [tag.id for tag in profile.tags]
-        common_tags = len(set(user_tag_ids).intersection(set(profile_tag_ids)))
-        
-        # Check if user has liked this profile
-        result = await db.execute(
-            select(Like).filter(Like.liker_id == user_profile.id, Like.liked_id == profile.id)
-        )
-        has_liked = result.scalars().first() is not None
-        
-        # Add to suggested profiles
-        suggested_profiles.append({
-            "profile": profile,
-            "user": user,
-            "distance": distance,
-            "common_tags": common_tags,
-            "has_liked": has_liked
-        })
-    
-    # Sort by proximity first, then common tags, then fame rating
-    suggested_profiles.sort(key=lambda x: (
-        x["distance"] if x["distance"] is not None else float('inf'),
-        -x["common_tags"],
-        -x["profile"].fame_rating
-    ))
-    
-    return suggested_profiles
+    pass

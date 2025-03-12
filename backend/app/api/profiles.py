@@ -394,12 +394,12 @@ async def get_suggested(
     min_fame: Optional[float] = None,
     max_fame: Optional[float] = None,
     max_distance: Optional[float] = None,
-    tags: Optional[List[str]] = Query(None, description="Tags to filter profiles"),
+    tags: Optional[List[str]] = Query(None, description="List of tags to filter by (e.g. ?tags=music&tags=travel)"),
     current_user: User = Depends(get_current_verified_user),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
-    Get suggested profiles
+    Get suggested profiles with age-based filtering
     """
     # Get user's profile
     profile = await get_profile_by_user_id(db, current_user.id)
@@ -415,7 +415,8 @@ async def get_suggested(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Lütfen profilinizi tamamlayın"
         )
-    # Get suggested profiles
+    
+    # Get suggested profiles with age filters
     suggested = await get_suggested_profiles(
         db=db,
         user_id=current_user.id,
@@ -453,7 +454,8 @@ async def get_suggested(
             is_online=user_data.is_online,
             last_online=user_data.last_online,
             pictures=profile_data.pictures,
-            tags=profile_data.tags
+            tags=profile_data.tags,
+            birth_date=profile_data.birth_date
         )
         
         profiles.append(public_profile)

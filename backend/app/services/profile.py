@@ -6,13 +6,14 @@ from sqlalchemy import func, and_, or_
 from sqlalchemy.orm import selectinload
 import uuid
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.models.profile import Profile, Tag, ProfilePicture, Gender, SexualPreference, profile_tags
 from app.models.user import User
 from app.models.interactions import Like, Visit, Block, Report
 from app.core.config import settings
 from tkinter.tix import Select
+from app.utils.geolocation import get_bounding_box, haversine_distance
 
 
 async def get_profile_by_user_id(db: AsyncSession, user_id: str) -> Optional[Profile]:
@@ -381,4 +382,188 @@ async def get_suggested_profiles(
     """
     Get suggested profiles for a user based on various criteria
     """
-    pass
+    # Get user's profile
+    result = await db.execute(
+        select(Profile)
+        .options(selectinload(Profile.tags))
+        .join(User)
+        .filter(Profile.user_id == user_id)
+    )
+    user_profile = result.scalars().first()
+    
+    if not user_profile:
+        return []
+    
+    # Get user's gender and sexual preference
+    user_gender = user_profile.gender
+    user_preference = user_profile.sexual_preference
+    
+    # Get blocked users
+    result = await db.execute(select(Block.blocked_id).filter(Block.blocker_id == user_profile.id))
+    blocked_ids = [row[0] for row in result.all()]
+    
+    # Get users who blocked this user
+    result = await db.execute(select(Block.blocker_id).filter(Block.blocked_id == user_profile.id))
+    blocker_ids = [row[0] for row in result.all()]
+    
+    # Combine blocked and blocker IDs
+    excluded_ids = blocked_ids + blocker_ids + [user_profile.id]
+    
+    # Base query for profiles
+    query = select(Profile, User).join(User, Profile.user_id == User.id).options(
+        selectinload(Profile.tags),
+        selectinload(Profile.pictures)  # Also load pictures since you might need them later
+    ).filter(
+        Profile.is_complete == True,
+        Profile.id.notin_(excluded_ids)
+    )
+    
+    # Add gender and sexual preference filters
+    if user_gender and user_preference:
+        if user_preference == SexualPreference.HETEROSEXUAL:
+            # Heterosexual: match with opposite gender
+            opposite_gender = Gender.FEMALE if user_gender == Gender.MALE else Gender.MALE
+            query = query.filter(Profile.gender == opposite_gender)
+            # And the other user should be interested in user's gender
+            query = query.filter(or_(
+                Profile.sexual_preference == SexualPreference.HETEROSEXUAL,
+                Profile.sexual_preference == SexualPreference.BISEXUAL
+            ))
+        elif user_preference == SexualPreference.HOMOSEXUAL:
+            # Homosexual: match with same gender
+            query = query.filter(Profile.gender == user_gender)
+            # And the other user should be interested in same gender
+            query = query.filter(or_(
+                Profile.sexual_preference == SexualPreference.HOMOSEXUAL,
+                Profile.sexual_preference == SexualPreference.BISEXUAL
+            ))
+        elif user_preference == SexualPreference.BISEXUAL:
+            # Bisexual: no gender filter, but other user should be interested
+            query = query.filter(or_(
+                # If other is heterosexual, they should be opposite gender
+                and_(
+                    Profile.sexual_preference == SexualPreference.HETEROSEXUAL,
+                    Profile.gender != user_gender
+                ),
+                # If other is homosexual, they should be same gender
+                and_(
+                    Profile.sexual_preference == SexualPreference.HOMOSEXUAL,
+                    Profile.gender == user_gender
+                ),
+                # If other is bisexual, no restrictions
+                Profile.sexual_preference == SexualPreference.BISEXUAL
+            ))
+    
+    # Add age filters if provided - Using birth_date field
+    if min_age is not None or max_age is not None:
+        current_date = datetime.utcnow()
+        
+        if min_age is not None:
+            # Calculate maximum birth date for minimum age
+            max_birth_date = current_date - timedelta(days=min_age*365.25)
+            query = query.filter(Profile.birth_date <= max_birth_date)
+        
+        if max_age is not None:
+            # Calculate minimum birth date for maximum age
+            min_birth_date = current_date - timedelta(days=(max_age+1)*365.25)
+            query = query.filter(Profile.birth_date >= min_birth_date)
+    
+    # Add fame rating filters
+    if min_fame is not None:
+        query = query.filter(Profile.fame_rating >= min_fame)
+    
+    if max_fame is not None:
+        query = query.filter(Profile.fame_rating <= max_fame)
+    
+    # Add geographical distance filter
+    if max_distance is not None and user_profile.latitude and user_profile.longitude:
+        # First use a bounding box for efficiency (SQL can use indexes)
+        min_lat, min_lon, max_lat, max_lon = get_bounding_box(
+            user_profile.latitude, 
+            user_profile.longitude, 
+            max_distance
+        )
+        
+        query = query.filter(
+            Profile.latitude.between(min_lat, max_lat),
+            Profile.longitude.between(min_lon, max_lon)
+        )
+
+        # For more accurate distance calculation, we'll filter the results later
+        # after retrieving them from the database
+    
+    # Add tag filters
+    if tags and len(tags) > 0:
+        # Get tag IDs
+        tag_query = select(Tag.id).filter(func.lower(Tag.name).in_([t.lower() for t in tags]))
+        result = await db.execute(tag_query)
+        tag_ids = [row[0] for row in result.all()]
+        
+        if tag_ids:
+            # For each tag, join to the profile_tags table
+            for tag_id in tag_ids:
+                query = query.filter(
+                    Profile.id.in_(
+                        select(profile_tags.c.profile_id).filter(profile_tags.c.tag_id == tag_id)
+                    )
+                )
+    
+    # Execute query with pagination
+    result = await db.execute(query.offset(offset).limit(limit))
+    profiles_with_users = result.all()
+    
+    # Calculate distance and common tags for each profile
+    suggested_profiles = []
+    for profile, user in profiles_with_users:
+        # Calculate distance if coordinates available
+        distance = None
+        if user_profile.latitude and user_profile.longitude and profile.latitude and profile.longitude:
+            # Use the Haversine formula for accurate distance calculation
+            distance = haversine_distance(
+                user_profile.latitude, 
+                user_profile.longitude, 
+                profile.latitude, 
+                profile.longitude
+            )
+            
+            # Skip this profile if it's actually outside the max distance
+            # (the bounding box is an approximation and might include some points outside)
+            if max_distance is not None and distance > max_distance:
+                continue
+        
+        # Calculate common tags
+        user_tag_ids = [tag.id for tag in user_profile.tags]
+        profile_tag_ids = [tag.id for tag in profile.tags]
+        common_tags = len(set(user_tag_ids).intersection(set(profile_tag_ids)))
+        
+        # Check if user has liked this profile
+        result = await db.execute(
+            select(Like).filter(Like.liker_id == user_profile.id, Like.liked_id == profile.id)
+        )
+        has_liked = result.scalars().first() is not None
+        
+        # Calculate age if birth_date is available
+        age = None
+        if profile.birth_date:
+            today = datetime.utcnow()
+            birth_date = profile.birth_date
+            age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+        
+        # Add to suggested profiles
+        suggested_profiles.append({
+            "profile": profile,
+            "user": user,
+            "distance": distance,
+            "common_tags": common_tags,
+            "has_liked": has_liked,
+            "age": age
+        })
+    
+    # Sort by proximity first, then common tags, then fame rating
+    suggested_profiles.sort(key=lambda x: (
+        x["distance"] if x["distance"] is not None else float('inf'),
+        -x["common_tags"],
+        -x["profile"].fame_rating
+    ))
+    
+    return suggested_profiles

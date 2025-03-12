@@ -13,7 +13,7 @@ asyncpg==0.29.0  # Async PostgreSQL driver
 # Authentication and security
 python-jose==3.3.0  # JWT tokens
 passlib[bcrypt]==1.7.4  # Password hashing
-bcrypt==4.1.2  # Password hashing
+bcrypt==4.0.1  # Password hashing
 python-multipart==0.0.6  # Form data parsing
 
 # Email
@@ -34,8 +34,8 @@ email-validator==2.1.0.post1
 geopy==2.4.1
 
 # Not necessary?
-greenlet==1.1.2
+#greenlet==1.1.2
 
 unidecode==1.2.0
-Faker==9.0.2
+Faker==9.9.1
 requests==2.26.0

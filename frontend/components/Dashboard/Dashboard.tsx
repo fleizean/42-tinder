@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { FiHeart, FiMapPin, FiStar, FiTag, FiFilter } from "react-icons/fi";
+import { FiHeart, FiMapPin, FiStar, FiTag, FiFilter, FiMoreHorizontal } from "react-icons/fi";
 import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
+import Link from "next/link";
 
 interface Profile {
   id: string;
@@ -531,82 +532,95 @@ const Dashboard = () => {
                   ref={index === profiles.length - 1 ? lastProfileRef : null}
                   className="bg-[#2C2C2E] rounded-xl overflow-hidden"
                 >
-                  <div className="relative h-48 group">
-                    <Image
-                      src={profile.pictures.find(p => p.is_primary)?.backend_url || '/images/defaults/profile-default.jpg'}
-                      alt={`${profile.first_name}'s profile`}
-                      fill
-                      className="object-cover"
-                    />
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleLike(profile.id);
-                      }}
-                      disabled={isLikeLoading === profile.id}
-                      className={`absolute top-2 right-2 p-2 rounded-full transition-all
-      ${likedProfiles.has(profile.id)
-                          ? 'bg-[#D63384] text-white'
-                          : 'bg-white/80 hover:bg-white text-gray-600'}
-      ${isLikeLoading === profile.id ? 'opacity-50' : ''}
-    `}
-                    >
-                      <FiHeart
-                        className={`w-5 h-5 ${likedProfiles.has(profile.id) ? 'fill-current' : ''}`}
+                   <Link href={`/profile/${profile.username}`}>
+                    <div className="relative h-48 group">
+                      <Image
+                        src={profile.pictures.find(p => p.is_primary)?.backend_url || '/images/defaults/profile-default.jpg'}
+                        alt={`${profile.first_name}'s profile`}
+                        fill
+                        className="object-cover"
                       />
-                    </button>
-                  </div>
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-xl font-semibold text-white">
-                        {profile.first_name}, {calculateAge(profile.birth_date)}
-                      </h3>
-                      <div className="flex items-center">
-                        <FiStar className="w-4 h-4 text-[#D63384]" />
-                        <span className="text-gray-300 ml-1">{Math.round(profile.fame_rating)}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          handleLike(profile.id);
+                        }}
+                        disabled={isLikeLoading === profile.id}
+                        className={`absolute top-2 right-2 p-2 rounded-full transition-all
+        ${likedProfiles.has(profile.id)
+                            ? 'bg-[#D63384] text-white'
+                            : 'bg-white/80 hover:bg-white text-gray-600'}
+        ${isLikeLoading === profile.id ? 'opacity-50' : ''}
+      `}
+                      >
+                        <FiHeart
+                          className={`w-5 h-5 ${likedProfiles.has(profile.id) ? 'fill-current' : ''}`}
+                        />
+                      </button>
+                    </div>
+                    </Link>
+                    <div className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="text-xl font-semibold text-white">
+                          {profile.first_name}, {calculateAge(profile.birth_date)}
+                        </h3>
+                        <div className="flex items-center">
+                          <FiStar className="w-4 h-4 text-[#D63384]" />
+                          <span className="text-gray-300 ml-1">{Math.round(profile.fame_rating)}</span>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Biography */}
-                    <p className="text-gray-300 text-sm mb-3 line-clamp-2">
-                      {profile.biography || "Henüz bir biyografi eklenmemiş."}
-                    </p>
+                      {/* Biography */}
+                      <div className="relative mb-3">
+                        <p className="text-gray-300 text-sm line-clamp-2">
+                          {profile.biography || "Henüz bir biyografi eklenmemiş."}
+                        </p>
+                        {profile.biography && profile.biography.length > 100 && (
+                          <div className="absolute bottom-0 right-0 bg-gradient-to-l from-[#2C2C2E] to-transparent pl-2 pr-1">
+                            <Link href={`/profile/${profile.username}`}>
+                              <FiMoreHorizontal className="w-4 h-4 text-gray" />
+                            </Link>
+                          </div>
+                        )}
+                      </div>
 
-                    {/* Location */}
-                    <div className="flex items-center text-gray-400 text-sm mb-3">
-                      <FiMapPin className="w-4 h-4 mr-1" />
-                      <span>
-                        {userProfile
-                          ? formatDistance(calculateDistance(
-                            userProfile.latitude,
-                            userProfile.longitude,
-                            profile.latitude,
-                            profile.longitude
-                          ))
-                          : "Mesafe hesaplanıyor..."
-                        }
-                      </span>
-                    </div>
-
-                    {/* Tags */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {profile.tags.map((tag, i) => (
-                        <span
-                          key={i}
-                          className="text-xs bg-[#3C3C3E] text-gray-300 px-2 py-1 rounded-full"
-                        >
-                          #{tag.name}  {/* Use tag.name instead of tag */}
+                      {/* Location */}
+                      <div className="flex items-center text-gray-400 text-sm mb-3">
+                        <FiMapPin className="w-4 h-4 mr-1" />
+                        <span>
+                          {userProfile
+                            ? formatDistance(calculateDistance(
+                              userProfile.latitude,
+                              userProfile.longitude,
+                              profile.latitude,
+                              profile.longitude
+                            ))
+                            : "Mesafe hesaplanıyor..."
+                          }
                         </span>
-                      )).slice(0, 3)}
-                      {profile.tags.length > 3 && (
-                        <span className="text-xs text-gray-400">
-                          +{profile.tags.length - 3}
-                        </span>
-                      )}
+                      </div>
+
+                      {/* Tags */}
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {profile.tags.map((tag, i) => (
+                          <span
+                            key={i}
+                            className="text-xs bg-[#3C3C3E] text-gray-300 px-2 py-1 rounded-full"
+                          >
+                            #{tag.name}  {/* Use tag.name instead of tag */}
+                          </span>
+                        )).slice(0, 3)}
+                        {profile.tags.length > 3 && (
+                          <span className="text-xs text-gray-400">
+                            +{profile.tags.length - 3}
+                          </span>
+                        )}
+                      </div>
+
+
                     </div>
-
-
-                  </div>
+                  
                 </div>
               ))}
             </div>

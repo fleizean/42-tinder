@@ -12,7 +12,6 @@ from app.models.profile import Profile, Tag, ProfilePicture, Gender, SexualPrefe
 from app.models.user import User
 from app.models.interactions import Like, Visit, Block, Report
 from app.core.config import settings
-from tkinter.tix import Select
 from app.utils.geolocation import get_bounding_box, haversine_distance
 
 

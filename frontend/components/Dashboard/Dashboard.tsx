@@ -55,13 +55,18 @@ interface FilterState {
   tags: string[];
 }
 
+enum SortOption {
+  AGE_ASC = 'age_asc',
+  AGE_DESC = 'age_desc',
+  DISTANCE = 'distance',
+  FAME_RATING = 'fame_rating',
+  TAGS_MATCH = 'tags_match'
+}
 
 const Dashboard = () => {
   const [ageRange, setAgeRange] = useState([18, 99]);
   const [fameRating, setFameRating] = useState([0, 5]);
-  const [distance, setDistance] = useState(5000);
   const [tags, setTags] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState('distance');
   const { data: session } = useSession();
   const [profiles, setProfiles] = useState<SuggestedProfile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -78,10 +83,27 @@ const Dashboard = () => {
   const [likedProfiles, setLikedProfiles] = useState<Set<string>>(new Set());
   const [isLikeLoading, setIsLikeLoading] = useState<string | null>(null);
   const [filtersApplied, setFiltersApplied] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>(SortOption.DISTANCE);
   const [userProfile, setUserProfile] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
+
+    const distanceOptions = [
+    { label: "5 km (Aynı mahalle)", value: 5 },
+    { label: "10 km (Yakın semtler)", value: 10 },
+    { label: "25 km (Aynı şehir)", value: 25 },
+    { label: "50 km (Şehir ve çevresi)", value: 50 },
+    { label: "100 km (Komşu şehirler)", value: 100 },
+    { label: "250 km (Aynı bölge)", value: 250 },
+    { label: "500 km (Bölgeler arası)", value: 500 },
+    { label: "1000 km (Ülke geneli)", value: 1000 },
+    { label: "2500 km (Komşu ülkeler)", value: 2500 },
+    { label: "5000 km (Kıtasal)", value: 5000 },
+    { label: "10000 km (Global)", value: 10000 },
+    { label: "15000 km (Dünya geneli)", value: 15000 }
+  ];
+  const [distance, setDistance] = useState(50); // Başlangıç değeri olarak 50km
 
   // Update filter submit to set the filtersApplied flag
   const handleFilterSubmit = () => {
@@ -117,7 +139,7 @@ const Dashboard = () => {
 
   const fetchUserProfile = async () => {
     if (!session?.user?.accessToken) return;
-    
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me`,
@@ -141,6 +163,41 @@ const Dashboard = () => {
     }
   };
 
+  const sortProfiles = (profiles: SuggestedProfile[]): SuggestedProfile[] => {
+    // Profillerin bir kopyasını oluştur
+    const sortedProfiles = [...profiles];
+    
+    switch (sortBy) {
+      case SortOption.AGE_ASC:
+        return sortedProfiles.sort((a, b) => 
+          calculateAge(a.birth_date) - calculateAge(b.birth_date)
+        );
+      case SortOption.AGE_DESC:
+        return sortedProfiles.sort((a, b) => 
+          calculateAge(b.birth_date) - calculateAge(a.birth_date)
+        );
+      case SortOption.DISTANCE:
+        if (userProfile) {
+          return sortedProfiles.sort((a, b) => 
+            calculateDistance(userProfile.latitude, userProfile.longitude, a.latitude, a.longitude) - 
+            calculateDistance(userProfile.latitude, userProfile.longitude, b.latitude, b.longitude)
+          );
+        }
+        return sortedProfiles;
+      case SortOption.FAME_RATING:
+        return sortedProfiles.sort((a, b) => b.fame_rating - a.fame_rating);
+      case SortOption.TAGS_MATCH:
+        // Kullanıcının etiketleriyle eşleşme sayısına göre sırala
+        return sortedProfiles.sort((a, b) => {
+          const aMatches = a.tags.filter(tag => tags.includes(tag.name)).length;
+          const bMatches = b.tags.filter(tag => tags.includes(tag.name)).length;
+          return bMatches - aMatches;
+        });
+      default:
+        return sortedProfiles;
+    }
+  };
+
   // Sayfa yüklendiğinde kullanıcı profilini getir
   useEffect(() => {
     if (session?.user?.accessToken) {
@@ -152,11 +209,11 @@ const Dashboard = () => {
     const R = 6371; // Dünya'nın yarıçapı (km)
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2); 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distance = R * c; // Kilometre cinsinden mesafe
     return Math.round(distance); // En yakın tam sayıya yuvarla
   };
@@ -184,7 +241,7 @@ const Dashboard = () => {
         queryParams.append('min_fame', filters.min_fame.toString());
         queryParams.append('max_fame', filters.max_fame.toString());
         queryParams.append('max_distance', filters.max_distance.toString());
-        
+
         if (filters.tags.length > 0) {
           filters.tags.forEach(tag => {
             queryParams.append('tags', tag);
@@ -292,7 +349,7 @@ const Dashboard = () => {
             <div className="bg-[#2C2C2E] rounded-xl p-6">
               <h3 className="text-xl font-semibold text-white mb-6">Filtreler</h3>
 
-              
+
               <div className="mb-6">
                 <label className="text-gray-300 mb-2 block">Yaş Aralığı</label>
                 <Slider
@@ -324,7 +381,7 @@ const Dashboard = () => {
                   {ageRange[0]} - {ageRange[1]} yaş
                 </div>
               </div>
-              
+
 
               <div className="mb-6">
                 <label className="text-gray-300 mb-2 block">Fame Rating</label>
@@ -348,21 +405,56 @@ const Dashboard = () => {
               </div>
 
               <div className="mb-6">
-                <label className="text-gray-300 mb-2 block">Mesafe (km)</label>
-                <Slider
-                  min={0}
-                  max={5000}
-                  value={distance}
-                  onChange={(value: number) => setDistance(value)}
-                  className="mb-2"
-                  railStyle={{ backgroundColor: '#3C3C3E' }}
-                  trackStyle={{ backgroundColor: '#D63384' }}
-                  handleStyle={[
-                    { borderColor: '#8A2BE2', backgroundColor: '#8A2BE2' },
-                    { borderColor: '#D63384', backgroundColor: '#D63384' }
-                  ]}
-                />
-                <div className="text-gray-400 text-sm">{distance} km</div>
+                <label className="text-gray-300 mb-2 block">Mesafe</label>
+                <div className="mb-2">
+                  <Slider
+                    min={0}
+                    max={distanceOptions.length - 1}
+                    value={distanceOptions.findIndex(option => option.value === distance)}
+                    onChange={(index: number) => {
+                      const selectedDistance = distanceOptions[index].value;
+                      setDistance(selectedDistance);
+                    }}
+                    className="mb-2"
+                    railStyle={{ backgroundColor: '#3C3C3E' }}
+                    trackStyle={{ backgroundColor: '#D63384' }}
+                    handleStyle={[
+                      { borderColor: '#8A2BE2', backgroundColor: '#8A2BE2' }
+                    ]}
+                    marks={distanceOptions.reduce((acc, option, index) => {
+                      acc[index] = '';
+                      return acc;
+                    }, {} as Record<number, string>)}
+                  />
+                </div>
+
+                <div className="flex justify-between text-gray-400 text-sm">
+                  <span>Seçilen mesafe:</span>
+                  <span className="font-medium">{distance} km</span>
+                </div>
+
+                <div className="grid grid-cols-5 gap-2 mt-3">
+                  {distanceOptions.map((option, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setDistance(option.value);
+                        setFilters(prev => ({
+                          ...prev,
+                          max_distance: option.value
+                        }));
+                      }}
+                      title={option.label} // Tooltip olarak tüm açıklamayı göster
+                      className={`text-xs py-1 px-2 rounded ${
+                        distance === option.value
+                          ? 'bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white'
+                          : 'bg-[#3C3C3E] text-gray-300'
+                      } transition-colors`}
+                    >
+                      {option.value} km
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="mb-6">
@@ -399,7 +491,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <button 
+              <button
                 onClick={handleFilterSubmit}
                 className="w-full bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
               >
@@ -410,8 +502,30 @@ const Dashboard = () => {
 
           {/* Profile Cards Section */}
           <div className="w-full lg:w-3/4 lg:pl-12">
+           {/* Sıralama seçimi */}
+           <div className="flex justify-end mb-4">
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="bg-[#2C2C2E] text-white py-2 pl-3 pr-8 rounded-lg border-none focus:outline-none focus:ring-2 focus:ring-[#D63384] appearance-none"
+                >
+                  <option value={SortOption.DISTANCE}>Mesafeye göre</option>
+                  <option value={SortOption.AGE_ASC}>Yaş (Küçükten büyüğe)</option>
+                  <option value={SortOption.AGE_DESC}>Yaş (Büyükten küçüğe)</option>
+                  <option value={SortOption.FAME_RATING}>Popülerliğe göre</option>
+                  <option value={SortOption.TAGS_MATCH}>Etiket eşleşmesine göre</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {profiles.map((profile, index) => (
+              {sortProfiles(profiles).map((profile, index) => (
                 <div
                   key={profile.id}
                   ref={index === profiles.length - 1 ? lastProfileRef : null}
@@ -462,13 +576,13 @@ const Dashboard = () => {
                     <div className="flex items-center text-gray-400 text-sm mb-3">
                       <FiMapPin className="w-4 h-4 mr-1" />
                       <span>
-                        {userProfile 
+                        {userProfile
                           ? formatDistance(calculateDistance(
-                              userProfile.latitude,
-                              userProfile.longitude,
-                              profile.latitude,
-                              profile.longitude
-                            ))
+                            userProfile.latitude,
+                            userProfile.longitude,
+                            profile.latitude,
+                            profile.longitude
+                          ))
                           : "Mesafe hesaplanıyor..."
                         }
                       </span>
@@ -476,7 +590,7 @@ const Dashboard = () => {
 
                     {/* Tags */}
                     <div className="flex flex-wrap gap-2 mb-4">
-                    {profile.tags.map((tag, i) => (
+                      {profile.tags.map((tag, i) => (
                         <span
                           key={i}
                           className="text-xs bg-[#3C3C3E] text-gray-300 px-2 py-1 rounded-full"

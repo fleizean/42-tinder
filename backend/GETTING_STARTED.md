@@ -81,7 +81,14 @@ alembic revision --autogenerate -m "Initial migration"
 alembic upgrade head
 ```
 
-### 6. Start the Backend Server
+### 6. Populate the Database
+
+```bash
+python -m scripts.create_fake_users
+```
+
+
+### 7. Start the Backend Server
 
 ```bash
 uvicorn app.main:app --reload

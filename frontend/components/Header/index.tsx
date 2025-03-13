@@ -46,6 +46,7 @@ const Header = () => {
   const [notificationsPage, setNotificationsPage] = useState(0);
   const [hasMoreNotifications, setHasMoreNotifications] = useState(true);
   const [isLoadingMoreNotifications, setIsLoadingMoreNotifications] = useState(false);
+  const [showMobileNotifications, setShowMobileNotifications] = useState(false);
 
   // 2. useSession hook
   const { data: session, status } = useSession();
@@ -379,21 +380,94 @@ const Header = () => {
   }, [session]);
 
   // Add notification bell to mobile menu
-  const renderNotificationBell = () => (
-    <div className="relative">
-      <button
-        onClick={toggleNotifications}
-        className="flex items-center text-base font-medium text-white/90 hover:text-[#D63384] transition-colors duration-300"
-      >
-        <FaBell className="text-pink-500 transition-all duration-300 hover:scale-110" />
-        {notificationCount > 0 && (
-          <span className="absolute -top-2 -right-2 bg-[#D63384] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-            {notificationCount > 9 ? '9+' : notificationCount}
-          </span>
-        )}
-      </button>
-    </div>
-  );
+  const toggleMobileNotifications = () => {
+    if (!showMobileNotifications) {
+      setNotificationsPage(0);
+      fetchNotifications();
+    }
+    setShowMobileNotifications(!showMobileNotifications);
+  };
+  
+  // Mobil görünümde bildirim butonuna tıklandığında çağrılacak fonksiyon
+  const handleMobileNotificationClick = () => {
+    toggleMobileNotifications();
+    // Navbar'ı kapat (opsiyonel)
+    // setNavbarOpen(false);
+  };
+  
+  // Render fonksiyonunun en sonuna, return ifadesinin hemen öncesinde mobil bildirimler modalını ekleyin
+  const renderMobileNotificationsModal = () => {
+    if (!showMobileNotifications) return null;
+    
+    return (
+      <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4">
+        <div className="bg-[#2C2C2E] w-full max-w-sm rounded-xl overflow-hidden">
+          <div className="p-4 border-b border-[#3C3C3E] flex justify-between items-center">
+            <h3 className="text-white font-medium">Bildirimler</h3>
+            <div className="flex items-center space-x-4">
+              {notificationCount > 0 && (
+                <button
+                  onClick={markAllNotificationsAsRead}
+                  className="text-sm text-pink-400 hover:text-pink-300"
+                >
+                  Tümünü okundu işaretle
+                </button>
+              )}
+              <button 
+                onClick={() => setShowMobileNotifications(false)}
+                className="text-white text-xl"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          
+          <div
+            className="max-h-[70vh] overflow-y-auto"
+            onScroll={handleNotificationsScroll}
+          >
+            {isLoadingNotifications && notificationsPage === 0 ? (
+              <div className="flex justify-center items-center p-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-pink-500"></div>
+              </div>
+            ) : notifications.length > 0 ? (
+              <ul>
+                {notifications.map((notification) => (
+                  <li
+                    key={notification.id}
+                    className={`p-3 border-b border-[#3C3C3E] hover:bg-[#3C3C3E] cursor-pointer ${!notification.read ? 'bg-[#3C3C3E]/50' : ''}`}
+                    onClick={() => {
+                      handleNotificationClick(notification);
+                      setShowMobileNotifications(false);
+                    }}
+                  >
+                    <div className="flex items-start">
+                      <div className={`w-2 h-2 rounded-full mt-2 mr-2 flex-shrink-0 ${!notification.read ? 'bg-[#D63384]' : 'bg-transparent'}`}></div>
+                      <div className="flex-1">
+                        <p className="text-sm text-white">{notification.message}</p>
+                        <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+                
+                {/* Daha fazla bildirim yükleniyor göstergesi */}
+                {isLoadingMoreNotifications && (
+                  <li className="p-4 text-center">
+                    <div className="inline-block animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-pink-500"></div>
+                  </li>
+                )}
+              </ul>
+            ) : (
+              <div className="p-4 text-center text-gray-400">
+                <p>Bildirim bulunmamaktadır</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Loading state
   if (status === "loading") {
@@ -550,16 +624,16 @@ const Header = () => {
                           </Link>
 
                           <button
-                            onClick={toggleNotifications}
-                            className="flex items-center px-4 py-2 text-base text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
+                            onClick={handleMobileNotificationClick}
+                            className="flex items-center w-full px-4 py-2 text-base text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
                           >
                             <FaBell className="mr-2" />
-                            ler
+                            <span>Bildirimler</span>
                             {notificationCount > 0 && (
                               <span className="ml-2 bg-[#D63384] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                                 {notificationCount > 9 ? '9+' : notificationCount}
                               </span>
-                            )}Bildirim
+                            )}
                           </button>
 
                           <button
@@ -753,26 +827,6 @@ const Header = () => {
                                       </div>
                                     </li>
                                   ))}
-                                  {notifications.map((notification) => (
-                                    <li
-                                      key={notification.id}
-                                      className={`p-3 border-b border-[#3C3C3E] hover:bg-[#3C3C3E] cursor-pointer ${!notification.read ? 'bg-[#3C3C3E]/50' : ''}`}
-                                      onClick={() => handleNotificationClick(notification)}
-                                    >
-                                      <div className="flex items-start">
-                                        <div className={`w-2 h-2 rounded-full mt-2 mr-2 flex-shrink-0 ${!notification.read ? 'bg-[#D63384]' : 'bg-transparent'}`}></div>
-                                        <div className="flex-1">
-                                          <p className="text-sm text-white">{notification.message}</p>
-                                          <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
-                                        </div>
-                                      </div>
-                                    </li>
-                                  ))}
-                                  {isLoadingMoreNotifications && (
-                                    <li className="p-4 text-center">
-                                      <div className="inline-block animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-pink-500"></div>
-                                    </li>
-                                  )}
                                 </ul>
                               ) : (
                                 <div className="p-4 text-center text-gray-400">
@@ -808,6 +862,7 @@ const Header = () => {
           </div>
         </header>
       </div>
+      {renderMobileNotificationsModal()}
     </>
   );
 };

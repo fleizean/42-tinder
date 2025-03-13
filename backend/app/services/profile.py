@@ -352,8 +352,8 @@ async def update_fame_rating(db: AsyncSession, profile_id: str) -> float:
     if total_users > 0:
         # Formula: (likes * 2 + visits) / total_users * 10
         # This gives a rating between 0 and ~10, where 10 is very famous
-        fame_rating = (likes_count * 2 + visits_count) / total_users * 10
-        fame_rating = min(10.0, fame_rating)  # Cap at 10
+        fame_rating = (likes_count * 2 + visits_count) / total_users * 5
+        fame_rating = min(5.0, fame_rating)  # Cap at 10
     else:
         fame_rating = 0.0
     

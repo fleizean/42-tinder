@@ -102,9 +102,9 @@ const Dashboard = () => {
     { label: "2500 km (Komşu ülkeler)", value: 2500 },
     { label: "5000 km (Kıtasal)", value: 5000 },
     { label: "10000 km (Global)", value: 10000 },
-    { label: "15000 km (Dünya geneli)", value: 15000 }
+    { label: "20000 km (Dünya geneli)", value: 20000 }
   ];
-  const [distance, setDistance] = useState(15000); // Başlangıç değeri olarak 50km
+  const [distance, setDistance] = useState(20000); // Başlangıç değeri olarak 50km
 
   // Update filter submit to set the filtersApplied flag
   const handleFilterSubmit = () => {

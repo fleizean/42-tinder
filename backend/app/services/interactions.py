@@ -480,9 +480,13 @@ async def get_likes_received(db: AsyncSession, profile_id: str, limit: int = 10,
     if not profile:
         return []
     
-    # Get likes
+    # Get likes with eagerly loaded pictures and tags
     result = await db.execute(
         select(Like, Profile, User)
+        .options(
+            selectinload(Profile.pictures),  # Eagerly load pictures
+            selectinload(Profile.tags)       # Eagerly load tags
+        )
         .join(Profile, Like.liker_id == Profile.id)
         .join(User, Profile.user_id == User.id)
         .filter(Like.liked_id == profile_id)
@@ -494,10 +498,14 @@ async def get_likes_received(db: AsyncSession, profile_id: str, limit: int = 10,
     
     likes = []
     for like, liker_profile, liker_user in likes_data:
+        # Eagerly loaded pictures ve tags'i kullan
         likes.append({
             "like": like,
             "profile": liker_profile,
-            "user": liker_user
+            "user": liker_user,
+            # İlave olarak pictures ve tags'i açıkça ekleyelim
+            "pictures": list(liker_profile.pictures) if liker_profile.pictures else [],
+            "tags": list(liker_profile.tags) if liker_profile.tags else []
         })
     
     return likes
@@ -514,9 +522,13 @@ async def get_visits_received(db: AsyncSession, profile_id: str, limit: int = 10
     if not profile:
         return []
     
-    # Get visits
+    # Get visits with eagerly loaded pictures and tags
     result = await db.execute(
         select(Visit, Profile, User)
+        .options(
+            selectinload(Profile.pictures),  # Eagerly load pictures
+            selectinload(Profile.tags)       # Eagerly load tags
+        )
         .join(Profile, Visit.visitor_id == Profile.id)
         .join(User, Profile.user_id == User.id)
         .filter(Visit.visited_id == profile_id)
@@ -528,14 +540,17 @@ async def get_visits_received(db: AsyncSession, profile_id: str, limit: int = 10
     
     visits = []
     for visit, visitor_profile, visitor_user in visits_data:
+        # Eagerly loaded pictures ve tags'i kullan
         visits.append({
             "visit": visit,
             "profile": visitor_profile,
-            "user": visitor_user
+            "user": visitor_user,
+            # İlave olarak pictures ve tags'i açıkça ekleyelim
+            "pictures": list(visitor_profile.pictures) if visitor_profile.pictures else [],
+            "tags": list(visitor_profile.tags) if visitor_profile.tags else []
         })
     
     return visits
-
 
 
 

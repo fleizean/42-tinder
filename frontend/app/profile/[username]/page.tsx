@@ -112,6 +112,10 @@ const ProfilePage = () => {
   const [showFullBio, setShowFullBio] = useState(false);
   const BIO_LIMIT = 150;
   const [recentVisitors, setRecentVisitors] = useState<PublicProfile[]>([]);
+  const [recentLikers, setRecentLikers] = useState<PublicProfile[]>([]);
+  const [recentMatches, setRecentMatches] = useState<PublicProfile[]>([]);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(false);
+  const [isLoadingLikers, setIsLoadingLikers] = useState(false);
   const [isLoadingVisitors, setIsLoadingVisitors] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -121,7 +125,7 @@ const ProfilePage = () => {
     blocked_by_them: { is_blocked: false, block_info: null },
     blocker_id: null
   });
-
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -129,46 +133,46 @@ const ProfilePage = () => {
   }
     , []);
 
-    const fetchProfile = async () => {
-      try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/${params.username}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${session?.user?.accessToken}`,
-            }
+  const fetchProfile = async () => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/${params.username}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session?.user?.accessToken}`,
           }
-        );
-  
-        if (!response.ok) {
-          throw new Error('Failed to fetch profile');
         }
-  
-        const data = await response.json();
-        setProfile(data);
-      } catch (error) {
-        console.error('Profile fetch error:', error);
-        toast.error('Profil bilgileri yüklenemedi');
-      } finally {
-        setIsLoading(false);
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch profile');
       }
-    };
-  
-    // Move the original useEffect below the function definition
-    useEffect(() => {
-      if (session?.user?.accessToken) {
-        fetchProfile();
-      }
-    }, [session, params.username]);
+
+      const data = await response.json();
+      setProfile(data);
+    } catch (error) {
+      console.error('Profile fetch error:', error);
+      toast.error('Profil bilgileri yüklenemedi');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Move the original useEffect below the function definition
+  useEffect(() => {
+    if (session?.user?.accessToken) {
+      fetchProfile();
+    }
+  }, [session, params.username]);
 
   const handleLike = async () => {
     if (!session?.user?.accessToken || !profile) return;
-  
+
     try {
-      const endpoint = isLiked 
+      const endpoint = isLiked
         ? `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/like/${profile.id}`
         : `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/like`;
-  
+
       const response = await fetch(endpoint, {
         method: isLiked ? 'DELETE' : 'POST',
         headers: {
@@ -179,14 +183,14 @@ const ProfilePage = () => {
           liked_id: profile.id
         })
       });
-  
+
       if (!response.ok) {
         throw new Error('Failed to process like');
       }
-  
+
       const data = await response.json();
       setIsLiked(!isLiked);
-      
+
       if (data.is_match && !isLiked) {
         toast.success('Eşleşme gerçekleşti! 🎉');
       }
@@ -245,7 +249,7 @@ const ProfilePage = () => {
         blocked_by_them: prev.blocked_by_them,
         blocker_id: null
       }));
-      
+
       setShowBlockModal(false);
       toast.success('Kullanıcı engellendi');
 
@@ -254,10 +258,10 @@ const ProfilePage = () => {
       toast.error('Kullanıcı engellenemedi');
     }
   };
-  
+
   const confirmUnBlock = async () => {
     if (!session?.user?.accessToken || !profile) return;
-  
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/block/${profile.id}`,
@@ -268,11 +272,11 @@ const ProfilePage = () => {
           }
         }
       );
-  
+
       if (!response.ok) {
         throw new Error('Failed to process unblock');
       }
-  
+
       // Update block statuses with proper BlockInfo structure
       setIsBlocked(false);
       setBlockStatus(prev => ({
@@ -288,19 +292,19 @@ const ProfilePage = () => {
         blocked_by_them: prev.blocked_by_them,
         blocker_id: null
       }));
-      
+
       setShowBlockModal(false);
       toast.success('Engel kaldırıldı');
-  
+
       // Refresh profile data
       await fetchProfile();
-  
+
     } catch (error) {
       console.error('Block error:', error);
       toast.error('Engel kaldırılamadı');
     }
   };
-  
+
   // Update renderBlockedView to use proper onClick handler
   const renderBlockedView = () => {
     if (blockStatus.blocked_by_me.is_blocked) {
@@ -325,15 +329,15 @@ const ProfilePage = () => {
     // ...rest of the code
   };
 
-    const handleReport = () => {
-      // Show the report modal
-      setShowReportModal(true);
-    };
-  
+  const handleReport = () => {
+    // Show the report modal
+    setShowReportModal(true);
+  };
+
   // Report functionality
   const submitReport = async () => {
     if (!session?.user?.accessToken || !profile) return;
-  
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/report`,
@@ -350,11 +354,11 @@ const ProfilePage = () => {
           })
         }
       );
-  
+
       if (!response.ok) {
         throw new Error('Failed to submit report');
       }
-  
+
       setShowReportModal(false);
       setReportReason("");
       setReportDescription("");
@@ -365,13 +369,70 @@ const ProfilePage = () => {
     }
   };
 
-  const fetchRecentVisitors = async () => {
+  const fetchRecentLikers = async () => {
     if (!session?.user?.accessToken) return;
+
+    setIsLoadingLikers(true);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/likes?limit=5`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch likers');
+      }
+
+      const data = await response.json();
+      setRecentLikers(data);
+    } catch (error) {
+      console.error('Recent likers fetch error:', error);
+      toast.error('Beğenenler yüklenemedi');
+    } finally {
+      setIsLoadingLikers(false);
+    }
+  };
+
+  const fetchCurrentUsername = async () => {
+    if (!session?.user?.accessToken) return;
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/users/me`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+          }
+        }
+      );
+
+      if (response.ok) {
+        const userData = await response.json();
+        setCurrentUsername(userData.username);
+      }
+    } catch (error) {
+      console.error('Failed to fetch current user info:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (session?.user?.accessToken) {
+      fetchCurrentUsername();
+    }
+  }, [session]);
+
+
+  const fetchRecentVisitors = async () => {
+    if (!session?.user?.accessToken || !currentUsername || profile?.username !== currentUsername) return;
 
     setIsLoadingVisitors(true);
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/visits?username=${params.username}&limit=5`,
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/visits?username=${currentUsername}&limit=5`,
         {
           headers: {
             'Authorization': `Bearer ${session.user.accessToken}`,
@@ -393,12 +454,45 @@ const ProfilePage = () => {
     }
   };
 
-  // Add useEffect to fetch visitors when profile loads
-  useEffect(() => {
-    if (profile && session?.user?.accessToken) {
-      fetchRecentVisitors();
+  const fetchRecentMatches = async () => {
+    if (!session?.user?.accessToken || !currentUsername || profile?.username !== currentUsername) return;
+
+    setIsLoadingMatches(true);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/matches?limit=5`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch matches');
+      }
+
+      const data = await response.json();
+      setRecentMatches(data);
+    } catch (error) {
+      console.error('Recent matches fetch error:', error);
+      toast.error('Eşleşmeler yüklenemedi');
+    } finally {
+      setIsLoadingMatches(false);
     }
-  }, [profile, session]);
+  };
+
+  // 4. useEffect'i güncelleyelim
+  useEffect(() => {
+    if (profile && session?.user?.accessToken && currentUsername) {
+      // Sadece kendi profilinde son ziyaretçileri, beğenenleri ve eşleşmeleri göster
+      if (profile.username === currentUsername) {
+        fetchRecentVisitors();
+        fetchRecentLikers();
+        fetchRecentMatches();
+      }
+    }
+  }, [profile, session, currentUsername]);
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371; // Earth's radius in kilometers
@@ -494,7 +588,7 @@ const ProfilePage = () => {
     infinite: profile?.pictures?.length > 1,
     speed: 500,
     slidesToShow: 1,
-    slidesToScroll: 1,  
+    slidesToScroll: 1,
     beforeChange: (current: number, next: number) => setCurrentSlide(next),
     arrows: profile?.pictures?.length > 1
   };
@@ -502,7 +596,7 @@ const ProfilePage = () => {
   useEffect(() => {
     const checkBlockStatus = async () => {
       if (!session?.user?.accessToken || !params.username) return;
-  
+
       try {
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/is_blocked?blocked_username=${params.username}`,
@@ -513,7 +607,7 @@ const ProfilePage = () => {
             }
           }
         );
-  
+
         if (!response.ok) throw new Error('Failed to check block status');
         const data = await response.json();
         console.log('Block status:', data);
@@ -522,14 +616,14 @@ const ProfilePage = () => {
         console.error('Block status check error:', error);
       }
     };
-  
+
     checkBlockStatus();
   }, [session, params.username]);
-  
+
   useEffect(() => {
     const checkLikeStatus = async () => {
       if (!session?.user?.accessToken || !profile) return;
-      
+
       try {
         // `/me/is-liked/{username}` endpoint'ini kullanarak beğeni durumunu kontrol edelim
         const response = await fetch(
@@ -541,7 +635,7 @@ const ProfilePage = () => {
             }
           }
         );
-        
+
         if (response.ok) {
           const data = await response.json();
           setIsLiked(data.is_liked);
@@ -550,7 +644,7 @@ const ProfilePage = () => {
         console.error('Failed to check like status:', error);
       }
     };
-  
+
     checkLikeStatus();
   }, [session, profile]);
 
@@ -624,36 +718,33 @@ const ProfilePage = () => {
                   </Link>
                 ) : (
                   <>
-                    <button 
+                    <button
                       onClick={handleLike}
-                      className={`p-3 rounded-full transition-all duration-300 ${
-                        isLiked 
-                          ? 'bg-[#D63384] hover:bg-[#B52B6F] shadow-lg shadow-pink-500/30 scale-105' 
-                          : 'bg-gradient-to-r from-[#8A2BE2] to-[#D63384] hover:opacity-90 text-white opacity-80'
-                      } text-white`}
+                      className={`p-3 rounded-full transition-all duration-300 ${isLiked
+                        ? 'bg-[#D63384] hover:bg-[#B52B6F] shadow-lg shadow-pink-500/30 scale-105'
+                        : 'bg-gradient-to-r from-[#8A2BE2] to-[#D63384] hover:opacity-90 text-white opacity-80'
+                        } text-white`}
                       title={isLiked ? "Beğeniyi Kaldır" : "Beğen"}
                     >
-                      <FiHeart 
-                        className={`w-6 h-6 transition-transform ${
-                          isLiked 
-                            ? 'fill-white transform scale-110 animate-pulse' 
-                            : 'stroke-white'
-                        }`} 
+                      <FiHeart
+                        className={`w-6 h-6 transition-transform ${isLiked
+                          ? 'fill-white transform scale-110 animate-pulse'
+                          : 'stroke-white'
+                          }`}
                       />
                     </button>
 
                     <button
                       onClick={handleBlock}
-                      className={`p-3 rounded-full ${
-                        isBlocked 
-                          ? 'bg-red-500 hover:bg-red-600' 
-                          : 'bg-[#3C3C3E] hover:bg-[#4C4C4E]'
-                      } text-white`}
+                      className={`p-3 rounded-full ${isBlocked
+                        ? 'bg-red-500 hover:bg-red-600'
+                        : 'bg-[#3C3C3E] hover:bg-[#4C4C4E]'
+                        } text-white`}
                     >
                       <FiSlash className="w-6 h-6" />
                     </button>
-                   
-                    
+
+
                     <button
                       onClick={handleReport}
                       className="p-3 rounded-full bg-[#3C3C3E] text-red-500 hover:bg-[#4C4C4E]"
@@ -750,21 +841,21 @@ const ProfilePage = () => {
               <div className="flex items-center">
                 <FiClock className={`mr-2 ${profile.is_online ? 'text-green-500' : 'text-gray-500'}`} />
                 <span className={`${profile.is_online
-                    ? 'text-green-500 font-medium'
-                    : 'text-gray-400'
+                  ? 'text-green-500 font-medium'
+                  : 'text-gray-400'
                   }`}>
-                  {profile.is_online 
-                    ? "Çevrimiçi" 
-                    : profile.last_online 
+                  {profile.is_online
+                    ? "Çevrimiçi"
+                    : profile.last_online
                       ? `Son görülme: ${new Date(profile.last_online).toLocaleString('tr-TR', {
-                          day: 'numeric',
-                          month: 'long',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}` 
+                        day: 'numeric',
+                        month: 'long',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}`
                       : "Son görülme: Bilinmiyor"
-                  }                
-                  </span>
+                  }
+                </span>
               </div>
             </div>
           </div>
@@ -773,66 +864,66 @@ const ProfilePage = () => {
           <div className="bg-[#2C2C2E] rounded-xl p-8 mb-8">
             <h2 className="text-xl font-semibold text-white mb-4">Fotoğraflar</h2>
             {profile.pictures && profile.pictures.length > 0 ? (
-  <div className="h-[500px]">
-    {profile.pictures.length === 1 ? (
-      <div className="px-2 h-[450px]">
-        <div
-          className="relative w-full h-full rounded-xl overflow-hidden cursor-pointer"
-          onClick={() => {
-            setCurrentSlide(0);
-            setShowLightbox(true);
-          }}
-        >
-          <Image
-            src={profile.pictures[0].backend_url}
-            alt={`${profile.first_name}'in fotoğrafı`}
-            fill
-            className="object-cover"
-            priority
-            onError={(e) => {
-              e.currentTarget.src = '/images/defaults/man-default.png';
-            }}
-          />
-          {profile.pictures[0].is_primary && (
-            <div className="absolute top-2 right-2 bg-[#D63384] text-white text-xs px-2 py-1 rounded-full">
-              Ana Fotoğraf
-            </div>
-          )}
-        </div>
-      </div>
-    ) : (
-                <Slider {...sliderSettings}>
-                  {profile.pictures.map((picture, index) => (
-                    <div key={picture.id} className="px-2 h-[450px]">
-                      <div
-                        className="relative w-full h-full rounded-xl overflow-hidden cursor-pointer"
-                        onClick={() => {
-                          setCurrentSlide(index);
-                          setShowLightbox(true);
+              <div className="h-[500px]">
+                {profile.pictures.length === 1 ? (
+                  <div className="px-2 h-[450px]">
+                    <div
+                      className="relative w-full h-full rounded-xl overflow-hidden cursor-pointer"
+                      onClick={() => {
+                        setCurrentSlide(0);
+                        setShowLightbox(true);
+                      }}
+                    >
+                      <Image
+                        src={profile.pictures[0].backend_url}
+                        alt={`${profile.first_name}'in fotoğrafı`}
+                        fill
+                        className="object-cover"
+                        priority
+                        onError={(e) => {
+                          e.currentTarget.src = '/images/defaults/man-default.png';
                         }}
-                      >
-                        <Image
-                          src={picture.backend_url}
-                          alt={`${profile.first_name}'in ${index + 1}. fotoğrafı`}
-                          fill
-                          className="object-cover"
-                          priority={index === 0}
-                          onError={(e) => {
-                            e.currentTarget.src = '/images/defaults/man-default.png';
-                          }}
-                        />
-                        {picture.is_primary && (
-                          <div className="absolute top-2 right-2 bg-[#D63384] text-white text-xs px-2 py-1 rounded-full">
-                            Ana Fotoğraf
-                          </div>
-                        )}
-                      </div>
+                      />
+                      {profile.pictures[0].is_primary && (
+                        <div className="absolute top-2 right-2 bg-[#D63384] text-white text-xs px-2 py-1 rounded-full">
+                          Ana Fotoğraf
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </Slider>
-               )}
-               </div>
-             ) : (
+                  </div>
+                ) : (
+                  <Slider {...sliderSettings}>
+                    {profile.pictures.map((picture, index) => (
+                      <div key={picture.id} className="px-2 h-[450px]">
+                        <div
+                          className="relative w-full h-full rounded-xl overflow-hidden cursor-pointer"
+                          onClick={() => {
+                            setCurrentSlide(index);
+                            setShowLightbox(true);
+                          }}
+                        >
+                          <Image
+                            src={picture.backend_url}
+                            alt={`${profile.first_name}'in ${index + 1}. fotoğrafı`}
+                            fill
+                            className="object-cover"
+                            priority={index === 0}
+                            onError={(e) => {
+                              e.currentTarget.src = '/images/defaults/man-default.png';
+                            }}
+                          />
+                          {picture.is_primary && (
+                            <div className="absolute top-2 right-2 bg-[#D63384] text-white text-xs px-2 py-1 rounded-full">
+                              Ana Fotoğraf
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </Slider>
+                )}
+              </div>
+            ) : (
               <div className="flex flex-col items-center justify-center h-48 text-gray-400">
                 <p>Henüz fotoğraf yüklenmemiş</p>
                 {profile.id === currentUserProfile?.id && (
@@ -850,7 +941,7 @@ const ProfilePage = () => {
             >
               <h3 className="text-white text-xl font-semibold mb-4">
                 {profile.first_name} {profile.last_name}
-                {profile.pictures[currentSlide].is_primary && 
+                {profile.pictures[currentSlide].is_primary &&
                   <span className="ml-2 text-sm bg-[#D63384] px-2 py-1 rounded-full">
                     Ana Fotoğraf
                   </span>
@@ -867,51 +958,170 @@ const ProfilePage = () => {
             </div>
           )}
 
-                   {/* Recent Visitors */}
-          <div className="bg-[#2C2C2E] rounded-xl p-8">
-            <h2 className="text-xl font-semibold text-white mb-4">
-              Son Ziyaretçiler
-            </h2>
-            {isLoadingVisitors ? (
-              <div className="flex items-center justify-center h-12">
-                <FiLoader className="w-6 h-6 text-[#D63384] animate-spin" />
+
+          {profile?.username === currentUsername && (
+            <>
+              {/* Recent Visitors */}
+              <div className="bg-[#2C2C2E] rounded-xl p-8 mb-8">
+                <h2 className="text-xl font-semibold text-white mb-4">
+                  Son Ziyaretçiler
+                </h2>
+                {isLoadingVisitors ? (
+                  <div className="flex items-center justify-center h-12">
+                    <FiLoader className="w-6 h-6 text-[#D63384] animate-spin" />
+                  </div>
+                ) : recentVisitors.length > 0 ? (
+                  <div className="flex space-x-4">
+                    {recentVisitors
+                      .filter((visitor, index, self) =>
+                        index === self.findIndex(v => v.id === visitor.id)
+                      )
+                      .map((visitor) => (
+                        <Link
+                          href={`/profile/${visitor.username}`}
+                          key={`visitor-${visitor.id}`}
+                          className="group relative"
+                        >
+                          <div className="w-12 h-12 rounded-full overflow-hidden relative">
+                            <Image
+                              src={
+                                Array.isArray(visitor.pictures) && visitor.pictures.length > 0
+                                  ? visitor.pictures.find(p => p.is_primary)?.backend_url || visitor.pictures[0]?.backend_url
+                                  : '/images/defaults/man-default.png'
+                              }
+                              alt={`${visitor.first_name}'in profil fotoğrafı`}
+                              fill
+                              className="object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = '/images/defaults/man-default.png';
+                              }}
+                            />
+                            {visitor.is_online && (
+                              <div className="absolute bottom-2 right-2 w-3 h-3 bg-green-500 rounded-full border-2 border-[#2C2C2E]" />
+                            )}
+                          </div>
+                          <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-[#3C3C3E] text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            {visitor.first_name}
+                          </div>
+                        </Link>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-24 text-gray-400">
+                    <p>Henüz hiç ziyaretçin olmamış</p>
+                    <p className="text-sm mt-1">Profilini güncel tutarak daha fazla etkileşim alabilirsin</p>
+                  </div>
+                )}
               </div>
-            ) : recentVisitors.length > 0 ? (
-              <div className="flex space-x-4">
-                {recentVisitors
-                  .filter((visitor, index, self) => 
-                    index === self.findIndex(v => v.id === visitor.id)
-                  )
-                  .map((visitor) => (
-                    <Link
-                      href={`/profile/${visitor.username}`}
-                      key={`visitor-${visitor.id}`}
-                      className="group relative"
-                    >
-                      <div className="w-12 h-12 rounded-full overflow-hidden relative">
-                        <Image
-                          src={visitor.pictures.find(p => p.is_primary)?.backend_url || '/default-avatar.jpg'}
-                          alt={`${visitor.first_name}'in profil fotoğrafı`}
-                          fill
-                          className="object-cover"
-                        />
-                        {visitor.is_online && (
-                          <div className="absolute bottom-2 right-2 w-3 h-3 bg-green-500 rounded-full border-2 border-[#2C2C2E]" />
-                        )}
-                      </div>
-                      <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-[#3C3C3E] text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        {visitor.first_name}
-                      </div>
-                    </Link>
-                  ))}
+
+              {/* Recent Likers */}
+              <div className="bg-[#2C2C2E] rounded-xl p-8 mb-8">
+                <h2 className="text-xl font-semibold text-white mb-4">
+                  Son Beğenenler
+                </h2>
+                {isLoadingLikers ? (
+                  <div className="flex items-center justify-center h-12">
+                    <FiLoader className="w-6 h-6 text-[#D63384] animate-spin" />
+                  </div>
+                ) : recentLikers.length > 0 ? (
+                  <div className="flex space-x-4">
+                    {recentLikers
+                      .filter((liker, index, self) =>
+                        index === self.findIndex(l => l.id === liker.id)
+                      )
+                      .map((liker) => (
+                        <Link
+                          href={`/profile/${liker.username}`}
+                          key={`liker-${liker.id}`}
+                          className="group relative"
+                        >
+                          <div className="w-12 h-12 rounded-full overflow-hidden relative">
+                            <Image
+                              src={
+                                Array.isArray(liker.pictures) && liker.pictures.length > 0
+                                  ? liker.pictures.find(p => p.is_primary)?.backend_url || liker.pictures[0]?.backend_url
+                                  : '/images/defaults/man-default.png'
+                              }
+                              alt={`${liker.first_name}'in profil fotoğrafı`}
+                              fill
+                              className="object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = '/images/defaults/man-default.png';
+                              }}
+                            />
+                            {liker.is_online && (
+                              <div className="absolute bottom-2 right-2 w-3 h-3 bg-green-500 rounded-full border-2 border-[#2C2C2E]" />
+                            )}
+                          </div>
+                          <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-[#3C3C3E] text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            {liker.first_name}
+                          </div>
+                        </Link>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-24 text-gray-400">
+                    <p>Henüz hiç beğenen olmamış</p>
+                    <p className="text-sm mt-1">Profilini güncel tutarak daha fazla etkileşim alabilirsin</p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-24 text-gray-400">
-                <p>Henüz hiç ziyaretçin olmamış</p>
-                <p className="text-sm mt-1">Profilini güncel tutarak daha fazla etkileşim alabilirsin</p>
+
+              {/* Recent Matches */}
+              <div className="bg-[#2C2C2E] rounded-xl p-8 mb-8">
+                <h2 className="text-xl font-semibold text-white mb-4">
+                  Son Eşleşmeler
+                </h2>
+                {isLoadingMatches ? (
+                  <div className="flex items-center justify-center h-12">
+                    <FiLoader className="w-6 h-6 text-[#D63384] animate-spin" />
+                  </div>
+                ) : recentMatches && recentMatches.length > 0 ? (
+                  <div className="flex space-x-4">
+                    {recentMatches
+                      .filter((match, index, self) =>
+                        index === self.findIndex(m => m.id === match.id)
+                      )
+                      .map((match) => (
+                        <Link
+                          href={`/profile/${match.username}`}
+                          key={`match-${match.id}`}
+                          className="group relative"
+                        >
+                          <div className="w-12 h-12 rounded-full overflow-hidden relative">
+                            <Image
+                              src={
+                                Array.isArray(match.pictures) && match.pictures.length > 0
+                                  ? match.pictures.find(p => p.is_primary)?.backend_url || match.pictures[0]?.backend_url
+                                  : '/images/defaults/man-default.png'
+                              }
+                              alt={`${match.first_name}'in profil fotoğrafı`}
+                              fill
+                              className="object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = '/images/defaults/man-default.png';
+                              }}
+                            />
+                            {match.is_online && (
+                              <div className="absolute bottom-2 right-2 w-3 h-3 bg-green-500 rounded-full border-2 border-[#2C2C2E]" />
+                            )}
+                          </div>
+                          <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-[#3C3C3E] text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            {match.first_name}
+                          </div>
+                        </Link>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-24 text-gray-400">
+                    <p>Henüz hiç eşleşmen olmamış</p>
+                    <p className="text-sm mt-1">Profilini güncel tutarak daha fazla etkileşim alabilirsin</p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+
+            </>
+          )}
 
         </div>
       ) : (

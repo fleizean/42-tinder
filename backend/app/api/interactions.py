@@ -289,6 +289,8 @@ async def get_likes(
         like = like_data["like"]
         liker_profile = like_data["profile"]
         liker_user = like_data["user"]
+        liker_pictures = like_data.get("pictures", [])  # Eagerly loaded pictures
+        liker_tags = like_data.get("tags", [])          # Eagerly loaded tags
         
         profiles.append(PublicProfile(
             id=liker_profile.id,
@@ -303,12 +305,12 @@ async def get_likes(
             fame_rating=liker_profile.fame_rating,
             is_online=liker_user.is_online,
             last_online=liker_user.last_online,
-            pictures=liker_profile.pictures,
-            tags=liker_profile.tags
+            pictures=liker_pictures,  # Eagerly loaded pictures
+            tags=liker_tags,          # Eagerly loaded tags
+            birth_date=liker_profile.birth_date if hasattr(liker_profile, 'birth_date') else None
         ))
     
     return profiles
-
 
 @router.get("/visits", response_model=List[PublicProfile])
 async def get_visits(
@@ -329,21 +331,33 @@ async def get_visits(
             detail="Your profile not found"
         )
     
-    # Get visits - burada kullanıcının profilini ziyaret edenler alınıyor (doğru)
+    # Get the target profile by username
     username_profile = await get_profile_by_username(db, username)
-    print('test: ')
-    print(username_profile)
-    print(username)
+    if not username_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Profile with username {username} not found"
+        )
+    
+    # Check permission - only allow current user to see their own visits
+    if username_profile.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only view your own visits"
+        )
+    
+    # Get visits - burada kullanıcının profilini ziyaret edenler alınıyor
     visits = await get_visits_received(db, username_profile.id, limit, offset)
     
-    # Ziyaretçilerin profillerini oluştur - bunlar visitor_profile ve visitor_user olmalı
+    # Ziyaretçilerin profillerini oluştur
     profiles = []
     for visit_data in visits:
         visit = visit_data["visit"]
-        visitor_profile = visit_data["profile"]  # Bu ziyaretçinin profili
-        visitor_user = visit_data["user"]       # Bu ziyaretçinin kullanıcısı
+        visitor_profile = visit_data["profile"] 
+        visitor_user = visit_data["user"]
+        visitor_pictures = visit_data.get("pictures", [])  # Eagerly loaded pictures
+        visitor_tags = visit_data.get("tags", [])          # Eagerly loaded tags
         
-        # PublicProfile'e dönüştür - visitor bilgilerini kullanarak
         profiles.append(PublicProfile(
             id=visitor_profile.id,
             username=visitor_user.username,
@@ -357,13 +371,12 @@ async def get_visits(
             fame_rating=visitor_profile.fame_rating,
             is_online=visitor_user.is_online,
             last_online=visitor_user.last_online,
-            pictures=visitor_profile.pictures,
-            tags=visitor_profile.tags,
-            birth_date=visitor_profile.birth_date  # Eksik alanı ekledim
+            pictures=visitor_pictures,  # Eagerly loaded pictures kullan
+            tags=visitor_tags,          # Eagerly loaded tags kullan
+            birth_date=visitor_profile.birth_date
         ))
     
     return profiles
-
 
 @router.get("/matches", response_model=List[PublicProfile])
 async def get_user_matches(

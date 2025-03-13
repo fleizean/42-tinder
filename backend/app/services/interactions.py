@@ -537,6 +537,8 @@ async def get_visits_received(db: AsyncSession, profile_id: str, limit: int = 10
     return visits
 
 
+
+
 async def get_matches(db: AsyncSession, user_id: str, limit: int = 10, offset: int = 0) -> List[Dict[str, Any]]:
     """
     Get matches for a user
@@ -566,8 +568,12 @@ async def get_matches(db: AsyncSession, user_id: str, limit: int = 10, offset: i
     
     matches = []
     for connection, matched_user in connection_data:
-        # Get the matched user's profile
-        result = await db.execute(select(Profile).filter(Profile.user_id == matched_user.id))
+        # Get the matched user's profile with pictures and tags eagerly loaded
+        result = await db.execute(
+            select(Profile)
+            .options(selectinload(Profile.pictures), selectinload(Profile.tags))
+            .filter(Profile.user_id == matched_user.id)
+        )
         matched_profile = result.scalars().first()
         
         if matched_profile:

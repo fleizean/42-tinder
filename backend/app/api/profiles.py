@@ -1,4 +1,3 @@
-from ast import Delete
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -8,7 +7,6 @@ from typing import Any, List, Optional
 import uuid
 import os
 import shutil
-from math import cos
 
 
 from app.core.db import get_db
@@ -394,7 +392,21 @@ async def get_suggested(
     min_fame: Optional[float] = None,
     max_fame: Optional[float] = None,
     max_distance: Optional[float] = None,
-    tags: Optional[List[str]] = Query(None, description="List of tags to filter by (e.g. ?tags=music&tags=travel)"),
+        tags: Optional[List[str]] = Query(
+        None, 
+        description="List of tags to filter by",
+        example=["music", "kitap"],  # Add example
+        openapi_examples={
+            "single_tag": {
+                "summary": "Single tag filter",
+                "value": ["music"]
+            },
+            "multiple_tags": {
+                "summary": "Multiple tag filter",
+                "value": ["music", "kitap", "spor"]
+            }
+        }
+    ),
     current_user: User = Depends(get_current_verified_user),
     db: AsyncSession = Depends(get_db)
 ) -> Any:

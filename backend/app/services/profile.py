@@ -1,10 +1,8 @@
-from math import cos
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, and_, or_
 from sqlalchemy.orm import selectinload
-import uuid
 import os
 from datetime import datetime, timedelta
 
@@ -379,7 +377,9 @@ async def get_suggested_profiles(
     tags: Optional[List[str]] = None
 ) -> List[Dict[str, Any]]:
     """
-    Get suggested profiles for a user based on various criteria
+    Get suggested profiles for a user based on various criteria.
+    All criteria are enforced strictly - if a filter value is provided but no profiles match it,
+    an empty result will be returned.
     """
     # Get user's profile
     result = await db.execute(
@@ -411,22 +411,21 @@ async def get_suggested_profiles(
     # Base query for profiles
     query = select(Profile, User).join(User, Profile.user_id == User.id).options(
         selectinload(Profile.tags),
-        selectinload(Profile.pictures)  # Also load pictures since you might need them later
+        selectinload(Profile.pictures)
     ).filter(
         Profile.is_complete == True,
         Profile.id.notin_(excluded_ids)
     )
     
     # Add gender and sexual preference filters
-    if user_gender and user_preference:
+    if user_gender is not None and user_preference is not None:
         if user_preference == SexualPreference.HETEROSEXUAL:
             # Heterosexual: match with opposite gender
             opposite_gender = Gender.FEMALE if user_gender == Gender.MALE else Gender.MALE
             query = query.filter(Profile.gender == opposite_gender)
             # And the other user should be interested in user's gender
             query = query.filter(or_(
-                Profile.sexual_preference == SexualPreference.HETEROSEXUAL,
-                Profile.sexual_preference == SexualPreference.BISEXUAL
+                Profile.sexual_preference == SexualPreference.HETEROSEXUAL
             ))
         elif user_preference == SexualPreference.HOMOSEXUAL:
             # Homosexual: match with same gender
@@ -437,7 +436,7 @@ async def get_suggested_profiles(
                 Profile.sexual_preference == SexualPreference.BISEXUAL
             ))
         elif user_preference == SexualPreference.BISEXUAL:
-            # Bisexual: no gender filter, but other user should be interested
+            # Bisexual: match with compatible combinations
             query = query.filter(or_(
                 # If other is heterosexual, they should be opposite gender
                 and_(
@@ -475,31 +474,50 @@ async def get_suggested_profiles(
         query = query.filter(Profile.fame_rating <= max_fame)
     
     # Add geographical distance filter
-    if max_distance is not None and user_profile.latitude and user_profile.longitude:
-        # First use a bounding box for efficiency (SQL can use indexes)
-        min_lat, min_lon, max_lat, max_lon = get_bounding_box(
-            user_profile.latitude, 
-            user_profile.longitude, 
-            max_distance
-        )
-        
-        query = query.filter(
-            Profile.latitude.between(min_lat, max_lat),
-            Profile.longitude.between(min_lon, max_lon)
-        )
-
-        # For more accurate distance calculation, we'll filter the results later
-        # after retrieving them from the database
+    if max_distance is not None:
+        # Only apply distance filter if user has location coordinates
+        if user_profile.latitude is not None and user_profile.longitude is not None:
+            # First use a bounding box for efficiency (SQL can use indexes)
+            min_lat, min_lon, max_lat, max_lon = get_bounding_box(
+                user_profile.latitude, 
+                user_profile.longitude, 
+                max_distance
+            )
+            
+            query = query.filter(
+                and_(
+                    Profile.latitude.is_not(None),
+                    Profile.longitude.is_not(None),
+                    Profile.latitude.between(min_lat, max_lat),
+                    Profile.longitude.between(min_lon, max_lon)
+                )
+            )
+        else:
+            # If user has no coordinates but distance filter is specified, return empty
+            return []
     
     # Add tag filters
     if tags and len(tags) > 0:
-        # Get tag IDs
-        tag_query = select(Tag.id).filter(func.lower(Tag.name).in_([t.lower() for t in tags]))
+        # Get tag IDs and names
+        tag_query = select(Tag.id, Tag.name).filter(func.lower(Tag.name).in_([t.lower() for t in tags]))
         result = await db.execute(tag_query)
-        tag_ids = [row[0] for row in result.all()]
+        found_tags = result.all()
         
+        # Extract tag IDs and names
+        tag_ids = [row[0] for row in found_tags]
+        found_tag_names = [row[1].lower() for row in found_tags]
+        
+        # Check if all requested tags were found
+        requested_tag_names = [t.lower() for t in tags]
+        missing_tags = [t for t in requested_tag_names if t not in found_tag_names]
+        
+        # If any requested tag doesn't exist, return empty results
+        if missing_tags:
+            return []
+        
+        # Apply tag filters
         if tag_ids:
-            # For each tag, join to the profile_tags table
+            # For each tag, add a filter requiring profiles to have this tag (AND logic)
             for tag_id in tag_ids:
                 query = query.filter(
                     Profile.id.in_(
@@ -516,7 +534,7 @@ async def get_suggested_profiles(
     for profile, user in profiles_with_users:
         # Calculate distance if coordinates available
         distance = None
-        if user_profile.latitude and user_profile.longitude and profile.latitude and profile.longitude:
+        if user_profile.latitude is not None and user_profile.longitude is not None and profile.latitude is not None and profile.longitude is not None:
             # Use the Haversine formula for accurate distance calculation
             distance = haversine_distance(
                 user_profile.latitude, 
@@ -529,6 +547,9 @@ async def get_suggested_profiles(
             # (the bounding box is an approximation and might include some points outside)
             if max_distance is not None and distance > max_distance:
                 continue
+        elif max_distance is not None:
+            # Skip profiles without location if distance filter is applied
+            continue
         
         # Calculate common tags
         user_tag_ids = [tag.id for tag in user_profile.tags]

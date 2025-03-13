@@ -1,3 +1,4 @@
+from app.models.interactions import Like
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -510,8 +511,16 @@ async def get_profile(
     profile, user = profile_data
     
     # Record visit if not own profile
-    if user_profile.id != current_user.id:
-        await visit_profile(db, user_profile.id, current_user.id)
+    if user.id != current_user.id:
+        # Önce current user'ın profil ID'sini al
+        current_user_profile_result = await db.execute(
+            select(Profile).filter(Profile.user_id == current_user.id)
+        )
+        current_user_profile = current_user_profile_result.scalar_one_or_none()
+        
+        if current_user_profile:
+            # İki profil ID'sini doğru sırayla gönder: (visitor_id, visited_id)
+            await visit_profile(db, current_user_profile.id, profile.id)
     
     # Create public profile
     public_profile = PublicProfile(
@@ -533,6 +542,27 @@ async def get_profile(
     )
     
     return public_profile
+
+@router.get("/check-real-profile/{username}", response_model=dict)
+async def check_real_profile(
+    username: str,
+    current_user: User = Depends(get_current_verified_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Check if a profile is real
+    """
+    target_profile = await get_profile_by_username(db, username)
+    if not target_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Hedef profil bulunamadı"
+        )
+    
+    # Sözlük olarak döndür, Boolean değer değil
+    return {"exists": True}    
+    
+    
 
 @router.put("/me/delete-account", response_model=dict)
 async def delete_account(
@@ -576,6 +606,50 @@ async def delete_account(
 
     except Exception as e:
         await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.get("/me/is-liked/{username}", response_model=dict)
+async def check_if_liked(
+    username: str,
+    current_user: User = Depends(get_current_verified_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Check if current user has liked a profile
+    """
+    try:
+        # Get target profile by username
+        target_profile = await get_profile_by_username(db, username)
+        if not target_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Hedef profil bulunamadı"
+            )
+        
+        # Get current user's profile
+        current_profile = await get_profile_by_user_id(db, current_user.id)
+        if not current_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Profil bulunamadı"
+            )
+                
+        stmt = select(Like).filter(
+            Like.liker_id == current_profile.id,
+            Like.liked_id == target_profile.id
+        )
+        
+        result = await db.execute(stmt)
+        like = result.scalar_one_or_none()
+        
+        return {"is_liked": like is not None}
+
+    except Exception as e:
+        import logging
+        logging.error(f"Error in check_if_liked: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

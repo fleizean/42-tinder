@@ -340,7 +340,7 @@ async def visit_profile(db: AsyncSession, visitor_id: str, visited_id: str) -> O
             user_id=visited_user.id,
             sender_id=visitor.user_id,
             type=NotificationType.VISIT,
-            content=f"Someone viewed your profile!"
+            content=f"Biri senin profilini ziyaret etti!"
         )
         
         db.add(notification)

@@ -21,8 +21,8 @@ export default withAuth(
 
         try {
           // Check if profile exists
-          const profileResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/${username}`,
+          const profileCheckResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/check-real-profile/${username}`,
             {
               headers: {
                 Authorization: `Bearer ${token.accessToken}`,
@@ -30,12 +30,15 @@ export default withAuth(
             }
           );
 
-          if (!profileResponse.ok) {
+          if (!profileCheckResponse.ok) {
             // Profile doesn't exist, redirect to 404
             return NextResponse.redirect(new URL("/404", req.url));
           }
 
-          return NextResponse.next();
+          const result = await profileCheckResponse.json();
+          if (!result.exists) {  // API artık { exists: true } döndürüyor
+            return NextResponse.redirect(new URL("/404", req.url));
+          }
         } catch (error) {
           console.error('Profile check error:', error);
           return NextResponse.redirect(new URL("/404", req.url));

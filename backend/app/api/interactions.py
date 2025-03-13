@@ -312,6 +312,7 @@ async def get_likes(
 
 @router.get("/visits", response_model=List[PublicProfile])
 async def get_visits(
+    username: str,
     limit: int = 10,
     offset: int = 0,
     current_user: User = Depends(get_current_verified_user),
@@ -328,16 +329,21 @@ async def get_visits(
             detail="Your profile not found"
         )
     
-    # Get visits
-    visits = await get_visits_received(db, profile.id, limit, offset)
+    # Get visits - burada kullanıcının profilini ziyaret edenler alınıyor (doğru)
+    username_profile = await get_profile_by_username(db, username)
+    print('test: ')
+    print(username_profile)
+    print(username)
+    visits = await get_visits_received(db, username_profile.id, limit, offset)
     
-    # Convert to public profiles
+    # Ziyaretçilerin profillerini oluştur - bunlar visitor_profile ve visitor_user olmalı
     profiles = []
     for visit_data in visits:
         visit = visit_data["visit"]
-        visitor_profile = visit_data["profile"]
-        visitor_user = visit_data["user"]
+        visitor_profile = visit_data["profile"]  # Bu ziyaretçinin profili
+        visitor_user = visit_data["user"]       # Bu ziyaretçinin kullanıcısı
         
+        # PublicProfile'e dönüştür - visitor bilgilerini kullanarak
         profiles.append(PublicProfile(
             id=visitor_profile.id,
             username=visitor_user.username,
@@ -352,50 +358,11 @@ async def get_visits(
             is_online=visitor_user.is_online,
             last_online=visitor_user.last_online,
             pictures=visitor_profile.pictures,
-            tags=visitor_profile.tags
+            tags=visitor_profile.tags,
+            birth_date=visitor_profile.birth_date  # Eksik alanı ekledim
         ))
     
     return profiles
-
-@router.get("/visits", response_model=List[PublicProfile])
-async def post_visit(
-    visited_username: str,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
-    """
-    Post a visit
-    """
-    # Get user's profile
-    profile = await get_profile_by_user_id(db, current_user.id)
-    if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Your profile not found"
-        )
-    
-    # Get visited user
-    visited_user = await get_profile_by_username(db, visited_username)
-    if not visited_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    # Get visited user's profile
-    visited_profile = await get_profile_by_user_id(db, visited_user.id)
-    if not visited_profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profile not found"
-        )
-    
-    # Post visit
-    await post_visit(db, profile.id, visited_profile.id)
-    
-    return {
-        "message": "Visit posted successfully"
-    }
 
 
 @router.get("/matches", response_model=List[PublicProfile])

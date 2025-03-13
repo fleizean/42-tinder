@@ -371,7 +371,7 @@ const ProfilePage = () => {
     setIsLoadingVisitors(true);
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/visits?limit=5`, // Limit to 5 visitors
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/visits?username=${params.username}&limit=5`,
         {
           headers: {
             'Authorization': `Bearer ${session.user.accessToken}`,
@@ -526,7 +526,33 @@ const ProfilePage = () => {
     checkBlockStatus();
   }, [session, params.username]);
   
+  useEffect(() => {
+    const checkLikeStatus = async () => {
+      if (!session?.user?.accessToken || !profile) return;
+      
+      try {
+        // `/me/is-liked/{username}` endpoint'ini kullanarak beğeni durumunu kontrol edelim
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me/is-liked/${profile.username}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.user.accessToken}`,
+              'Content-Type': 'application/json',
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          setIsLiked(data.is_liked);
+        }
+      } catch (error) {
+        console.error('Failed to check like status:', error);
+      }
+    };
   
+    checkLikeStatus();
+  }, [session, profile]);
 
 
   return (
@@ -600,13 +626,20 @@ const ProfilePage = () => {
                   <>
                     <button 
                       onClick={handleLike}
-                      className={`p-3 rounded-full ${
+                      className={`p-3 rounded-full transition-all duration-300 ${
                         isLiked 
-                          ? 'bg-[#D63384] hover:bg-[#B52B6F]' 
-                          : 'bg-gradient-to-r from-[#8A2BE2] to-[#D63384] hover:opacity-90'
+                          ? 'bg-[#D63384] hover:bg-[#B52B6F] shadow-lg shadow-pink-500/30 scale-105' 
+                          : 'bg-gradient-to-r from-[#8A2BE2] to-[#D63384] hover:opacity-90 text-white opacity-80'
                       } text-white`}
+                      title={isLiked ? "Beğeniyi Kaldır" : "Beğen"}
                     >
-                      <FiHeart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
+                      <FiHeart 
+                        className={`w-6 h-6 transition-transform ${
+                          isLiked 
+                            ? 'fill-white transform scale-110 animate-pulse' 
+                            : 'stroke-white'
+                        }`} 
+                      />
                     </button>
 
                     <button
@@ -834,7 +867,7 @@ const ProfilePage = () => {
             </div>
           )}
 
-          {/* Recent Visitors */}
+                   {/* Recent Visitors */}
           <div className="bg-[#2C2C2E] rounded-xl p-8">
             <h2 className="text-xl font-semibold text-white mb-4">
               Son Ziyaretçiler
@@ -845,28 +878,32 @@ const ProfilePage = () => {
               </div>
             ) : recentVisitors.length > 0 ? (
               <div className="flex space-x-4">
-                {recentVisitors.map((visitor) => (
-                  <Link
-                    href={`/profile/${visitor.username}`}
-                    key={visitor.id}
-                    className="group relative"
-                  >
-                    <div className="w-12 h-12 rounded-full overflow-hidden relative">
-                      <Image
-                        src={visitor.pictures.find(p => p.is_primary)?.backend_url || '/default-avatar.jpg'}
-                        alt={`${visitor.first_name}'in profil fotoğrafı`}
-                        fill
-                        className="object-cover"
-                      />
-                      {visitor.is_online && (
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#2C2C2E]" />
-                      )}
-                    </div>
-                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-[#3C3C3E] text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                      {visitor.first_name}
-                    </div>
-                  </Link>
-                ))}
+                {recentVisitors
+                  .filter((visitor, index, self) => 
+                    index === self.findIndex(v => v.id === visitor.id)
+                  )
+                  .map((visitor) => (
+                    <Link
+                      href={`/profile/${visitor.username}`}
+                      key={`visitor-${visitor.id}`}
+                      className="group relative"
+                    >
+                      <div className="w-12 h-12 rounded-full overflow-hidden relative">
+                        <Image
+                          src={visitor.pictures.find(p => p.is_primary)?.backend_url || '/default-avatar.jpg'}
+                          alt={`${visitor.first_name}'in profil fotoğrafı`}
+                          fill
+                          className="object-cover"
+                        />
+                        {visitor.is_online && (
+                          <div className="absolute bottom-2 right-2 w-3 h-3 bg-green-500 rounded-full border-2 border-[#2C2C2E]" />
+                        )}
+                      </div>
+                      <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-[#3C3C3E] text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        {visitor.first_name}
+                      </div>
+                    </Link>
+                  ))}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-24 text-gray-400">

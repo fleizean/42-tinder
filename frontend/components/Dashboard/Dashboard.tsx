@@ -90,7 +90,7 @@ const Dashboard = () => {
     longitude: number;
   } | null>(null);
 
-    const distanceOptions = [
+  const distanceOptions = [
     { label: "5 km (Aynı mahalle)", value: 5 },
     { label: "10 km (Yakın semtler)", value: 10 },
     { label: "25 km (Aynı şehir)", value: 25 },
@@ -104,7 +104,7 @@ const Dashboard = () => {
     { label: "10000 km (Global)", value: 10000 },
     { label: "15000 km (Dünya geneli)", value: 15000 }
   ];
-  const [distance, setDistance] = useState(50); // Başlangıç değeri olarak 50km
+  const [distance, setDistance] = useState(15000); // Başlangıç değeri olarak 50km
 
   // Update filter submit to set the filtersApplied flag
   const handleFilterSubmit = () => {
@@ -167,20 +167,20 @@ const Dashboard = () => {
   const sortProfiles = (profiles: SuggestedProfile[]): SuggestedProfile[] => {
     // Profillerin bir kopyasını oluştur
     const sortedProfiles = [...profiles];
-    
+
     switch (sortBy) {
       case SortOption.AGE_ASC:
-        return sortedProfiles.sort((a, b) => 
+        return sortedProfiles.sort((a, b) =>
           calculateAge(a.birth_date) - calculateAge(b.birth_date)
         );
       case SortOption.AGE_DESC:
-        return sortedProfiles.sort((a, b) => 
+        return sortedProfiles.sort((a, b) =>
           calculateAge(b.birth_date) - calculateAge(a.birth_date)
         );
       case SortOption.DISTANCE:
         if (userProfile) {
-          return sortedProfiles.sort((a, b) => 
-            calculateDistance(userProfile.latitude, userProfile.longitude, a.latitude, a.longitude) - 
+          return sortedProfiles.sort((a, b) =>
+            calculateDistance(userProfile.latitude, userProfile.longitude, a.latitude, a.longitude) -
             calculateDistance(userProfile.latitude, userProfile.longitude, b.latitude, b.longitude)
           );
         }
@@ -198,6 +198,49 @@ const Dashboard = () => {
         return sortedProfiles;
     }
   };
+
+  useEffect(() => {
+    const checkLikedProfiles = async () => {
+      if (!session?.user?.accessToken || profiles.length === 0) return;
+      
+      try {
+        // Her profil için beğeni durumunu kontrol et
+        const likedStatusPromises = profiles.map(async (profile) => {
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me/is-liked/${profile.username}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${session.user.accessToken}`,
+                'Content-Type': 'application/json',
+              }
+            }
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            return { profileId: profile.id, isLiked: data.is_liked };
+          }
+          return { profileId: profile.id, isLiked: false };
+        });
+        
+        const likedStatuses = await Promise.all(likedStatusPromises);
+        
+        // Beğenilen profilleri Set'e ekle
+        const newLikedProfiles = new Set<string>();
+        likedStatuses.forEach(status => {
+          if (status.isLiked) {
+            newLikedProfiles.add(status.profileId);
+          }
+        });
+        
+        setLikedProfiles(newLikedProfiles);
+      } catch (error) {
+        console.error('Error checking liked profiles:', error);
+      }
+    };
+  
+    checkLikedProfiles();
+  }, [profiles, session]);
 
   // Sayfa yüklendiğinde kullanıcı profilini getir
   useEffect(() => {
@@ -446,11 +489,10 @@ const Dashboard = () => {
                         }));
                       }}
                       title={option.label} // Tooltip olarak tüm açıklamayı göster
-                      className={`text-xs py-1 px-2 rounded ${
-                        distance === option.value
+                      className={`text-xs py-1 px-2 rounded ${distance === option.value
                           ? 'bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white'
                           : 'bg-[#3C3C3E] text-gray-300'
-                      } transition-colors`}
+                        } transition-colors`}
                     >
                       {option.value} km
                     </button>
@@ -459,7 +501,20 @@ const Dashboard = () => {
               </div>
 
               <div className="mb-6">
-                <label className="text-gray-300 mb-2 block">Etiketler</label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-gray-300 block">Etiketler</label>
+                  {tags.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setTags([]);
+                        toast.success('Tüm etiketler temizlendi');
+                      }}
+                      className="text-xs text-pink-400 hover:text-pink-300 transition-colors"
+                    >
+                      Hepsini Temizle
+                    </button>
+                  )}
+                </div>
                 <input
                   type="text"
                   className="w-full bg-[#3C3C3E] border-none rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#D63384] outline-none"
@@ -490,7 +545,7 @@ const Dashboard = () => {
                     </span>
                   ))}
                 </div>
-              </div>
+              </div>{/* Biography with character limit and visual treatment */}
 
               <button
                 onClick={handleFilterSubmit}
@@ -503,8 +558,8 @@ const Dashboard = () => {
 
           {/* Profile Cards Section */}
           <div className="w-full lg:w-3/4 lg:pl-12">
-           {/* Sıralama seçimi */}
-           <div className="flex justify-end mb-4">
+            {/* Sıralama seçimi */}
+            <div className="flex justify-end mb-4">
               <div className="relative">
                 <select
                   value={sortBy}
@@ -532,7 +587,7 @@ const Dashboard = () => {
                   ref={index === profiles.length - 1 ? lastProfileRef : null}
                   className="bg-[#2C2C2E] rounded-xl overflow-hidden"
                 >
-                   <Link href={`/profile/${profile.username}`}>
+                  <Link href={`/profile/${profile.username}`}>
                     <div className="relative h-48 group">
                       <Image
                         src={profile.pictures.find(p => p.is_primary)?.backend_url || '/images/defaults/profile-default.jpg'}
@@ -559,68 +614,80 @@ const Dashboard = () => {
                         />
                       </button>
                     </div>
-                    </Link>
-                    <div className="p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="text-xl font-semibold text-white">
-                          {profile.first_name}, {calculateAge(profile.birth_date)}
-                        </h3>
-                        <div className="flex items-center">
-                          <FiStar className="w-4 h-4 text-[#D63384]" />
-                          <span className="text-gray-300 ml-1">{Math.round(profile.fame_rating)}</span>
-                        </div>
+                  </Link>
+                  <div className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-xl font-semibold text-white">
+                        {profile.first_name}, {calculateAge(profile.birth_date)}
+                      </h3>
+                      <div className="flex items-center">
+                        <FiStar className="w-4 h-4 text-[#D63384]" />
+                        <span className="text-gray-300 ml-1">{Math.round(profile.fame_rating)}</span>
                       </div>
-
-                      {/* Biography */}
-                      <div className="relative mb-3">
-                        <p className="text-gray-300 text-sm line-clamp-2">
-                          {profile.biography || "Henüz bir biyografi eklenmemiş."}
-                        </p>
-                        {profile.biography && profile.biography.length > 100 && (
-                          <div className="absolute bottom-0 right-0 bg-gradient-to-l from-[#2C2C2E] to-transparent pl-2 pr-1">
-                            <Link href={`/profile/${profile.username}`}>
-                              <FiMoreHorizontal className="w-4 h-4 text-gray" />
-                            </Link>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Location */}
-                      <div className="flex items-center text-gray-400 text-sm mb-3">
-                        <FiMapPin className="w-4 h-4 mr-1" />
-                        <span>
-                          {userProfile
-                            ? formatDistance(calculateDistance(
-                              userProfile.latitude,
-                              userProfile.longitude,
-                              profile.latitude,
-                              profile.longitude
-                            ))
-                            : "Mesafe hesaplanıyor..."
-                          }
-                        </span>
-                      </div>
-
-                      {/* Tags */}
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {profile.tags.map((tag, i) => (
-                          <span
-                            key={i}
-                            className="text-xs bg-[#3C3C3E] text-gray-300 px-2 py-1 rounded-full"
-                          >
-                            #{tag.name}  {/* Use tag.name instead of tag */}
-                          </span>
-                        )).slice(0, 3)}
-                        {profile.tags.length > 3 && (
-                          <span className="text-xs text-gray-400">
-                            +{profile.tags.length - 3}
-                          </span>
-                        )}
-                      </div>
-
-
                     </div>
-                  
+
+                    {/* Biography */}
+                    <div className="relative mb-3">
+                      <p className="text-gray-300 text-sm line-clamp-2">
+                        {profile.biography || "Henüz bir biyografi eklenmemiş."}
+                      </p>
+                      {profile.biography && profile.biography.length > 100 && (
+                        <div className="absolute bottom-0 right-0 bg-gradient-to-l from-[#2C2C2E] to-transparent pl-2 pr-1">
+                          <Link href={`/profile/${profile.username}`}>
+                            <FiMoreHorizontal className="w-4 h-4 text-gray" />
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Location */}
+                    <div className="flex items-center text-gray-400 text-sm mb-3">
+                      <FiMapPin className="w-4 h-4 mr-1" />
+                      <span>
+                        {userProfile
+                          ? formatDistance(calculateDistance(
+                            userProfile.latitude,
+                            userProfile.longitude,
+                            profile.latitude,
+                            profile.longitude
+                          ))
+                          : "Mesafe hesaplanıyor..."
+                        }
+                      </span>
+                    </div>
+
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {profile.tags.map((tag, i) => (
+                        <span
+                          key={i}
+                          className="text-xs bg-[#3C3C3E] text-gray-300 px-2 py-1 rounded-full cursor-pointer hover:bg-[#4C4C4E] transition-colors"
+                          onClick={(e) => {
+                            e.preventDefault(); // Prevent navigation to profile page
+                            e.stopPropagation(); // Stop event propagation
+
+                            // Only add the tag if it's not already in the filters
+                            if (!tags.includes(tag.name)) {
+                              setTags([...tags, tag.name]);
+                              toast.success(`'${tag.name}' etiketi filtrelere eklendi`);
+                            } else {
+                              toast.error(`'${tag.name}' etiketi zaten eklenmiş`);
+                            }
+                          }}
+                        >
+                          #{tag.name}
+                        </span>
+                      )).slice(0, 3)}
+                      {profile.tags.length > 3 && (
+                        <span className="text-xs text-gray-400">
+                          +{profile.tags.length - 3}
+                        </span>
+                      )}
+                    </div>
+
+
+                  </div>
+
                 </div>
               ))}
             </div>

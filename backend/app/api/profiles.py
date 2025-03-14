@@ -1,4 +1,5 @@
-from app.models.interactions import Like
+from datetime import datetime, timedelta
+from app.models.interactions import Like, Visit
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -483,14 +484,14 @@ async def get_profile(
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
-    Get a profile by ID
+    Get a profile by username
     """
     # Get user's profile
     user_profile = await get_profile_by_username(db, username)
     if not user_profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profilin bulunamadı"
+            detail="Profile not found"
         )
     
     # Get requested profile with pictures and tags eagerly loaded
@@ -498,29 +499,41 @@ async def get_profile(
         select(Profile, User)
         .join(User, Profile.user_id == User.id)
         .options(selectinload(Profile.pictures), selectinload(Profile.tags))
-        .filter(Profile.id == user_profile.id)
+        .filter(User.username == username)  # Use username filter to get correct profile
     )
     profile_data = result.first()
     
     if not profile_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profil bulunamadı"
+            detail="Profile not found"
         )
     
     profile, user = profile_data
     
-    # Record visit if not own profile
+    # Record visit if not own profile - Only do this once
     if user.id != current_user.id:
-        # Önce current user'ın profil ID'sini al
+        # Get current user's profile ID
         current_user_profile_result = await db.execute(
             select(Profile).filter(Profile.user_id == current_user.id)
         )
         current_user_profile = current_user_profile_result.scalar_one_or_none()
         
         if current_user_profile:
-            # İki profil ID'sini doğru sırayla gönder: (visitor_id, visited_id)
-            await visit_profile(db, current_user_profile.id, profile.id)
+            # Check if a visit was already recorded recently (last 5 minutes)
+            five_minutes_ago = datetime.utcnow() - timedelta(minutes=5)
+            recent_visit_query = select(Visit).filter(
+                Visit.visitor_id == current_user_profile.id,
+                Visit.visited_id == profile.id,
+                Visit.created_at > five_minutes_ago
+            )
+            
+            recent_visit_result = await db.execute(recent_visit_query)
+            recent_visit = recent_visit_result.scalar_one_or_none()
+            
+            # Only record a new visit if no recent visit exists
+            if not recent_visit:
+                await visit_profile(db, current_user_profile.id, profile.id)
     
     # Create public profile
     public_profile = PublicProfile(

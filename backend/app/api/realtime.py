@@ -122,7 +122,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str, db: AsyncSession 
             pass  # Already closed or other error
 
 
-@router.get("/notifications", response_model=List[Notification])
+@router.get("/notifications", response_model=List[Dict[str, Any]])
 async def read_notifications(
     limit: int = 20,
     offset: int = 0,
@@ -135,10 +135,27 @@ async def read_notifications(
     """
     notifications_data = await get_notifications(db, current_user.id, limit, offset, unread_only)
     
-    # Extract notification objects from data
-    notifications = [item["notification"] for item in notifications_data]
+    # Create response with both notification and sender info
+    formatted_notifications = []
+    for item in notifications_data:
+        notification = item["notification"]
+        sender = item["sender"]
+        
+        formatted_notification = {
+            "id": notification.id,
+            "user_id": notification.user_id,
+            "sender_id": notification.sender_id,
+            "sender_username": sender.username if sender else None,
+            "type": notification.type,
+            "content": notification.content,
+            "is_read": notification.is_read,
+            "created_at": notification.created_at,
+            "read_at": notification.read_at
+        }
+        
+        formatted_notifications.append(formatted_notification)
     
-    return notifications
+    return formatted_notifications
 
 
 @router.get("/notifications/count", response_model=Dict[str, int])

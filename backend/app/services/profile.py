@@ -425,7 +425,8 @@ async def get_suggested_profiles(
             query = query.filter(Profile.gender == opposite_gender)
             # And the other user should be interested in user's gender
             query = query.filter(or_(
-                Profile.sexual_preference == SexualPreference.HETEROSEXUAL
+                Profile.sexual_preference == SexualPreference.HETEROSEXUAL,
+                Profile.sexual_preference == SexualPreference.BISEXUAL
             ))
         elif user_preference == SexualPreference.HOMOSEXUAL:
             # Homosexual: match with same gender

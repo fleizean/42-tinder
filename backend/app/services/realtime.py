@@ -8,11 +8,12 @@ from app.models.realtime import Notification, NotificationType, Message, Connect
 from app.models.user import User
 
 
+
 async def get_notifications(db: AsyncSession, user_id: str, limit: int = 20, offset: int = 0, unread_only: bool = False) -> List[Dict[str, Any]]:
     """
-    Get notifications for a user
+    Get notifications for a user with sender username
     """
-    # Base query
+    # Base query - add username to the query
     query = select(Notification, User).outerjoin(
         User, Notification.sender_id == User.id
     ).filter(

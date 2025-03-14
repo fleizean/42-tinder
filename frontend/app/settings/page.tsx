@@ -859,6 +859,8 @@ const SettingsPage = () => {
                                   src={profileInfo.photos[index].backend_url}
                                   alt={`Photo ${index + 1}`}
                                   fill
+                                  priority
+                                  sizes="%100"
                                   className="object-cover"
                                 />
                                 <div className="absolute top-2 left-2 flex space-x-2">
@@ -1236,6 +1238,7 @@ const SettingsPage = () => {
                                 src={user.pictures.find(p => p.is_primary)?.backend_url || '/images/defaults/man-default.png'}
                                 alt={`${user.first_name}'s profile picture`}
                                 fill
+                                sizes="%100"
                                 className="object-cover"
                               />
                             </div>

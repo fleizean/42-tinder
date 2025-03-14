@@ -107,6 +107,7 @@ const SigninPage = () => {
                       value={usernameOrEmail}
                       onChange={(e) => setUsernameOrEmail(e.target.value)}
                       placeholder="Kullanıcı adınızı giriniz"
+                      autoComplete="username"
                       className="w-full rounded-lg border border-transparent bg-[#3C3C3E] px-6 py-3 text-base text-white outline-none transition-all duration-300 focus:border-[#D63384] focus:shadow-[0_0_0_2px_rgba(214,51,132,0.2)]"
                     />
                   </div>
@@ -121,6 +122,7 @@ const SigninPage = () => {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Şifrenizi girin"
+                        autoComplete="current-password"
                         className="w-full rounded-lg border border-transparent bg-[#3C3C3E] px-6 py-3 text-base text-white outline-none transition-all duration-300 focus:border-[#D63384] focus:shadow-[0_0_0_2px_rgba(214,51,132,0.2)]"
                       />
                       <button

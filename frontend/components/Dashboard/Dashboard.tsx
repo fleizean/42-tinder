@@ -593,6 +593,8 @@ const Dashboard = () => {
                         src={profile.pictures.find(p => p.is_primary)?.backend_url || '/images/defaults/profile-default.jpg'}
                         alt={`${profile.first_name}'s profile`}
                         fill
+                        priority
+                        sizes="100%"
                         className="object-cover"
                       />
                       <button

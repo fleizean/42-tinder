@@ -659,11 +659,12 @@ const ProfilePage = () => {
         <div className="container mx-auto px-4">
           {/* Profile Header */}
           <div className="relative mb-8">
-            <div className="h-64 rounded-t-3xl overflow-hidden">
+            <div className="relative h-64 rounded-t-3xl overflow-hidden">
               <Image
                 src={profile.pictures[1]?.backend_url || '/images/defaults/man-default.png'}
                 alt="Cover"
                 fill
+                priority
                 className="object-cover w-full h-full"
               />
             </div>
@@ -673,6 +674,7 @@ const ProfilePage = () => {
                   src={profile.pictures.find(p => p.is_primary)?.backend_url || '/images/defaults/man-default.png'}
                   alt="Avatar"
                   fill
+                  sizes="100%"
                   className="object-cover"
                 />
                 <div className={`absolute bottom-4 right-4 w-6 h-6 rounded-full border-2 border-[#2C2C2E] ${profile.is_online ? 'bg-green-500' : 'bg-gray-500'}`} />
@@ -952,6 +954,7 @@ const ProfilePage = () => {
                 alt={`${profile.first_name}'in tam boy fotoğrafı`}
                 width={500}
                 height={500}
+                style={{ width: "100%", height: "auto" }}
                 className="max-w-full max-h-[90vh] object-contain"
                 priority
               />

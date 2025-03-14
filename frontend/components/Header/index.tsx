@@ -15,6 +15,7 @@ interface NotificationType {
   message: string;
   time: string;
   sender_id?: string;
+  sender_username?: string;
   read: boolean;
 }
 
@@ -134,7 +135,7 @@ const Header = () => {
             default:
               message = "Yeni bir bildirim";
           }
-
+        
           return {
             id: notification.id,
             type: notification.type,
@@ -146,7 +147,8 @@ const Header = () => {
               month: '2-digit'
             }),
             read: notification.is_read,
-            sender_id: notification.sender_id
+            sender_id: notification.sender_id,
+            sender_username: notification.sender_username
           };
         });
 
@@ -309,14 +311,14 @@ const Header = () => {
   // Handle notification click
   const handleNotificationClick = (notification: NotificationType) => {
     markNotificationAsRead(notification.id);
-
+  
     // Navigate based on notification type
     switch (notification.type) {
       case "like":
       case "visit":
-        // Navigate to the profile of sender
-        if (notification.sender_id) {
-          window.location.href = `/profile/${notification.sender_id}`;
+        // Navigate to the profile of sender using username
+        if (notification.sender_username) {
+          window.location.href = `/profile/${notification.sender_username}`;
         }
         break;
       case "match":
@@ -494,6 +496,7 @@ const Header = () => {
                   <Image
                     src="/images/logo/logo.svg"
                     alt="logo"
+                    priority
                     width={230}
                     height={50}
                     className="w-full dark:hidden"
@@ -501,6 +504,7 @@ const Header = () => {
                   <Image
                     src="/images/logo/logo.svg"
                     alt="logo"
+                    priority
                     width={230}
                     height={50}
                     className="hidden w-full dark:block"

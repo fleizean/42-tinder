@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
 
@@ -53,7 +53,31 @@ class Connection(BaseModel):
         from_attributes = True
 
 
+# User schema (simplified for use in conversations)
+class UserInfo(BaseModel):
+    id: str
+    username: str
+    first_name: str
+    last_name: str
+    is_online: bool
+    last_online: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+
+# Conversation schema for returning in the API
+class Conversation(BaseModel):
+    connection: Connection
+    user: UserInfo
+    recent_message: Optional[Message] = None
+    unread_count: int
+    
+    class Config:
+        from_attributes = True
+
+
 # WebSocket message schemas
 class WebSocketMessage(BaseModel):
     type: str  # "message", "notification", "online_status", etc.
-    data: dict
+    data: Dict[str, Any]

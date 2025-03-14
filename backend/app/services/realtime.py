@@ -211,56 +211,64 @@ async def get_recent_conversations(db: AsyncSession, user_id: str, limit: int = 
     """
     Get recent conversations for a user
     """
-    # Get active connections
-    connections_result = await db.execute(
-        select(Connection).filter(
-            Connection.is_active == True,
-            or_(
-                Connection.user1_id == user_id,
-                Connection.user2_id == user_id
-            )
-        ).order_by(Connection.updated_at.desc()).limit(limit)
-    )
-    connections = connections_result.scalars().all()
-    
-    conversations = []
-    for connection in connections:
-        # Get the other user
-        other_user_id = connection.user2_id if connection.user1_id == user_id else connection.user1_id
-        
-        # Get user info
-        result = await db.execute(select(User).filter(User.id == other_user_id))
-        other_user = result.scalars().first()
-        
-        if not other_user:
-            continue
-        
-        # Get most recent message
-        result = await db.execute(
-            select(Message).filter(
+    try:
+        # Get active connections
+        connections_result = await db.execute(
+            select(Connection).filter(
+                Connection.is_active == True,
                 or_(
-                    and_(Message.sender_id == user_id, Message.recipient_id == other_user_id),
-                    and_(Message.sender_id == other_user_id, Message.recipient_id == user_id)
+                    Connection.user1_id == user_id,
+                    Connection.user2_id == user_id
                 )
-            ).order_by(Message.created_at.desc()).limit(1)
+            ).order_by(Connection.updated_at.desc()).limit(limit)
         )
-        recent_message = result.scalars().first()
+        connections = connections_result.scalars().all()
         
-        # Get unread count
-        result = await db.execute(
-            select(func.count()).select_from(Message).filter(
-                Message.sender_id == other_user_id,
-                Message.recipient_id == user_id,
-                Message.is_read == False
+        conversations = []
+        for connection in connections:
+            # Get the other user
+            other_user_id = connection.user2_id if connection.user1_id == user_id else connection.user1_id
+            
+            # Get user info
+            result = await db.execute(select(User).filter(User.id == other_user_id))
+            other_user = result.scalars().first()
+            
+            if not other_user:
+                continue
+            
+            # Get most recent message
+            result = await db.execute(
+                select(Message).filter(
+                    or_(
+                        and_(Message.sender_id == user_id, Message.recipient_id == other_user_id),
+                        and_(Message.sender_id == other_user_id, Message.recipient_id == user_id)
+                    )
+                ).order_by(Message.created_at.desc()).limit(1)
             )
-        )
-        unread_count = result.scalar()
+            recent_message = result.scalars().first()
+            
+            # Get unread count
+            result = await db.execute(
+                select(func.count()).select_from(Message).filter(
+                    Message.sender_id == other_user_id,
+                    Message.recipient_id == user_id,
+                    Message.is_read == False
+                )
+            )
+            unread_count = result.scalar()
+            
+            conversations.append({
+                "connection": connection,
+                "user": other_user,
+                "recent_message": recent_message,
+                "unread_count": unread_count
+            })
         
-        conversations.append({
-            "connection": connection,
-            "user": other_user,
-            "recent_message": recent_message,
-            "unread_count": unread_count
-        })
-    
-    return conversations
+        return conversations
+    except Exception as e:
+        # Log the exception
+        import logging
+        logging.error(f"Error in get_recent_conversations: {str(e)}")
+        
+        # Return empty list instead of failing
+        return []

@@ -32,10 +32,18 @@ class WebSocketService {
       return;
     }
 
-    this.url = apiUrl.replace('http', 'ws');
+    // Use a secure connection if the page is served over HTTPS
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    
+    // Get host and port from the API URL
+    let url = new URL(apiUrl);
+    
+    // Construct WebSocket URL
+    this.url = `${protocol}//${url.host}`;
     this.token = token;
 
     try {
+      console.log(`Connecting to WebSocket at ${this.url}/api/realtime/ws/${this.token}`);
       this.ws = new WebSocket(`${this.url}/api/realtime/ws/${this.token}`);
 
       this.ws.onopen = this.handleOpen.bind(this);

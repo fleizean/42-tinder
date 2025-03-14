@@ -6,7 +6,7 @@ import json
 from app.core.db import get_db
 from app.core.security import get_current_user, get_current_verified_user
 from app.models.user import User
-from app.schemas.realtime import Message, MessageCreate, Notification, WebSocketMessage
+from app.schemas.realtime import Conversation, Message, MessageCreate, Notification, WebSocketMessage
 from app.services.realtime import (
     get_notifications,
     mark_notification_as_read,
@@ -18,6 +18,10 @@ from app.services.realtime import (
     get_recent_conversations
 )
 from app.services.auth import update_last_activity
+# Configure logging
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -217,7 +221,7 @@ async def read_messages(
     return messages
 
 
-@router.get("/conversations", response_model=List[Dict])
+@router.get("/conversations", response_model=List[Conversation])
 async def read_conversations(
     limit: int = 10,
     current_user: User = Depends(get_current_verified_user),
@@ -226,10 +230,30 @@ async def read_conversations(
     """
     Get recent conversations for current user
     """
-    conversations = await get_recent_conversations(db, current_user.id, limit)
-    
-    return conversations
-
+    try:
+        logger.info(f"Fetching conversations for user: {current_user.id}")
+        conversations = await get_recent_conversations(db, current_user.id, limit)
+        logger.info(f"Found {len(conversations)} conversations")
+        
+        # Convert SQLAlchemy models to Pydantic models
+        pydantic_conversations = []
+        for conv in conversations:
+            # Create a Pydantic Conversation model
+            pydantic_conversation = Conversation(
+                connection=conv["connection"],
+                user=conv["user"],
+                recent_message=conv["recent_message"],
+                unread_count=conv["unread_count"]
+            )
+            pydantic_conversations.append(pydantic_conversation)
+        
+        return pydantic_conversations
+    except Exception as e:
+        logger.error(f"Error fetching conversations: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching conversations: {str(e)}"
+        )
 
 @router.get("/messages/unread/count", response_model=Dict[str, int])
 async def read_unread_message_count(

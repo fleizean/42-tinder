@@ -3,8 +3,12 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { FiSend, FiMoreVertical, FiSearch, FiCircle, FiSlash, FiFlag, FiArrowLeft } from "react-icons/fi";
+import { FiSend, FiMoreVertical, FiSearch, FiCircle, FiSlash, FiFlag, FiArrowLeft, FiLoader } from "react-icons/fi";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { toast, Toaster } from "react-hot-toast";
 import { Metadata } from "next";
+import WebSocketService from "@/services/websocket";
 
 const metadata: Metadata = {
   title: "Mesajlar | CrushIt",
@@ -23,29 +27,64 @@ interface ChatUser {
 
 interface Message {
   id: string;
-  senderId: string;
-  text: string;
+  sender_id: string;
+  recipient_id: string;
+  content: string;
   timestamp: string;
+  is_read: boolean;
+}
+
+interface Conversation {
+  connection: {
+    id: number;
+    user1_id: string;
+    user2_id: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+  };
+  user: {
+    id: string;
+    username: string;
+    first_name: string;
+    last_name: string;
+    is_online: boolean;
+    last_online: string;
+  };
+  recent_message: {
+    id: number;
+    sender_id: string;
+    recipient_id: string;
+    content: string;
+    is_read: boolean;
+    created_at: string;
+  } | null;
+  unread_count: number;
 }
 
 const ChatPage = () => {
   const [activeChat, setActiveChat] = useState<string | null>(null);
+  const [activeChatUser, setActiveChatUser] = useState<ChatUser | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [showMenu, setShowMenu] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportDescription, setReportDescription] = useState("");
-
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { data: session } = useSession();
+  const router = useRouter();
+  const wsService = useRef<WebSocketService>(WebSocketService.getInstance());
 
   useEffect(() => {
     document.title = metadata.title as string;
-  }, []);
 
-  useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowMenu(false);
@@ -54,6 +93,241 @@ const ChatPage = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (session?.user?.accessToken) {
+      fetchConversations();
+      setupWebSocket();
+    }
+
+    return () => {
+      // Clean up WebSocket on unmount
+      wsService.current.disconnect();
+    };
+  }, [session]);
+
+  useEffect(() => {
+    if (activeChat) {
+      fetchMessages(activeChat);
+    }
+  }, [activeChat]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const setupWebSocket = () => {
+    if (!session?.user?.accessToken || !process.env.NEXT_PUBLIC_BACKEND_API_URL) return;
+
+    // Clear any old handlers
+    const handleWsMessage = (data: any) => {
+      if (data.type === 'message') {
+        if (activeChat && (data.sender_id === activeChat || data.recipient_id === activeChat)) {
+          // Add the new message to the current chat
+          const newMsg: Message = {
+            id: Date.now().toString(),
+            sender_id: data.sender_id,
+            recipient_id: session.user.id,
+            content: data.content,
+            timestamp: data.timestamp,
+            is_read: false
+          };
+          
+          setMessages(prevMessages => [...prevMessages, newMsg]);
+        }
+        
+        // Refresh conversations to update last message and unread count
+        fetchConversations();
+      }
+    };
+
+    const handleWsConnect = () => {
+      setWsConnected(true);
+    };
+
+    const handleWsDisconnect = () => {
+      setWsConnected(false);
+    };
+
+    const handleWsError = (error: Event) => {
+      console.error('WebSocket error:', error);
+      toast.error('Sohbet bağlantısı kurulamadı');
+    };
+
+    // Remove any existing handlers
+    wsService.current.removeMessageHandler(handleWsMessage);
+    wsService.current.removeConnectHandler(handleWsConnect);
+    wsService.current.removeDisconnectHandler(handleWsDisconnect);
+    wsService.current.removeErrorHandler(handleWsError);
+
+    // Add new handlers
+    wsService.current.addMessageHandler(handleWsMessage);
+    wsService.current.addConnectHandler(handleWsConnect);
+    wsService.current.addDisconnectHandler(handleWsDisconnect);
+    wsService.current.addErrorHandler(handleWsError);
+
+    // Connect to WebSocket
+    wsService.current.connect(
+      process.env.NEXT_PUBLIC_BACKEND_API_URL,
+      session.user.accessToken
+    );
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const fetchConversations = async () => {
+    if (!session?.user?.accessToken) return;
+    
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/realtime/conversations`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch conversations');
+      }
+
+      const data: Conversation[] = await response.json();
+      setConversations(data);
+
+      // If there's at least one conversation and no active chat,
+      // set the first conversation as active
+      if (data.length > 0 && !activeChat) {
+        setActiveChat(data[0].user.id);
+        setActiveChatUser({
+          id: data[0].user.id,
+          name: `${data[0].user.first_name} ${data[0].user.last_name}`,
+          avatar: '/images/defaults/man-default.png', // You might want to fetch the actual avatar
+          lastMessage: data[0].recent_message?.content || 'Henüz mesaj yok',
+          lastMessageTime: data[0].recent_message ? new Date(data[0].recent_message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          isOnline: data[0].user.is_online,
+          unreadCount: data[0].unread_count
+        });
+      }
+    } catch (error) {
+      console.error('Conversations fetch error:', error);
+      toast.error('Konuşmalar yüklenemedi');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchMessages = async (userId: string) => {
+    if (!session?.user?.accessToken) return;
+    
+    setIsLoadingMessages(true);
+    
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/realtime/messages/${userId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch messages');
+      }
+
+      const data: Message[] = await response.json();
+      setMessages(data);
+      
+      // Update the conversations to mark messages as read
+      const updatedConversations = conversations.map(conv => {
+        if (conv.user.id === userId) {
+          return { ...conv, unread_count: 0 };
+        }
+        return conv;
+      });
+      
+      setConversations(updatedConversations);
+    } catch (error) {
+      console.error('Messages fetch error:', error);
+      toast.error('Mesajlar yüklenemedi');
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newMessage.trim() || !activeChat || !session?.user?.accessToken) return;
+    
+    try {
+      // Optimistically add the message to the UI
+      const tempMessage: Message = {
+        id: `temp-${Date.now()}`,
+        sender_id: session.user.id,
+        recipient_id: activeChat,
+        content: newMessage,
+        timestamp: new Date().toISOString(),
+        is_read: false
+      };
+      
+      setMessages(prev => [...prev, tempMessage]);
+      setNewMessage("");
+      
+      // Send using REST API
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/realtime/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            recipient_id: activeChat,
+            content: newMessage
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+      
+      // Also send via WebSocket for real-time delivery
+      if (wsService.current.isConnected()) {
+        wsService.current.send({
+          type: 'message',
+          recipientId: activeChat,
+          content: newMessage
+        });
+      }
+      
+      // Refresh conversations to update last message
+      fetchConversations();
+    } catch (error) {
+      console.error('Send message error:', error);
+      toast.error('Mesaj gönderilemedi');
+      
+      // Remove the temporary message on failure
+      setMessages(prev => prev.filter(msg => msg.id !== `temp-${Date.now()}`));
+    }
+  };
+
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const handleSelectChat = (userId: string, user: ChatUser) => {
+    setActiveChat(userId);
+    setActiveChatUser(user);
+  };
 
   const handleBlock = () => {
     setShowBlockModal(true);
@@ -65,79 +339,96 @@ const ChatPage = () => {
     setShowMenu(false);
   };
 
-  const confirmBlock = () => {
-    // API call to block user
-    alert("Kullanıcı engellendi");
-    setShowBlockModal(false);
-  };
+  const confirmBlock = async () => {
+    if (!session?.user?.accessToken || !activeChat) return;
 
-  const submitReport = () => {
-    // API call to report user
-    alert("Kullanıcı rapor edildi");
-    setShowReportModal(false);
-    setReportReason("");
-    setReportDescription("");
-  };
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/block`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            blocked_id: activeChat
+          })
+        }
+      );
 
-  const mockChats: ChatUser[] = [
-    {
-      id: "1",
-      name: "Ayşe Yılmaz",
-      avatar: "https://images7.alphacoders.com/121/1218824.jpg",
-      lastMessage: "Merhaba, nasılsın?",
-      lastMessageTime: "14:30",
-      isOnline: true,
-      unreadCount: 2
-    },
-    {
-      id: "2",
-      name: "Mehmet Demir",
-      avatar: "https://images7.alphacoders.com/110/1104374.jpg",
-      lastMessage: "Yarın buluşalım mı?",
-      lastMessageTime: "Dün",
-      isOnline: false
-    }
-  ];
+      if (!response.ok) {
+        throw new Error('Failed to block user');
+      }
 
-  const mockMessages: Message[] = [
-    {
-      id: "1",
-      senderId: "1",
-      text: "Merhaba, nasılsın?",
-      timestamp: "14:30"
-    },
-    {
-      id: "2",
-      senderId: "current-user",
-      text: "İyiyim, teşekkürler. Sen nasılsın?",
-      timestamp: "14:31"
-    }
-  ];
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newMessage.trim()) {
-      const newMsg: Message = {
-        id: Date.now().toString(),
-        senderId: "current-user",
-        text: newMessage,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages([...messages, newMsg]);
-      setNewMessage("");
+      toast.success('Kullanıcı engellendi');
+      setShowBlockModal(false);
+      
+      // Remove the conversation from the list
+      setConversations(prev => prev.filter(conv => conv.user.id !== activeChat));
+      setActiveChat(null);
+    } catch (error) {
+      console.error('Block error:', error);
+      toast.error('Kullanıcı engellenemedi');
     }
   };
+
+  const submitReport = async () => {
+    if (!session?.user?.accessToken || !activeChat) return;
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/report`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            reported_id: activeChat,
+            reason: reportReason,
+            description: reportDescription
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to report user');
+      }
+
+      toast.success('Kullanıcı rapor edildi');
+      setShowReportModal(false);
+      setReportReason("");
+      setReportDescription("");
+    } catch (error) {
+      console.error('Report error:', error);
+      toast.error('Kullanıcı rapor edilemedi');
+    }
+  };
+
+  if (!session) {
+    return (
+      <section className="pt-[150px] pb-[120px] bg-[#1C1C1E] min-h-screen">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-white mb-4">Erişim Engellendi</h1>
+            <p className="text-gray-300 mb-8">Bu sayfayı görüntülemek için giriş yapmalısınız.</p>
+            <button 
+              onClick={() => router.push('/signin')}
+              className="px-6 py-3 bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white rounded-lg"
+            >
+              Giriş Yap
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="pt-[80px] md:pt-[150px] pb-[60px] md:pb-[120px] bg-[#1C1C1E] min-h-screen">
+      <Toaster position="top-right" />
       <div className="container mx-auto px-4">
         <div className="flex flex-col lg:flex-row bg-[#2C2C2E] rounded-xl overflow-hidden"
           style={{ height: "calc(100vh - 160px)" }}>
@@ -156,45 +447,77 @@ const ChatPage = () => {
 
             {/* Chat List Scrollable Area */}
             <div className="overflow-y-auto h-[calc(100vh-240px)] scrollbar-thin scrollbar-thumb-[#3C3C3E] scrollbar-track-transparent">
-              {mockChats.map((chat) => (
-                <motion.div
-                  key={chat.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className={`p-4 flex items-center cursor-pointer hover:bg-[#3C3C3E] transition-all ${activeChat === chat.id ? "bg-[#3C3C3E]" : ""
+              {isLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <FiLoader className="w-8 h-8 text-[#D63384] animate-spin" />
+                </div>
+              ) : conversations.length > 0 ? (
+                conversations.map((conv) => (
+                  <motion.div
+                    key={conv.user.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className={`p-4 flex items-center cursor-pointer hover:bg-[#3C3C3E] transition-all ${
+                      activeChat === conv.user.id ? "bg-[#3C3C3E]" : ""
                     }`}
-                  onClick={() => setActiveChat(chat.id)}
-                >
-                  <div className="relative">
-                    <div className="w-12 h-12 rounded-full overflow-hidden">
-                      <Image
-                        src={chat.avatar}
-                        alt={chat.name}
-                        fill
-                        className="object-cover"
-                      />
+                    onClick={() => handleSelectChat(conv.user.id, {
+                      id: conv.user.id,
+                      name: `${conv.user.first_name} ${conv.user.last_name}`,
+                      avatar: '/images/defaults/man-default.png',
+                      lastMessage: conv.recent_message?.content || 'Henüz mesaj yok',
+                      lastMessageTime: conv.recent_message 
+                        ? formatTimestamp(conv.recent_message.created_at) 
+                        : '',
+                      isOnline: conv.user.is_online,
+                      unreadCount: conv.unread_count
+                    })}
+                  >
+                    <div className="relative">
+                      <div className="w-12 h-12 rounded-full overflow-hidden">
+                        <Image
+                          src="/images/defaults/man-default.png" // Replace with actual profile picture
+                          alt={conv.user.first_name}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      {conv.user.is_online && (
+                        <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2 border-[#2C2C2E]" />
+                      )}
                     </div>
-                    {chat.isOnline && (
-                      <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2 border-[#2C2C2E]" />
+
+                    <div className="ml-3 flex-1">
+                      <div className="flex justify-between items-start">
+                        <h3 className="text-white font-semibold">
+                          {conv.user.first_name} {conv.user.last_name}
+                        </h3>
+                        <span className="text-xs text-gray-400">
+                          {conv.recent_message 
+                            ? formatTimestamp(conv.recent_message.created_at)
+                            : ''}
+                        </span>
+                      </div>
+                      <p className="text-gray-400 text-sm truncate">
+                        {conv.recent_message?.content || 'Henüz mesaj yok'}
+                      </p>
+                    </div>
+
+                    {conv.unread_count > 0 && (
+                      <div className="ml-2 bg-[#D63384] rounded-full w-5 h-5 flex items-center justify-center">
+                        <span className="text-white text-xs">{conv.unread_count}</span>
+                      </div>
                     )}
-                  </div>
-
-                  <div className="ml-3 flex-1">
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-white font-semibold">{chat.name}</h3>
-                      <span className="text-xs text-gray-400">{chat.lastMessageTime}</span>
-                    </div>
-                    <p className="text-gray-400 text-sm truncate">{chat.lastMessage}</p>
-                  </div>
-
-                  {chat.unreadCount && (
-                    <div className="ml-2 bg-[#D63384] rounded-full w-5 h-5 flex items-center justify-center">
-                      <span className="text-white text-xs">{chat.unreadCount}</span>
-                    </div>
-                  )}
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+                  <p className="text-gray-400 mb-2">Henüz aktif sohbet bulunmuyor</p>
+                  <p className="text-gray-500 text-sm">
+                    Birileriyle "eşleştiğinizde" burada onlarla sohbet edebilirsiniz
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -223,6 +546,7 @@ const ChatPage = () => {
               </div>
             </div>
           )}
+
           {/* Report Modal */}
           {showReportModal && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -278,7 +602,7 @@ const ChatPage = () => {
             </div>
           )}
 
-                  {/* Chat Area */}
+          {/* Chat Area */}
           <div className={`${activeChat ? 'block' : 'hidden lg:block'} flex-1 flex flex-col`}>
             {activeChat ? (
               <>
@@ -294,18 +618,23 @@ const ChatPage = () => {
                     <div className="relative">
                       <div className="w-10 h-10 rounded-full overflow-hidden">
                         <Image
-                          src={mockChats.find(c => c.id === activeChat)?.avatar || ""}
+                          src="/images/defaults/man-default.png" // Replace with actual avatar
                           alt="Active chat"
                           fill
                           className="object-cover"
                         />
                       </div>
+                      {activeChatUser?.isOnline && (
+                        <div className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-green-500 border border-[#2C2C2E]" />
+                      )}
                     </div>
                     <div className="ml-3">
                       <h3 className="text-white font-semibold">
-                        {mockChats.find(c => c.id === activeChat)?.name}
+                        {activeChatUser?.name}
                       </h3>
-                      <p className="text-xs text-gray-400">Çevrimiçi</p>
+                      <p className="text-xs text-gray-400">
+                        {activeChatUser?.isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}
+                      </p>
                     </div>
                   </div>
           
@@ -340,39 +669,50 @@ const ChatPage = () => {
           
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-[#3C3C3E] scrollbar-track-transparent">
-                  {mockMessages.map((message) => (
-                    <motion.div
-                      key={message.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.2 }}
-                      className={`flex ${message.senderId === "current-user" ? "justify-end" : "justify-start"}`}
-                    >
-                      {message.senderId !== "current-user" && (
-                        <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0">
-                          <Image
-                            src={mockChats.find(c => c.id === activeChat)?.avatar || ""}
-                            alt="User avatar"
-                            width={32}
-                            height={32}
-                            className="object-cover"
-                          />
-                        </div>
-                      )}
-                      <div
-                        className={`max-w-[70%] rounded-2xl px-4 py-3 ${
-                          message.senderId === "current-user"
-                            ? "bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white"
-                            : "bg-[#3C3C3E] text-white"
-                        }`}
+                  {isLoadingMessages ? (
+                    <div className="flex items-center justify-center h-full">
+                      <FiLoader className="w-8 h-8 text-[#D63384] animate-spin" />
+                    </div>
+                  ) : messages.length > 0 ? (
+                    messages.map((message) => (
+                      <motion.div
+                        key={message.id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.2 }}
+                        className={`flex ${message.sender_id === session.user.id ? "justify-end" : "justify-start"}`}
                       >
-                        <p className="leading-relaxed">{message.text}</p>
-                        <span className="text-xs text-gray-300 mt-2 block">
-                          {message.timestamp}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
+                        {message.sender_id !== session.user.id && (
+                          <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0">
+                            <Image
+                              src="/images/defaults/man-default.png" // Replace with actual avatar
+                              alt="User avatar"
+                              width={32}
+                              height={32}
+                              className="object-cover"
+                            />
+                          </div>
+                        )}
+                        <div
+                          className={`max-w-[70%] rounded-2xl px-4 py-3 ${
+                            message.sender_id === session.user.id
+                              ? "bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white"
+                              : "bg-[#3C3C3E] text-white"
+                          }`}
+                        >
+                          <p className="leading-relaxed">{message.content}</p>
+                          <span className="text-xs text-gray-300 mt-2 block">
+                            {formatTimestamp(message.timestamp)}
+                          </span>
+                        </div>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <p className="text-gray-400">Henüz mesaj yok</p>
+                      <p className="text-gray-500 text-sm mt-2">Sohbete başlamak için mesaj gönderin</p>
+                    </div>
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
           
@@ -399,22 +739,23 @@ const ChatPage = () => {
               </>
             ) : (
               <div className="h-[calc(100vh-300px)] flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-gray-400 text-lg">
-                  Sohbet başlatmak için bir kişi seçin
-                </p>
-                <p className="text-gray-500 text-sm mt-2">
-                  Sol taraftan bir sohbet seçebilirsiniz
-                </p>
+                <div className="text-center">
+                  <p className="text-gray-400 text-lg">
+                    Sohbet başlatmak için bir kişi seçin
+                  </p>
+                  <p className="text-gray-500 text-sm mt-2">
+                    {conversations.length > 0 
+                      ? "Sol taraftan bir sohbet seçebilirsiniz" 
+                      : "Henüz hiç eşleşmeniz yok"}
+                  </p>
+                </div>
               </div>
-            </div>
             )}
           </div>
-                
-              </div>
-          </div>
-        </section>
-      );
+        </div>
+      </div>
+    </section>
+  );
 };
 
 export default ChatPage;

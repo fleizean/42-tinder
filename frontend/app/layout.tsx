@@ -7,10 +7,23 @@ import AuthCheck from "@/components/AuthCheck";
 import { Inter } from "next/font/google";
 import "node_modules/react-modal-video/css/modal-video.css";
 import "../styles/index.css";
-import { SessionProvider } from "next-auth/react";
+import { SessionProvider, useSession } from "next-auth/react";
 import { Providers } from "./providers";
 
 const inter = Inter({ subsets: ["latin"] });
+
+// Footer bileşenini sadece giriş yapmamış kullanıcılara gösteren fonksiyon bileşen
+function ConditionalFooter() {
+  const { data: session } = useSession();
+  
+  // Kullanıcı giriş yapmamışsa Footer'ı göster
+  if (!session) {
+    return <Footer />;
+  }
+  
+  // Kullanıcı giriş yapmışsa Footer'ı gösterme
+  return null;
+}
 
 export default function RootLayout({
   children,
@@ -26,7 +39,7 @@ export default function RootLayout({
             <AuthCheck />
             <Header />
             {children}
-            <Footer />
+            <ConditionalFooter />
             <ScrollToTop />
           </Providers>
         </SessionProvider>

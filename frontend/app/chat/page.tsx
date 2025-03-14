@@ -81,6 +81,7 @@ const ChatPage = () => {
   const { data: session } = useSession();
   const router = useRouter();
   const wsService = useRef<WebSocketService>(WebSocketService.getInstance());
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = metadata.title as string;
@@ -94,19 +95,30 @@ const ChatPage = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    let isActive = true;
+    useEffect(() => {
+    // Temizleme işlevi için bir bayrak
+    let isMounted = true;
   
-    if (isActive && session?.user?.accessToken) {
-      fetchConversations();
+    if (session?.user?.accessToken) {
+      // WebSocket'i kur
       setupWebSocket();
+      
+      // Konuşmaları getir
+      fetchConversations();
+      
+      // Aktif sohbet varsa mesajları getir
+      if (activeChat) {
+        fetchMessages(activeChat);
+      }
     }
   
     return () => {
-      isActive = false;
-      wsService.current.disconnect(); // Clean up on unmount
+      isMounted = false;
+      // Bileşen kaldırıldığında WebSocket bağlantısını kapat
+      wsService.current.disconnect();
     };
-  }, [session]);
+  }, [session, activeChat]);
+  
 
   useEffect(() => {
     if (activeChat) {
@@ -115,8 +127,31 @@ const ChatPage = () => {
   }, [activeChat]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    const fetchCurrentUser = async () => {
+      if (!session?.user?.accessToken) return;
+      
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/users/me`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.user.accessToken}`,
+            }
+          }
+        );
+
+        if (response.ok) {
+          const userData = await response.json();
+          setCurrentUserId(userData.id);
+          console.log("Current user ID fetched:", userData.id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch current user:", error);
+      }
+    };
+
+    fetchCurrentUser();
+  }, [session]);
 
 const setupWebSocket = () => {
   if (!session?.user?.accessToken || !process.env.NEXT_PUBLIC_BACKEND_API_URL) {
@@ -128,26 +163,82 @@ const setupWebSocket = () => {
   wsService.current.disconnect();
 
   // Define handlers
+    // WebSocket mesaj işleyiciyi güncelleyin
   const handleWsMessage = (data: any) => {
+    console.log("WebSocket message received:", data);
+    
     if (data.type === 'message') {
-        if (activeChat && (data.sender_id === activeChat || data.recipient_id === activeChat)) {
-          // Add the new message to the current chat
-          const newMsg: Message = {
-            id: Date.now().toString(),
-            sender_id: data.sender_id,
-            recipient_id: session.user.id,
-            content: data.content,
-            timestamp: data.timestamp,
-            is_read: false
-          };
-          
-          setMessages(prevMessages => [...prevMessages, newMsg]);
-        }
+      // Gelen mesaj mevcut aktif sohbeti ilgilendiriyor mu kontrol et
+      const isCurrentChat = 
+        activeChat && 
+        (data.sender_id === activeChat || data.recipient_id === activeChat);
         
-        // Refresh conversations to update last message and unread count
-        fetchConversations();
+      console.log("Message data:", {
+        senderId: data.sender_id,
+        recipientId: data.recipient_id,
+        activeChat: activeChat,
+        isCurrentChat: isCurrentChat
+      });
+      
+      // Eğer bu aktif sohbetle ilgiliyse mesajlar listesine ekle
+      if (isCurrentChat) {
+        // Mesaj zaman damgasını doğru formatta ayarla
+        const timestamp = data.timestamp || new Date().toISOString();
+        
+        // Yeni mesajı oluştur
+        const newMsg: Message = {
+          id: data.id || Date.now().toString(),
+          sender_id: data.sender_id,
+          recipient_id: data.recipient_id || currentUserId,
+          content: data.content,
+          timestamp: timestamp,
+          is_read: false
+        };
+        
+        // Mesajlar listesini güncelle
+        setMessages(prevMessages => {
+          // Eğer mesaj zaten listede varsa tekrar ekleme
+          const msgExists = prevMessages.some(m => m.id === newMsg.id);
+          if (msgExists) return prevMessages;
+          
+          // Yeni mesaj dizisini oluştur
+          const updatedMessages = [...prevMessages, newMsg];
+          
+          // Mesaj eklendikten sonra, setTimeout ile aşağı kaydır
+          setTimeout(() => {
+            scrollToBottom();
+          }, 100);
+          
+          return updatedMessages;
+        });
+        
+        // Otomatik olarak en aşağı kaydır
+        
+      }
+      
+      // Her durumda konuşma listesini güncelle
+      fetchConversations();
     }
   };
+
+  const formatTimestamp = (timestamp: string) => {
+    try {
+      const date = new Date(timestamp);
+      
+      // Tarih geçerli mi kontrol et
+      if (isNaN(date.getTime())) {
+        // Geçerli değilse şimdiki zamanı kullan
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (error) {
+      console.error('Timestamp format error:', error);
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+  };
+
+  
 
   const handleWsConnect = () => {
     console.log('WebSocket connected successfully');
@@ -186,9 +277,7 @@ const setupWebSocket = () => {
   }, 500);
 };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+
 
   const fetchConversations = async () => {
     if (!session?.user?.accessToken) return;
@@ -273,19 +362,20 @@ const setupWebSocket = () => {
     }
   };
 
+      // handleSendMessage fonksiyonunda WebSocket kontrolünü güncelleyin
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newMessage.trim() || !activeChat || !session?.user?.accessToken) return;
+    if (!newMessage.trim() || !activeChat || !session?.user?.accessToken || !currentUserId) return;
     
-    // Generate a temporary ID for optimistic updates
+    // Geçici ID oluştur
     const tempId = `temp-${Date.now()}`;
     
     try {
-      // Optimistically add the message to the UI
+      // Önce mesajı UI'a ekle (iyimser güncelleme)
       const tempMessage: Message = {
         id: tempId,
-        sender_id: session.user.id,
+        sender_id: currentUserId,
         recipient_id: activeChat,
         content: newMessage,
         timestamp: new Date().toISOString(),
@@ -295,72 +385,79 @@ const setupWebSocket = () => {
       setMessages(prev => [...prev, tempMessage]);
       setNewMessage("");
       
-      // Check if WebSocket is connected before sending
-      if (!wsService.current.isConnected()) {
-        throw new Error('WebSocket is not connected');
+      // İlk önce WebSocket ile göndermeyi dene
+      if (wsService.current.isConnected()) {
+        console.log("Sending message via WebSocket");
+        wsService.current.send({
+          type: 'message',
+          recipientId: activeChat,
+          content: newMessage
+        });
+        
+        // WebSocket gönderimi başarılı ise, konuşma listesini güncelle
+        setTimeout(() => {
+          fetchConversations();
+        }, 1000);
+        
+        return; // WebSocket başarılı ise REST API'ye gitmeden dön
       }
       
-      // Send via WebSocket
-      wsService.current.send({
-        type: 'message',
-        recipientId: activeChat,
-        content: newMessage
-      });
+      // WebSocket bağlı değilse REST API'yi kullan
+      console.log("WebSocket not connected, using REST API");
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/realtime/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            recipient_id: activeChat,
+            content: newMessage
+          })
+        }
+      );
+  
+      if (!response.ok) throw new Error('Failed to send message via REST API');
       
-      // After successful send, fetch conversations to update UI
-      setTimeout(() => {
-        fetchConversations();
-      }, 1000);
+      const data = await response.json();
+      
+      // Geçici mesajı gerçek olanla değiştir
+      setMessages(prev => prev.map(msg => 
+        msg.id === tempId ? {
+          ...msg,
+          id: data.id,
+          timestamp: data.created_at
+        } : msg
+      ));
+      
+      fetchConversations();
       
     } catch (error) {
       console.error('Send message error:', error);
       toast.error('Mesaj gönderilemedi');
       
-      // Remove the temporary message on failure
+      // Hata durumunda geçici mesajı kaldır
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
-      
-      // If WebSocket failed, try REST API as fallback
-      try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/realtime/messages`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session.user.accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              recipient_id: activeChat,
-              content: newMessage
-            })
-          }
-        );
-  
-        if (response.ok) {
-          // If REST API works, add the message back to UI
-          const data = await response.json();
-          setMessages(prev => [...prev, {
-            id: data.id,
-            sender_id: session.user.id,
-            recipient_id: activeChat,
-            content: newMessage,
-            timestamp: data.created_at,
-            is_read: false
-          }]);
-          
-          toast.success('Mesaj gönderildi (yedek kanal)');
-          fetchConversations();
-        }
-      } catch (fallbackError) {
-        console.error('Fallback send failed:', fallbackError);
-      }
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+    
+  
+  // WebSocket bağlantı durumunu düzenli olarak kontrol et
+  useEffect(() => {
+    if (!session?.user?.accessToken) return;
+    
+    const interval = setInterval(() => {
+      if (!wsService.current.isConnected()) {
+        console.log("WebSocket disconnected, trying to reconnect...");
+        setupWebSocket();
+      }
+    }, 5000); // Her 5 saniyede bir kontrol et
+    
+    return () => clearInterval(interval);
+  }, [session]);
 
   const handleSelectChat = (userId: string, user: ChatUser) => {
     setActiveChat(userId);
@@ -411,6 +508,18 @@ const setupWebSocket = () => {
     }
   };
 
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages]);
+
   const submitReport = async () => {
     if (!session?.user?.accessToken || !activeChat) return;
 
@@ -445,6 +554,46 @@ const setupWebSocket = () => {
     }
   };
 
+    const formatTimestamp = (timestamp: string) => {
+    try {
+      // Zaman damgası yoksa boş string döndür
+      if (!timestamp) return "";
+      
+      // ISO formatındaki zamanı Date nesnesine çevir
+      const date = new Date(timestamp);
+      
+      // Tarih geçerli mi kontrol et
+      if (isNaN(date.getTime())) {
+        console.warn("Invalid timestamp:", timestamp);
+        return "";
+      }
+  
+      // Tarih ve saat arasında çok büyük fark varsa, günü de göster
+      const now = new Date();
+      const diffMs = Math.abs(now.getTime() - date.getTime());
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      if (diffDays >= 1) {
+        // Bir günden fazla ise tarih ve saati göster
+        return new Intl.DateTimeFormat('tr-TR', { 
+          day: 'numeric', 
+          month: 'short',
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }).format(date);
+      } else {
+        // Aynı gün içindeyse sadece saati göster
+        return new Intl.DateTimeFormat('tr-TR', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }).format(date);
+      }
+    } catch (error) {
+      console.error('Timestamp format error:', error);
+      return "";
+    }
+  };
+
 /*   if (!session) {
     return (
       <section className="pt-[150px] pb-[120px] bg-[#1C1C1E] min-h-screen">
@@ -465,13 +614,12 @@ const setupWebSocket = () => {
   } */
 
   return (
-    <section className="pt-[80px] md:pt-[150px] pb-[60px] md:pb-[120px] bg-[#1C1C1E] min-h-screen">
+    <section className="pt-[150px] pb-[120px] bg-[#1C1C1E] min-h-screen">
       <Toaster position="top-right" />
-      <div className="container mx-auto px-4">
-        <div className="flex flex-col lg:flex-row bg-[#2C2C2E] rounded-xl overflow-hidden"
-          style={{ height: "calc(100vh - 160px)" }}>
+      <div className="contacontainer mx-auto px-4 h-full">
+        <div className="flex flex-col lg:flex-row bg-[#2C2C2E] rounded-xl overflow-hidden h-[calc(100vh-160px)]">
           {/* Chat List - Make it full width on mobile */}
-          <div className={`${activeChat ? 'hidden lg:block' : 'block'} lg:w-1/3 border-r border-[#3C3C3E]`}>
+          <div className={`${activeChat ? 'hidden lg:block' : 'block'} lg:w-1/3 border-r border-[#3C3C3E] h-full`}>
             <div className="sticky top-0 bg-[#2C2C2E] p-4 border-b border-[#3C3C3E] z-10">
               <div className="relative">
                 <input
@@ -641,9 +789,10 @@ const setupWebSocket = () => {
           )}
 
           {/* Chat Area */}
-          <div className={`${activeChat ? 'block' : 'hidden lg:block'} flex-1 flex flex-col`}>
+          <div className={`${activeChat ? 'block' : 'hidden lg:block'} flex-1 flex flex-col h-full`}>
             {activeChat ? (
               <>
+              <div className="flex flex-col h-full">
                 {/* Chat Header with Back Button on Mobile */}
                 <div className="sticky top-0 bg-[#2C2C2E] p-4 border-b border-[#3C3C3E] flex items-center justify-between z-10">
                   <div className="flex items-center">
@@ -706,45 +855,62 @@ const setupWebSocket = () => {
                 </div>
           
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-[#3C3C3E] scrollbar-track-transparent">
+                <div className="flex-grow overflow-y-auto p-4 space-y-6" 
+                  style={{
+                    WebkitOverflowScrolling: 'touch',
+                    scrollbarWidth: 'none', // Firefox için
+                    msOverflowStyle: 'none', // IE ve Edge için
+                  }}>
                   {isLoadingMessages ? (
                     <div className="flex items-center justify-center h-full">
                       <FiLoader className="w-8 h-8 text-[#D63384] animate-spin" />
                     </div>
                   ) : messages.length > 0 ? (
-                    messages.map((message) => (
-                      <motion.div
-                        key={message.id}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.2 }}
-                        className={`flex ${message.sender_id === session.user.id ? "justify-end" : "justify-start"}`}
-                      >
-                        {message.sender_id !== session.user.id && (
-                          <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0">
-                            <Image
-                              src="/images/defaults/man-default.png" // Replace with actual avatar
-                              alt="User avatar"
-                              width={32}
-                              height={32}
-                              className="object-cover"
-                            />
-                          </div>
-                        )}
-                        <div
-                          className={`max-w-[70%] rounded-2xl px-4 py-3 ${
-                            message.sender_id === session.user.id
-                              ? "bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white"
-                              : "bg-[#3C3C3E] text-white"
-                          }`}
+                    messages.map((message) => {
+                      // Use currentUserId instead of session.user.id
+                      const isCurrentUser = currentUserId && String(message.sender_id) === String(currentUserId);
+                      
+                      console.log("Message:", {
+                        messageId: message.id,
+                        sender: message.sender_id,
+                        currentUserId: currentUserId,
+                        isCurrentUser: isCurrentUser
+                      });
+                      
+                      return (
+                        <motion.div
+                          key={message.id}
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.2 }}
+                          className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}
                         >
-                          <p className="leading-relaxed">{message.content}</p>
-                          <span className="text-xs text-gray-300 mt-2 block">
-                            {formatTimestamp(message.timestamp)}
-                          </span>
-                        </div>
-                      </motion.div>
-                    ))
+                          {!isCurrentUser && (
+                            <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0">
+                              <Image
+                                src="/images/defaults/man-default.png"
+                                alt="User avatar"
+                                width={32}
+                                height={32}
+                                className="object-cover"
+                              />
+                            </div>
+                          )}
+                          <div
+                            className={`max-w-[70%] rounded-2xl px-4 py-3 ${
+                              isCurrentUser
+                                ? "bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white"
+                                : "bg-[#3C3C3E] text-white"
+                            }`}
+                          >
+                            <p className="leading-relaxed">{message.content}</p>
+                            <span className="text-xs text-gray-300 mt-2 block">
+                              {message.timestamp ? formatTimestamp(message.timestamp) : formatTimestamp(new Date().toISOString())}
+                            </span>
+                          </div>
+                        </motion.div>
+                      );
+                    })
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full">
                       <p className="text-gray-400">Henüz mesaj yok</p>
@@ -774,6 +940,7 @@ const setupWebSocket = () => {
                     </motion.button>
                   </div>
                 </form>
+                </div>
               </>
             ) : (
               <div className="h-[calc(100vh-300px)] flex items-center justify-center">

@@ -60,6 +60,8 @@ interface Conversation {
     created_at: string;
   } | null;
   unread_count: number;
+
+  profile_picture?: string;
 }
 
 const ChatPage = () => {
@@ -323,21 +325,35 @@ const ChatPage = () => {
       const data: Conversation[] = await response.json();
       setConversations(data);
 
+      const conversationsWithProfiles = [...data];
+
+      const profilePromises = data.map(async (conv) => {
+        try {
+          const profileData = await fetchUserProfileDetails(conv.user.username);
+          if (profileData && profileData.pictures && profileData.pictures.length > 0) {
+            const primaryPic = profileData.pictures.find(pic => pic.is_primary) || profileData.pictures[0];
+            conv.profile_picture = primaryPic.backend_url;
+          }
+        } catch (error) {
+          console.error(`Error fetching profile for ${conv.user.username}:`, error);
+        }
+        return conv;
+      });
+
       // URL'den alınan kullanıcı ID'si
       const params = new URLSearchParams(window.location.search);
       const userIdFromUrl = params.get('user');
-
-      // Önce URL'deki kullanıcıyı kontrol et
+      
       if (userIdFromUrl) {
         const urlConversation = data.find(c => c.user.id === userIdFromUrl);
-
+      
         if (urlConversation) {
           // URL'deki kullanıcı konuşmalar arasında varsa, onu seç
           setActiveChat(userIdFromUrl);
           setActiveChatUser({
             id: urlConversation.user.id,
             name: `${urlConversation.user.first_name} ${urlConversation.user.last_name}`,
-            avatar: '/images/defaults/man-default.png',
+            avatar: urlConversation.profile_picture || '/images/defaults/man-default.png', // Profil fotoğrafını ekle
             lastMessage: urlConversation.recent_message?.content || 'Henüz mesaj yok',
             lastMessageTime: urlConversation.recent_message
               ? formatTimestamp(urlConversation.recent_message.created_at)
@@ -353,7 +369,7 @@ const ChatPage = () => {
         setActiveChatUser({
           id: data[0].user.id,
           name: `${data[0].user.first_name} ${data[0].user.last_name}`,
-          avatar: '/images/defaults/man-default.png',
+          avatar: data[0].profile_picture || '/images/defaults/man-default.png', // Profil fotoğrafını ekle
           lastMessage: data[0].recent_message?.content || 'Henüz mesaj yok',
           lastMessageTime: data[0].recent_message
             ? formatTimestamp(data[0].recent_message.created_at)
@@ -363,6 +379,8 @@ const ChatPage = () => {
         });
       }
 
+      const updatedConversations = await Promise.all(profilePromises);
+      setConversations(updatedConversations);
     } catch (error) {
       console.error('Conversations fetch error:', error);
       toast.error('Konuşmalar yüklenemedi');
@@ -496,13 +514,16 @@ const ChatPage = () => {
   useEffect(() => {
     if (activeChat && conversations.length > 0) {
       const conversation = conversations.find(c => c.user.id === activeChat);
-
+  
       if (conversation) {
-        console.log("Updating active chat user from conversations");
+        // Mevcut avatar'ı saklayalım, böylece zaten yüklenen fotoğraf kaybolmaz
+        const currentAvatar = activeChatUser?.avatar;
+        
         setActiveChatUser({
           id: conversation.user.id,
           name: `${conversation.user.first_name} ${conversation.user.last_name}`,
-          avatar: '/images/defaults/man-default.png',
+          // Eğer bir profil fotoğrafı varsa onu kullan, yoksa mevcut avatar'ı veya varsayılanı kullan
+          avatar: conversation.profile_picture || currentAvatar || '/images/defaults/man-default.png',
           lastMessage: conversation.recent_message?.content || 'Henüz mesaj yok',
           lastMessageTime: conversation.recent_message
             ? formatTimestamp(conversation.recent_message.created_at)
@@ -542,9 +563,23 @@ const ChatPage = () => {
     return () => clearInterval(interval);
   }, [session]);
 
-  const handleSelectChat = (userId: string, user: ChatUser) => {
+    const handleSelectChat = async (userId: string, username: string, user: ChatUser) => {
+    // Önce mevcut bilgileri ayarla
     setActiveChat(userId);
     setActiveChatUser(user);
+    
+    // Ardından profil detaylarını getir
+    const profileDetails = await fetchUserProfileDetails(username);
+    
+    if (profileDetails && profileDetails.pictures && profileDetails.pictures.length > 0) {
+      // Profil fotoğrafını güncelle
+      const primaryPicture = profileDetails.pictures.find((pic: any) => pic.is_primary) || profileDetails.pictures[0];
+      
+      setActiveChatUser(prev => ({
+        ...prev!,
+        avatar: primaryPicture.backend_url
+      }));
+    }
   };
 
   const handleBlock = () => {
@@ -677,24 +712,51 @@ const ChatPage = () => {
     }
   };
 
-  /*   if (!session) {
-      return (
-        <section className="pt-[150px] pb-[120px] bg-[#1C1C1E] min-h-screen">
-          <div className="container mx-auto px-4">
-            <div className="text-center">
-              <h1 className="text-3xl font-bold text-white mb-4">Erişim Engellendi</h1>
-              <p className="text-gray-300 mb-8">Bu sayfayı görüntülemek için giriş yapmalısınız.</p>
-              <button 
-                onClick={() => router.push('/signin')}
-                className="px-6 py-3 bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white rounded-lg"
-              >
-                Giriş Yap
-              </button>
-            </div>
-          </div>
-        </section>
+  const fetchUserProfileDetails = async (username: string) => {
+    if (!session?.user?.accessToken) return null;
+  
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/get-for-chat/${username}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+          }
+        }
       );
-    } */
+  
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error('User profile fetch error:', error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    const fetchUserDetailsForUrl = async () => {
+      if (activeChat && conversations.length > 0) {
+        const conversation = conversations.find(c => c.user.id === activeChat);
+        
+        if (conversation && conversation.user.username) {
+          const profileDetails = await fetchUserProfileDetails(conversation.user.username);
+          
+          if (profileDetails && profileDetails.pictures && profileDetails.pictures.length > 0) {
+            const primaryPicture = profileDetails.pictures.find((pic: any) => pic.is_primary) || profileDetails.pictures[0];
+            
+            setActiveChatUser(prev => ({
+              ...prev!,
+              avatar: primaryPicture.backend_url
+            }));
+          }
+        }
+      }
+    };
+  
+    if (activeChat) {
+      fetchUserDetailsForUrl();
+    }
+  }, [activeChat, conversations]);
 
   return (
     <section className="pt-[150px] pb-[120px] bg-[#1C1C1E] min-h-screen">
@@ -746,25 +808,27 @@ const ChatPage = () => {
                     transition={{ duration: 0.3 }}
                     className={`p-4 flex items-center cursor-pointer hover:bg-[#3C3C3E] transition-all ${activeChat === conv.user.id ? "bg-[#3C3C3E]" : ""
                       }`}
-                    onClick={() => handleSelectChat(conv.user.id, {
-                      id: conv.user.id,
-                      name: `${conv.user.first_name} ${conv.user.last_name}`,
-                      avatar: '/images/defaults/man-default.png',
-                      lastMessage: conv.recent_message?.content || 'Henüz mesaj yok',
-                      lastMessageTime: conv.recent_message
-                        ? formatTimestamp(conv.recent_message.created_at)
-                        : '',
-                      isOnline: conv.user.is_online,
-                      unreadCount: conv.unread_count
-                    })}
+                      onClick={() => handleSelectChat(conv.user.id, conv.user.username, {
+                        id: conv.user.id,
+                        name: `${conv.user.first_name} ${conv.user.last_name}`,
+                        avatar: conv.profile_picture || '/images/defaults/man-default.png',
+                        lastMessage: conv.recent_message?.content || 'Henüz mesaj yok',
+                        lastMessageTime: conv.recent_message
+                          ? formatTimestamp(conv.recent_message.created_at)
+                          : '',
+                        isOnline: conv.user.is_online,
+                        unreadCount: conv.unread_count
+                      })}
                   >
                     <div className="relative">
                       <div className="w-12 h-12 rounded-full overflow-hidden">
                         <Image
-                          src="/images/defaults/man-default.png" // Replace with actual profile picture
+                          src={conv.profile_picture || '/images/defaults/man-default.png'} 
                           alt={conv.user.first_name}
                           fill
                           className="object-cover"
+                          loading="eager"
+                          priority
                         />
                       </div>
                       {conv.user.is_online && (
@@ -915,10 +979,12 @@ const ChatPage = () => {
                       <div className="relative">
                         <div className="w-10 h-10 rounded-full overflow-hidden">
                           <Image
-                            src="/images/defaults/man-default.png" // Replace with actual avatar
+                            src={activeChatUser?.avatar || '/images/defaults/man-default.png'} 
                             alt="Active chat"
                             fill
                             className="object-cover"
+                            loading="eager" // Öncelikli yükleme
+                            priority
                           />
                         </div>
                         {activeChatUser?.isOnline && (
@@ -992,11 +1058,13 @@ const ChatPage = () => {
                             {!isCurrentUser && (
                               <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0">
                                 <Image
-                                  src="/images/defaults/man-default.png"
+                                  src={activeChatUser?.avatar || '/images/defaults/man-default.png'}
                                   alt="User avatar"
                                   width={32}
                                   height={32}
                                   className="object-cover"
+                                  loading="eager" // Öncelikli yükleme
+                                  priority
                                 />
                               </div>
                             )}

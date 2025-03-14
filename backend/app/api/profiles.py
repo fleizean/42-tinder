@@ -556,6 +556,62 @@ async def get_profile(
     
     return public_profile
 
+@router.get("/get-for-chat/{username}", response_model=PublicProfile)
+async def get_profile(
+    username: str,
+    current_user: User = Depends(get_current_verified_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Get a profile by username
+    """
+    # Get user's profile
+    user_profile = await get_profile_by_username(db, username)
+    if not user_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
+        )
+    
+    # Get requested profile with pictures and tags eagerly loaded
+    result = await db.execute(
+        select(Profile, User)
+        .join(User, Profile.user_id == User.id)
+        .options(selectinload(Profile.pictures), selectinload(Profile.tags))
+        .filter(User.username == username)  # Use username filter to get correct profile
+    )
+    profile_data = result.first()
+    
+    if not profile_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
+        )
+    
+    profile, user = profile_data
+    
+    # Create public profile
+    public_profile = PublicProfile(
+        id=profile.id,
+        username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        gender=profile.gender,
+        sexual_preference=profile.sexual_preference,
+        biography=profile.biography,
+        latitude=profile.latitude,
+        longitude=profile.longitude,
+        fame_rating=profile.fame_rating,
+        is_online=user.is_online,
+        last_online=user.last_online,
+        pictures=profile.pictures,
+        tags=profile.tags,
+        birth_date=profile.birth_date
+    )
+    
+    return public_profile
+
+
 @router.get("/check-real-profile/{username}", response_model=dict)
 async def check_real_profile(
     username: str,

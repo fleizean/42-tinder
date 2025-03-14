@@ -82,6 +82,8 @@ const ChatPage = () => {
   const router = useRouter();
   const wsService = useRef<WebSocketService>(WebSocketService.getInstance());
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
 
   useEffect(() => {
     document.title = metadata.title as string;
@@ -95,30 +97,30 @@ const ChatPage = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     // Temizleme işlevi için bir bayrak
     let isMounted = true;
-  
+
     if (session?.user?.accessToken) {
       // WebSocket'i kur
       setupWebSocket();
-      
+
       // Konuşmaları getir
       fetchConversations();
-      
+
       // Aktif sohbet varsa mesajları getir
       if (activeChat) {
         fetchMessages(activeChat);
       }
     }
-  
+
     return () => {
       isMounted = false;
       // Bileşen kaldırıldığında WebSocket bağlantısını kapat
       wsService.current.disconnect();
     };
   }, [session, activeChat]);
-  
+
 
   useEffect(() => {
     if (activeChat) {
@@ -129,7 +131,7 @@ const ChatPage = () => {
   useEffect(() => {
     const fetchCurrentUser = async () => {
       if (!session?.user?.accessToken) return;
-      
+
       try {
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/users/me`,
@@ -143,7 +145,6 @@ const ChatPage = () => {
         if (response.ok) {
           const userData = await response.json();
           setCurrentUserId(userData.id);
-          console.log("Current user ID fetched:", userData.id);
         }
       } catch (error) {
         console.error("Failed to fetch current user:", error);
@@ -153,137 +154,147 @@ const ChatPage = () => {
     fetchCurrentUser();
   }, [session]);
 
-const setupWebSocket = () => {
-  if (!session?.user?.accessToken || !process.env.NEXT_PUBLIC_BACKEND_API_URL) {
-    console.log('Missing session or API URL, cannot set up WebSocket');
-    return;
-  }
-
-  // First, clean up by disconnecting any existing connection
-  wsService.current.disconnect();
-
-  // Define handlers
-    // WebSocket mesaj işleyiciyi güncelleyin
-  const handleWsMessage = (data: any) => {
-    console.log("WebSocket message received:", data);
-    
-    if (data.type === 'message') {
-      // Gelen mesaj mevcut aktif sohbeti ilgilendiriyor mu kontrol et
-      const isCurrentChat = 
-        activeChat && 
-        (data.sender_id === activeChat || data.recipient_id === activeChat);
-        
-      console.log("Message data:", {
-        senderId: data.sender_id,
-        recipientId: data.recipient_id,
-        activeChat: activeChat,
-        isCurrentChat: isCurrentChat
-      });
-      
-      // Eğer bu aktif sohbetle ilgiliyse mesajlar listesine ekle
-      if (isCurrentChat) {
-        // Mesaj zaman damgasını doğru formatta ayarla
-        const timestamp = data.timestamp || new Date().toISOString();
-        
-        // Yeni mesajı oluştur
-        const newMsg: Message = {
-          id: data.id || Date.now().toString(),
-          sender_id: data.sender_id,
-          recipient_id: data.recipient_id || currentUserId,
-          content: data.content,
-          timestamp: timestamp,
-          is_read: false
-        };
-        
-        // Mesajlar listesini güncelle
-        setMessages(prevMessages => {
-          // Eğer mesaj zaten listede varsa tekrar ekleme
-          const msgExists = prevMessages.some(m => m.id === newMsg.id);
-          if (msgExists) return prevMessages;
-          
-          // Yeni mesaj dizisini oluştur
-          const updatedMessages = [...prevMessages, newMsg];
-          
-          // Mesaj eklendikten sonra, setTimeout ile aşağı kaydır
-          setTimeout(() => {
-            scrollToBottom();
-          }, 100);
-          
-          return updatedMessages;
-        });
-        
-        // Otomatik olarak en aşağı kaydır
-        
-      }
-      
-      // Her durumda konuşma listesini güncelle
-      fetchConversations();
+  const setupWebSocket = () => {
+    if (!session?.user?.accessToken || !process.env.NEXT_PUBLIC_BACKEND_API_URL) {
+      toast.error('WebSocket bağlantısı kurulamadı');
+      return;
     }
-  };
 
-  const formatTimestamp = (timestamp: string) => {
-    try {
-      const date = new Date(timestamp);
-      
-      // Tarih geçerli mi kontrol et
-      if (isNaN(date.getTime())) {
-        // Geçerli değilse şimdiki zamanı kullan
+    // First, clean up by disconnecting any existing connection
+    wsService.current.disconnect();
+
+    // Define handlers
+    // WebSocket mesaj işleyiciyi güncelleyin
+    const handleWsMessage = (data: any) => {
+      console.log("WebSocket message received:", data);
+
+      if (data.type === 'message') {
+        // Gelen mesaj mevcut aktif sohbeti ilgilendiriyor mu kontrol et
+        const isCurrentChat =
+          activeChat &&
+          (data.sender_id === activeChat || data.recipient_id === activeChat);
+
+        // Eğer bu aktif sohbetle ilgiliyse mesajlar listesine ekle
+        if (isCurrentChat) {
+          // Mesaj zaman damgasını doğru formatta ayarla
+          const timestamp = data.timestamp || new Date().toISOString();
+
+          // Yeni mesajı oluştur
+          const newMsg: Message = {
+            id: data.id || Date.now().toString(),
+            sender_id: data.sender_id,
+            recipient_id: data.recipient_id || currentUserId,
+            content: data.content,
+            timestamp: timestamp,
+            is_read: false
+          };
+
+          // Mesajlar listesini güncelle
+          setMessages(prevMessages => {
+            // Eğer mesaj zaten listede varsa tekrar ekleme
+            const msgExists = prevMessages.some(m => m.id === newMsg.id);
+            if (msgExists) return prevMessages;
+
+            // Yeni mesaj dizisini oluştur
+            const updatedMessages = [...prevMessages, newMsg];
+
+            // Mesaj eklendikten sonra, setTimeout ile aşağı kaydır
+            setTimeout(() => {
+              scrollToBottom();
+            }, 100);
+
+            return updatedMessages;
+          });
+
+          // Otomatik olarak en aşağı kaydır
+
+        }
+
+        // Her durumda konuşma listesini güncelle
+        fetchConversations();
+      }
+    };
+
+    const formatTimestamp = (timestamp: string) => {
+      try {
+        const date = new Date(timestamp);
+
+        // Tarih geçerli mi kontrol et
+        if (isNaN(date.getTime())) {
+          // Geçerli değilse şimdiki zamanı kullan
+          return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } catch (error) {
+        console.error('Timestamp format error:', error);
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       }
-      
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch (error) {
-      console.error('Timestamp format error:', error);
-      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+
+
+    const handleWsConnect = () => {
+      console.log('WebSocket connected successfully');
+      setWsConnected(true);
+    };
+
+    const handleWsDisconnect = () => {
+      console.log('WebSocket disconnected');
+      setWsConnected(false);
+    };
+
+    const handleWsError = (error: Event) => {
+      console.error('WebSocket error occurred');
+      setWsConnected(false);
+      // Don't show a toast on initial error - this can be annoying for users
+    };
+
+    // Clear any existing handlers
+    wsService.current.removeMessageHandler(handleWsMessage);
+    wsService.current.removeConnectHandler(handleWsConnect);
+    wsService.current.removeDisconnectHandler(handleWsDisconnect);
+    wsService.current.removeErrorHandler(handleWsError);
+
+    // Add new handlers
+    wsService.current.addMessageHandler(handleWsMessage);
+    wsService.current.addConnectHandler(handleWsConnect);
+    wsService.current.addDisconnectHandler(handleWsDisconnect);
+    wsService.current.addErrorHandler(handleWsError);
+
+    // Initialize connection only once, after a small delay
+    setTimeout(() => {
+      wsService.current.connect(
+        process.env.NEXT_PUBLIC_BACKEND_API_URL,
+        session.user.accessToken
+      );
+    }, 500);
+  };
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value.toLowerCase();
+    setSearchQuery(query);
+
+    if (!query.trim()) {
+      // Arama sorgusu yoksa filtrelenmiş konuşmaları temizle
+      setFilteredConversations([]);
+      return;
     }
-  };
 
-  
-
-  const handleWsConnect = () => {
-    console.log('WebSocket connected successfully');
-    setWsConnected(true);
-  };
-
-  const handleWsDisconnect = () => {
-    console.log('WebSocket disconnected');
-    setWsConnected(false);
-  };
-
-  const handleWsError = (error: Event) => {
-    console.error('WebSocket error occurred');
-    setWsConnected(false);
-    // Don't show a toast on initial error - this can be annoying for users
-  };
-
-  // Clear any existing handlers
-  wsService.current.removeMessageHandler(handleWsMessage);
-  wsService.current.removeConnectHandler(handleWsConnect);
-  wsService.current.removeDisconnectHandler(handleWsDisconnect);
-  wsService.current.removeErrorHandler(handleWsError);
-
-  // Add new handlers
-  wsService.current.addMessageHandler(handleWsMessage);
-  wsService.current.addConnectHandler(handleWsConnect);
-  wsService.current.addDisconnectHandler(handleWsDisconnect);
-  wsService.current.addErrorHandler(handleWsError);
-
-  // Initialize connection only once, after a small delay
-  setTimeout(() => {
-    wsService.current.connect(
-      process.env.NEXT_PUBLIC_BACKEND_API_URL,
-      session.user.accessToken
+    // İsime göre filtreleme yapın
+    const filtered = conversations.filter(conv =>
+      `${conv.user.first_name} ${conv.user.last_name}`.toLowerCase().includes(query) ||
+      (conv.recent_message?.content && conv.recent_message.content.toLowerCase().includes(query))
     );
-  }, 500);
-};
 
-
+    setFilteredConversations(filtered);
+  };
 
   const fetchConversations = async () => {
     if (!session?.user?.accessToken) return;
-    
+
     setIsLoading(true);
-    
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/realtime/conversations`,
@@ -295,29 +306,70 @@ const setupWebSocket = () => {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch conversations');
+        if (response.status === 403) {
+          toast.error('Bu kullanıcı ile mesajlaşma yetkiniz bulunmamaktadır.');
+        } else {
+          toast.error('Kullanıcı bulunamadı veya bağlantı kurulamadı.');
+        }
+        
+        // URL'den user parametresini kaldır
+        router.replace('/chat');
+        
+        // Aktif sohbeti temizle
+        setActiveChat(null);
+        return;
       }
 
       const data: Conversation[] = await response.json();
       setConversations(data);
 
-      // If there's at least one conversation and no active chat,
-      // set the first conversation as active
-      if (data.length > 0 && !activeChat) {
+      // URL'den alınan kullanıcı ID'si
+      const params = new URLSearchParams(window.location.search);
+      const userIdFromUrl = params.get('user');
+
+      // Önce URL'deki kullanıcıyı kontrol et
+      if (userIdFromUrl) {
+        const urlConversation = data.find(c => c.user.id === userIdFromUrl);
+
+        if (urlConversation) {
+          // URL'deki kullanıcı konuşmalar arasında varsa, onu seç
+          setActiveChat(userIdFromUrl);
+          setActiveChatUser({
+            id: urlConversation.user.id,
+            name: `${urlConversation.user.first_name} ${urlConversation.user.last_name}`,
+            avatar: '/images/defaults/man-default.png',
+            lastMessage: urlConversation.recent_message?.content || 'Henüz mesaj yok',
+            lastMessageTime: urlConversation.recent_message
+              ? formatTimestamp(urlConversation.recent_message.created_at)
+              : '',
+            isOnline: urlConversation.user.is_online,
+            unreadCount: urlConversation.unread_count
+          });
+        }
+      }
+      // URL'de kullanıcı yoksa ve aktif sohbet yoksa, ilk konuşmayı seç
+      else if (data.length > 0 && !activeChat) {
         setActiveChat(data[0].user.id);
         setActiveChatUser({
           id: data[0].user.id,
           name: `${data[0].user.first_name} ${data[0].user.last_name}`,
-          avatar: '/images/defaults/man-default.png', // You might want to fetch the actual avatar
+          avatar: '/images/defaults/man-default.png',
           lastMessage: data[0].recent_message?.content || 'Henüz mesaj yok',
-          lastMessageTime: data[0].recent_message ? new Date(data[0].recent_message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          lastMessageTime: data[0].recent_message
+            ? formatTimestamp(data[0].recent_message.created_at)
+            : '',
           isOnline: data[0].user.is_online,
           unreadCount: data[0].unread_count
         });
       }
+
     } catch (error) {
       console.error('Conversations fetch error:', error);
       toast.error('Konuşmalar yüklenemedi');
+
+      router.replace('/chat');
+
+
     } finally {
       setIsLoading(false);
     }
@@ -325,9 +377,9 @@ const setupWebSocket = () => {
 
   const fetchMessages = async (userId: string) => {
     if (!session?.user?.accessToken) return;
-    
+
     setIsLoadingMessages(true);
-    
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/realtime/messages/${userId}`,
@@ -344,7 +396,7 @@ const setupWebSocket = () => {
 
       const data: Message[] = await response.json();
       setMessages(data);
-      
+
       // Update the conversations to mark messages as read
       const updatedConversations = conversations.map(conv => {
         if (conv.user.id === userId) {
@@ -352,7 +404,7 @@ const setupWebSocket = () => {
         }
         return conv;
       });
-      
+
       setConversations(updatedConversations);
     } catch (error) {
       console.error('Messages fetch error:', error);
@@ -362,15 +414,15 @@ const setupWebSocket = () => {
     }
   };
 
-      // handleSendMessage fonksiyonunda WebSocket kontrolünü güncelleyin
+  // handleSendMessage fonksiyonunda WebSocket kontrolünü güncelleyin
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!newMessage.trim() || !activeChat || !session?.user?.accessToken || !currentUserId) return;
-    
+
     // Geçici ID oluştur
     const tempId = `temp-${Date.now()}`;
-    
+
     try {
       // Önce mesajı UI'a ekle (iyimser güncelleme)
       const tempMessage: Message = {
@@ -381,29 +433,27 @@ const setupWebSocket = () => {
         timestamp: new Date().toISOString(),
         is_read: false
       };
-      
+
       setMessages(prev => [...prev, tempMessage]);
       setNewMessage("");
-      
+
       // İlk önce WebSocket ile göndermeyi dene
       if (wsService.current.isConnected()) {
-        console.log("Sending message via WebSocket");
         wsService.current.send({
           type: 'message',
           recipientId: activeChat,
           content: newMessage
         });
-        
+
         // WebSocket gönderimi başarılı ise, konuşma listesini güncelle
         setTimeout(() => {
           fetchConversations();
         }, 1000);
-        
+
         return; // WebSocket başarılı ise REST API'ye gitmeden dön
       }
-      
+
       // WebSocket bağlı değilse REST API'yi kullan
-      console.log("WebSocket not connected, using REST API");
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/realtime/messages`,
         {
@@ -418,44 +468,77 @@ const setupWebSocket = () => {
           })
         }
       );
-  
+
       if (!response.ok) throw new Error('Failed to send message via REST API');
-      
+
       const data = await response.json();
-      
+
       // Geçici mesajı gerçek olanla değiştir
-      setMessages(prev => prev.map(msg => 
+      setMessages(prev => prev.map(msg =>
         msg.id === tempId ? {
           ...msg,
           id: data.id,
           timestamp: data.created_at
         } : msg
       ));
-      
+
       fetchConversations();
-      
+
     } catch (error) {
       console.error('Send message error:', error);
       toast.error('Mesaj gönderilemedi');
-      
+
       // Hata durumunda geçici mesajı kaldır
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
     }
   };
 
-    
-  
+  useEffect(() => {
+    if (activeChat && conversations.length > 0) {
+      const conversation = conversations.find(c => c.user.id === activeChat);
+
+      if (conversation) {
+        console.log("Updating active chat user from conversations");
+        setActiveChatUser({
+          id: conversation.user.id,
+          name: `${conversation.user.first_name} ${conversation.user.last_name}`,
+          avatar: '/images/defaults/man-default.png',
+          lastMessage: conversation.recent_message?.content || 'Henüz mesaj yok',
+          lastMessageTime: conversation.recent_message
+            ? formatTimestamp(conversation.recent_message.created_at)
+            : '',
+          isOnline: conversation.user.is_online,
+          unreadCount: conversation.unread_count
+        });
+      }
+    }
+  }, [activeChat, conversations]);
+
+  // İlk olarak conversations bağımlılığını ekleyelim
+  useEffect(() => {
+    // İlk yükleme sırasında URL'yi kontrol et
+    const params = new URLSearchParams(window.location.search);
+    const userIdFromUrl = params.get('user');
+
+    if (userIdFromUrl && session?.user?.accessToken) {
+      // URL'de bir kullanıcı ID'si varsa, konuşmalar yüklendikten sonra kontrol edilecek
+
+      // Aktif sohbeti doğrudan ayarla (konuşmalar daha sonra kontrol edilecek)
+      setActiveChat(userIdFromUrl);
+
+    }
+  }, [session]);
+
   // WebSocket bağlantı durumunu düzenli olarak kontrol et
   useEffect(() => {
     if (!session?.user?.accessToken) return;
-    
+
     const interval = setInterval(() => {
       if (!wsService.current.isConnected()) {
-        console.log("WebSocket disconnected, trying to reconnect...");
         setupWebSocket();
       }
     }, 5000); // Her 5 saniyede bir kontrol et
-    
+
     return () => clearInterval(interval);
   }, [session]);
 
@@ -498,7 +581,7 @@ const setupWebSocket = () => {
 
       toast.success('Kullanıcı engellendi');
       setShowBlockModal(false);
-      
+
       // Remove the conversation from the list
       setConversations(prev => prev.filter(conv => conv.user.id !== activeChat));
       setActiveChat(null);
@@ -554,38 +637,38 @@ const setupWebSocket = () => {
     }
   };
 
-    const formatTimestamp = (timestamp: string) => {
+  const formatTimestamp = (timestamp: string) => {
     try {
       // Zaman damgası yoksa boş string döndür
       if (!timestamp) return "";
-      
+
       // ISO formatındaki zamanı Date nesnesine çevir
       const date = new Date(timestamp);
-      
+
       // Tarih geçerli mi kontrol et
       if (isNaN(date.getTime())) {
         console.warn("Invalid timestamp:", timestamp);
         return "";
       }
-  
+
       // Tarih ve saat arasında çok büyük fark varsa, günü de göster
       const now = new Date();
       const diffMs = Math.abs(now.getTime() - date.getTime());
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays >= 1) {
         // Bir günden fazla ise tarih ve saati göster
-        return new Intl.DateTimeFormat('tr-TR', { 
-          day: 'numeric', 
+        return new Intl.DateTimeFormat('tr-TR', {
+          day: 'numeric',
           month: 'short',
-          hour: '2-digit', 
-          minute: '2-digit' 
+          hour: '2-digit',
+          minute: '2-digit'
         }).format(date);
       } else {
         // Aynı gün içindeyse sadece saati göster
-        return new Intl.DateTimeFormat('tr-TR', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
+        return new Intl.DateTimeFormat('tr-TR', {
+          hour: '2-digit',
+          minute: '2-digit'
         }).format(date);
       }
     } catch (error) {
@@ -594,24 +677,24 @@ const setupWebSocket = () => {
     }
   };
 
-/*   if (!session) {
-    return (
-      <section className="pt-[150px] pb-[120px] bg-[#1C1C1E] min-h-screen">
-        <div className="container mx-auto px-4">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-white mb-4">Erişim Engellendi</h1>
-            <p className="text-gray-300 mb-8">Bu sayfayı görüntülemek için giriş yapmalısınız.</p>
-            <button 
-              onClick={() => router.push('/signin')}
-              className="px-6 py-3 bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white rounded-lg"
-            >
-              Giriş Yap
-            </button>
+  /*   if (!session) {
+      return (
+        <section className="pt-[150px] pb-[120px] bg-[#1C1C1E] min-h-screen">
+          <div className="container mx-auto px-4">
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-white mb-4">Erişim Engellendi</h1>
+              <p className="text-gray-300 mb-8">Bu sayfayı görüntülemek için giriş yapmalısınız.</p>
+              <button 
+                onClick={() => router.push('/signin')}
+                className="px-6 py-3 bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white rounded-lg"
+              >
+                Giriş Yap
+              </button>
+            </div>
           </div>
-        </div>
-      </section>
-    );
-  } */
+        </section>
+      );
+    } */
 
   return (
     <section className="pt-[150px] pb-[120px] bg-[#1C1C1E] min-h-screen">
@@ -624,10 +707,27 @@ const setupWebSocket = () => {
               <div className="relative">
                 <input
                   type="text"
+                  value={searchQuery}
+                  onChange={handleSearch}
                   placeholder="Sohbet ara..."
                   className="w-full bg-[#3C3C3E] text-white rounded-lg pl-10 pr-4 py-3 focus:ring-2 focus:ring-[#D63384] transition-all"
                 />
                 <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+
+                {/* Temizleme butonu */}
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setFilteredConversations([]);
+                    }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -638,22 +738,21 @@ const setupWebSocket = () => {
                   <FiLoader className="w-8 h-8 text-[#D63384] animate-spin" />
                 </div>
               ) : conversations.length > 0 ? (
-                conversations.map((conv) => (
+                (searchQuery ? filteredConversations : conversations).map((conv) => (
                   <motion.div
                     key={conv.user.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
-                    className={`p-4 flex items-center cursor-pointer hover:bg-[#3C3C3E] transition-all ${
-                      activeChat === conv.user.id ? "bg-[#3C3C3E]" : ""
-                    }`}
+                    className={`p-4 flex items-center cursor-pointer hover:bg-[#3C3C3E] transition-all ${activeChat === conv.user.id ? "bg-[#3C3C3E]" : ""
+                      }`}
                     onClick={() => handleSelectChat(conv.user.id, {
                       id: conv.user.id,
                       name: `${conv.user.first_name} ${conv.user.last_name}`,
                       avatar: '/images/defaults/man-default.png',
                       lastMessage: conv.recent_message?.content || 'Henüz mesaj yok',
-                      lastMessageTime: conv.recent_message 
-                        ? formatTimestamp(conv.recent_message.created_at) 
+                      lastMessageTime: conv.recent_message
+                        ? formatTimestamp(conv.recent_message.created_at)
                         : '',
                       isOnline: conv.user.is_online,
                       unreadCount: conv.unread_count
@@ -679,7 +778,7 @@ const setupWebSocket = () => {
                           {conv.user.first_name} {conv.user.last_name}
                         </h3>
                         <span className="text-xs text-gray-400">
-                          {conv.recent_message 
+                          {conv.recent_message
                             ? formatTimestamp(conv.recent_message.created_at)
                             : ''}
                         </span>
@@ -701,6 +800,15 @@ const setupWebSocket = () => {
                   <p className="text-gray-400 mb-2">Henüz aktif sohbet bulunmuyor</p>
                   <p className="text-gray-500 text-sm">
                     Birileriyle "eşleştiğinizde" burada onlarla sohbet edebilirsiniz
+                  </p>
+                </div>
+              )}
+
+              {searchQuery && filteredConversations.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-32 p-4 text-center">
+                  <p className="text-gray-400">"{searchQuery}" için sonuç bulunamadı</p>
+                  <p className="text-gray-500 text-sm mt-2">
+                    Farklı bir arama terimi deneyebilir veya filtrelerinizi temizleyebilirsiniz
                   </p>
                 </div>
               )}
@@ -788,169 +896,164 @@ const setupWebSocket = () => {
             </div>
           )}
 
+
+
           {/* Chat Area */}
           <div className={`${activeChat ? 'block' : 'hidden lg:block'} flex-1 flex flex-col h-full`}>
             {activeChat ? (
               <>
-              <div className="flex flex-col h-full">
-                {/* Chat Header with Back Button on Mobile */}
-                <div className="sticky top-0 bg-[#2C2C2E] p-4 border-b border-[#3C3C3E] flex items-center justify-between z-10">
-                  <div className="flex items-center">
-                    <button
-                      className="lg:hidden mr-3 text-gray-400 hover:text-white"
-                      onClick={() => setActiveChat(null)}
-                    >
-                      <FiArrowLeft size={20} />
-                    </button>
-                    <div className="relative">
-                      <div className="w-10 h-10 rounded-full overflow-hidden">
-                        <Image
-                          src="/images/defaults/man-default.png" // Replace with actual avatar
-                          alt="Active chat"
-                          fill
-                          className="object-cover"
-                        />
+                <div className="flex flex-col h-full">
+                  {/* Chat Header with Back Button on Mobile */}
+                  <div className="sticky top-0 bg-[#2C2C2E] p-4 border-b border-[#3C3C3E] flex items-center justify-between z-10">
+                    <div className="flex items-center">
+                      <button
+                        className="lg:hidden mr-3 text-gray-400 hover:text-white"
+                        onClick={() => setActiveChat(null)}
+                      >
+                        <FiArrowLeft size={20} />
+                      </button>
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-full overflow-hidden">
+                          <Image
+                            src="/images/defaults/man-default.png" // Replace with actual avatar
+                            alt="Active chat"
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        {activeChatUser?.isOnline && (
+                          <div className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-green-500 border border-[#2C2C2E]" />
+                        )}
                       </div>
-                      {activeChatUser?.isOnline && (
-                        <div className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-green-500 border border-[#2C2C2E]" />
+                      <div className="ml-3">
+                        <h3 className="text-white font-semibold">
+                          {activeChatUser?.name}
+                        </h3>
+                        <p className="text-xs text-gray-400">
+                          {activeChatUser?.isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="relative" ref={menuRef}>
+                      <button
+                        className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-[#3C3C3E]"
+                        onClick={() => setShowMenu(!showMenu)}
+                      >
+                        <FiMoreVertical size={20} />
+                      </button>
+
+                      {showMenu && (
+                        <div className="absolute right-0 mt-2 w-48 bg-[#2C2C2E] rounded-lg shadow-lg py-2 z-50">
+                          <button
+                            onClick={handleBlock}
+                            className="w-full px-4 py-2 text-left text-white hover:bg-[#3C3C3E] flex items-center"
+                          >
+                            <FiSlash className="mr-2" />
+                            Engelle
+                          </button>
+                          <button
+                            onClick={handleReport}
+                            className="w-full px-4 py-2 text-left text-red-500 hover:bg-[#3C3C3E] flex items-center"
+                          >
+                            <FiFlag className="mr-2" />
+                            Raporla
+                          </button>
+                        </div>
                       )}
                     </div>
-                    <div className="ml-3">
-                      <h3 className="text-white font-semibold">
-                        {activeChatUser?.name}
-                      </h3>
-                      <p className="text-xs text-gray-400">
-                        {activeChatUser?.isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}
-                      </p>
-                    </div>
                   </div>
-          
-                  <div className="relative" ref={menuRef}>
-                    <button
-                      className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-[#3C3C3E]"
-                      onClick={() => setShowMenu(!showMenu)}
-                    >
-                      <FiMoreVertical size={20} />
-                    </button>
-          
-                    {showMenu && (
-                      <div className="absolute right-0 mt-2 w-48 bg-[#2C2C2E] rounded-lg shadow-lg py-2 z-50">
-                        <button
-                          onClick={handleBlock}
-                          className="w-full px-4 py-2 text-left text-white hover:bg-[#3C3C3E] flex items-center"
-                        >
-                          <FiSlash className="mr-2" />
-                          Engelle
-                        </button>
-                        <button
-                          onClick={handleReport}
-                          className="w-full px-4 py-2 text-left text-red-500 hover:bg-[#3C3C3E] flex items-center"
-                        >
-                          <FiFlag className="mr-2" />
-                          Raporla
-                        </button>
+
+                  {/* Messages */}
+                  <div className="flex-grow overflow-y-auto p-4 space-y-6"
+                    style={{
+                      WebkitOverflowScrolling: 'touch',
+                      scrollbarWidth: 'none', // Firefox için
+                      msOverflowStyle: 'none', // IE ve Edge için
+                    }}>
+                    {isLoadingMessages ? (
+                      <div className="flex items-center justify-center h-full">
+                        <FiLoader className="w-8 h-8 text-[#D63384] animate-spin" />
                       </div>
-                    )}
-                  </div>
-                </div>
-          
-                {/* Messages */}
-                <div className="flex-grow overflow-y-auto p-4 space-y-6" 
-                  style={{
-                    WebkitOverflowScrolling: 'touch',
-                    scrollbarWidth: 'none', // Firefox için
-                    msOverflowStyle: 'none', // IE ve Edge için
-                  }}>
-                  {isLoadingMessages ? (
-                    <div className="flex items-center justify-center h-full">
-                      <FiLoader className="w-8 h-8 text-[#D63384] animate-spin" />
-                    </div>
-                  ) : messages.length > 0 ? (
-                    messages.map((message) => {
-                      // Use currentUserId instead of session.user.id
-                      const isCurrentUser = currentUserId && String(message.sender_id) === String(currentUserId);
-                      
-                      console.log("Message:", {
-                        messageId: message.id,
-                        sender: message.sender_id,
-                        currentUserId: currentUserId,
-                        isCurrentUser: isCurrentUser
-                      });
-                      
-                      return (
-                        <motion.div
-                          key={message.id}
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ duration: 0.2 }}
-                          className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}
-                        >
-                          {!isCurrentUser && (
-                            <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0">
-                              <Image
-                                src="/images/defaults/man-default.png"
-                                alt="User avatar"
-                                width={32}
-                                height={32}
-                                className="object-cover"
-                              />
-                            </div>
-                          )}
-                          <div
-                            className={`max-w-[70%] rounded-2xl px-4 py-3 ${
-                              isCurrentUser
+                    ) : messages.length > 0 ? (
+                      messages.map((message) => {
+                        // Use currentUserId instead of session.user.id
+                        const isCurrentUser = currentUserId && String(message.sender_id) === String(currentUserId);
+
+
+                        return (
+                          <motion.div
+                            key={message.id}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.2 }}
+                            className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}
+                          >
+                            {!isCurrentUser && (
+                              <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0">
+                                <Image
+                                  src="/images/defaults/man-default.png"
+                                  alt="User avatar"
+                                  width={32}
+                                  height={32}
+                                  className="object-cover"
+                                />
+                              </div>
+                            )}
+                            <div
+                              className={`max-w-[70%] rounded-2xl px-4 py-3 ${isCurrentUser
                                 ? "bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white"
                                 : "bg-[#3C3C3E] text-white"
-                            }`}
-                          >
-                            <p className="leading-relaxed">{message.content}</p>
-                            <span className="text-xs text-gray-300 mt-2 block">
-                              {message.timestamp ? formatTimestamp(message.timestamp) : formatTimestamp(new Date().toISOString())}
-                            </span>
-                          </div>
-                        </motion.div>
-                      );
-                    })
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full">
-                      <p className="text-gray-400">Henüz mesaj yok</p>
-                      <p className="text-gray-500 text-sm mt-2">Sohbete başlamak için mesaj gönderin</p>
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-          
-                {/* Message Input */}
-                <form onSubmit={handleSendMessage} className="sticky bottom-0 bg-[#2C2C2E] p-4 border-t border-[#3C3C3E]">
-                  <div className="flex items-center space-x-4">
-                    <input
-                      type="text"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder="Mesajınızı yazın..."
-                      className="flex-1 bg-[#3C3C3E] text-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#D63384] transition-all"
-                    />
-                    <motion.button
-                      type="submit"
-                      whileTap={{ scale: 0.95 }}
-                      disabled={!newMessage.trim()}
-                      className="p-3 rounded-full bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white disabled:opacity-50 transition-all hover:shadow-lg"
-                    >
-                      <FiSend size={20} />
-                    </motion.button>
+                                }`}
+                            >
+                              <p className="leading-relaxed">{message.content}</p>
+                              <span className="text-xs text-gray-300 mt-2 block">
+                                {message.timestamp ? formatTimestamp(message.timestamp) : formatTimestamp(new Date().toISOString())}
+                              </span>
+                            </div>
+                          </motion.div>
+                        );
+                      })
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full">
+                        <p className="text-gray-400">Henüz mesaj yok</p>
+                        <p className="text-gray-500 text-sm mt-2">Sohbete başlamak için mesaj gönderin</p>
+                      </div>
+                    )}
+                    <div ref={messagesEndRef} />
                   </div>
-                </form>
+
+                  {/* Message Input */}
+                  <form onSubmit={handleSendMessage} className="sticky bottom-0 bg-[#2C2C2E] p-4 border-t border-[#3C3C3E]">
+                    <div className="flex items-center space-x-4">
+                      <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Mesajınızı yazın..."
+                        className="flex-1 bg-[#3C3C3E] text-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#D63384] transition-all"
+                      />
+                      <motion.button
+                        type="submit"
+                        whileTap={{ scale: 0.95 }}
+                        disabled={!newMessage.trim()}
+                        className="p-3 rounded-full bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white disabled:opacity-50 transition-all hover:shadow-lg"
+                      >
+                        <FiSend size={20} />
+                      </motion.button>
+                    </div>
+                  </form>
                 </div>
               </>
             ) : (
-              <div className="h-[calc(100vh-300px)] flex items-center justify-center">
+              <div className="h-full flex items-center justify-center">
                 <div className="text-center">
                   <p className="text-gray-400 text-lg">
                     Sohbet başlatmak için bir kişi seçin
                   </p>
                   <p className="text-gray-500 text-sm mt-2">
-                    {conversations.length > 0 
-                      ? "Sol taraftan bir sohbet seçebilirsiniz" 
+                    {conversations.length > 0
+                      ? "Sol taraftan bir sohbet seçebilirsiniz"
                       : "Henüz hiç eşleşmeniz yok"}
                   </p>
                 </div>

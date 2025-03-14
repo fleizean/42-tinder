@@ -445,7 +445,7 @@ const setupWebSocket = () => {
     }
   };
 
-  if (!session) {
+/*   if (!session) {
     return (
       <section className="pt-[150px] pb-[120px] bg-[#1C1C1E] min-h-screen">
         <div className="container mx-auto px-4">
@@ -462,7 +462,7 @@ const setupWebSocket = () => {
         </div>
       </section>
     );
-  }
+  } */
 
   return (
     <section className="pt-[80px] md:pt-[150px] pb-[60px] md:pb-[120px] bg-[#1C1C1E] min-h-screen">

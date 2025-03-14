@@ -65,6 +65,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str, db: AsyncSession 
         
         # Accept connection
         await manager.connect(websocket, user.id)
+        logger.info(f"WebSocket connected for user: {user.id}")
         
         # Update online status
         await update_last_activity(db, user.id, is_online=True)
@@ -89,6 +90,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str, db: AsyncSession 
                         await manager.send_personal_message({
                             "type": "message",
                             "sender_id": user.id,
+                            "recipient_id": recipient_id,
                             "content": content,
                             "timestamp": result["message"].created_at.isoformat()
                         }, recipient_id)
@@ -100,12 +102,24 @@ async def websocket_endpoint(websocket: WebSocket, token: str, db: AsyncSession 
         
         except WebSocketDisconnect:
             # Handle disconnect
+            logger.info(f"WebSocket disconnected for user: {user.id}")
+            manager.disconnect(user.id)
+            await update_last_activity(db, user.id, is_online=False)
+        
+        except Exception as e:
+            # Handle other exceptions during connection
+            logger.error(f"Error in WebSocket connection for user {user.id}: {str(e)}")
             manager.disconnect(user.id)
             await update_last_activity(db, user.id, is_online=False)
     
     except Exception as e:
+        # Log the exception for debugging
+        logger.error(f"WebSocket authentication error: {str(e)}")
         # Handle authentication failure
-        await websocket.close(code=1008)  # Policy violation
+        try:
+            await websocket.close(code=1008)  # Policy violation
+        except Exception:
+            pass  # Already closed or other error
 
 
 @router.get("/notifications", response_model=List[Notification])

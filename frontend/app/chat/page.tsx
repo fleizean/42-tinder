@@ -95,14 +95,16 @@ const ChatPage = () => {
   }, []);
 
   useEffect(() => {
-    if (session?.user?.accessToken) {
+    let isActive = true;
+  
+    if (isActive && session?.user?.accessToken) {
       fetchConversations();
       setupWebSocket();
     }
-
+  
     return () => {
-      // Clean up WebSocket on unmount
-      wsService.current.disconnect();
+      isActive = false;
+      wsService.current.disconnect(); // Clean up on unmount
     };
   }, [session]);
 
@@ -116,12 +118,18 @@ const ChatPage = () => {
     scrollToBottom();
   }, [messages]);
 
-  const setupWebSocket = () => {
-    if (!session?.user?.accessToken || !process.env.NEXT_PUBLIC_BACKEND_API_URL) return;
+const setupWebSocket = () => {
+  if (!session?.user?.accessToken || !process.env.NEXT_PUBLIC_BACKEND_API_URL) {
+    console.log('Missing session or API URL, cannot set up WebSocket');
+    return;
+  }
 
-    // Clear any old handlers
-    const handleWsMessage = (data: any) => {
-      if (data.type === 'message') {
+  // First, clean up by disconnecting any existing connection
+  wsService.current.disconnect();
+
+  // Define handlers
+  const handleWsMessage = (data: any) => {
+    if (data.type === 'message') {
         if (activeChat && (data.sender_id === activeChat || data.recipient_id === activeChat)) {
           // Add the new message to the current chat
           const newMsg: Message = {
@@ -138,40 +146,45 @@ const ChatPage = () => {
         
         // Refresh conversations to update last message and unread count
         fetchConversations();
-      }
-    };
+    }
+  };
 
-    const handleWsConnect = () => {
-      setWsConnected(true);
-    };
+  const handleWsConnect = () => {
+    console.log('WebSocket connected successfully');
+    setWsConnected(true);
+  };
 
-    const handleWsDisconnect = () => {
-      setWsConnected(false);
-    };
+  const handleWsDisconnect = () => {
+    console.log('WebSocket disconnected');
+    setWsConnected(false);
+  };
 
-    const handleWsError = (error: Event) => {
-      console.error('WebSocket error:', error);
-      toast.error('Sohbet bağlantısı kurulamadı');
-    };
+  const handleWsError = (error: Event) => {
+    console.error('WebSocket error occurred');
+    setWsConnected(false);
+    // Don't show a toast on initial error - this can be annoying for users
+  };
 
-    // Remove any existing handlers
-    wsService.current.removeMessageHandler(handleWsMessage);
-    wsService.current.removeConnectHandler(handleWsConnect);
-    wsService.current.removeDisconnectHandler(handleWsDisconnect);
-    wsService.current.removeErrorHandler(handleWsError);
+  // Clear any existing handlers
+  wsService.current.removeMessageHandler(handleWsMessage);
+  wsService.current.removeConnectHandler(handleWsConnect);
+  wsService.current.removeDisconnectHandler(handleWsDisconnect);
+  wsService.current.removeErrorHandler(handleWsError);
 
-    // Add new handlers
-    wsService.current.addMessageHandler(handleWsMessage);
-    wsService.current.addConnectHandler(handleWsConnect);
-    wsService.current.addDisconnectHandler(handleWsDisconnect);
-    wsService.current.addErrorHandler(handleWsError);
+  // Add new handlers
+  wsService.current.addMessageHandler(handleWsMessage);
+  wsService.current.addConnectHandler(handleWsConnect);
+  wsService.current.addDisconnectHandler(handleWsDisconnect);
+  wsService.current.addErrorHandler(handleWsError);
 
-    // Connect to WebSocket
+  // Initialize connection only once, after a small delay
+  setTimeout(() => {
     wsService.current.connect(
       process.env.NEXT_PUBLIC_BACKEND_API_URL,
       session.user.accessToken
     );
-  };
+  }, 500);
+};
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -265,10 +278,13 @@ const ChatPage = () => {
     
     if (!newMessage.trim() || !activeChat || !session?.user?.accessToken) return;
     
+    // Generate a temporary ID for optimistic updates
+    const tempId = `temp-${Date.now()}`;
+    
     try {
       // Optimistically add the message to the UI
       const tempMessage: Message = {
-        id: `temp-${Date.now()}`,
+        id: tempId,
         sender_id: session.user.id,
         recipient_id: activeChat,
         content: newMessage,
@@ -279,43 +295,65 @@ const ChatPage = () => {
       setMessages(prev => [...prev, tempMessage]);
       setNewMessage("");
       
-      // Send using REST API
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/realtime/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.user.accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            recipient_id: activeChat,
-            content: newMessage
-          })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to send message');
+      // Check if WebSocket is connected before sending
+      if (!wsService.current.isConnected()) {
+        throw new Error('WebSocket is not connected');
       }
       
-      // Also send via WebSocket for real-time delivery
-      if (wsService.current.isConnected()) {
-        wsService.current.send({
-          type: 'message',
-          recipientId: activeChat,
-          content: newMessage
-        });
-      }
+      // Send via WebSocket
+      wsService.current.send({
+        type: 'message',
+        recipientId: activeChat,
+        content: newMessage
+      });
       
-      // Refresh conversations to update last message
-      fetchConversations();
+      // After successful send, fetch conversations to update UI
+      setTimeout(() => {
+        fetchConversations();
+      }, 1000);
+      
     } catch (error) {
       console.error('Send message error:', error);
       toast.error('Mesaj gönderilemedi');
       
       // Remove the temporary message on failure
-      setMessages(prev => prev.filter(msg => msg.id !== `temp-${Date.now()}`));
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
+      
+      // If WebSocket failed, try REST API as fallback
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/realtime/messages`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.user.accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              recipient_id: activeChat,
+              content: newMessage
+            })
+          }
+        );
+  
+        if (response.ok) {
+          // If REST API works, add the message back to UI
+          const data = await response.json();
+          setMessages(prev => [...prev, {
+            id: data.id,
+            sender_id: session.user.id,
+            recipient_id: activeChat,
+            content: newMessage,
+            timestamp: data.created_at,
+            is_read: false
+          }]);
+          
+          toast.success('Mesaj gönderildi (yedek kanal)');
+          fetchConversations();
+        }
+      } catch (fallbackError) {
+        console.error('Fallback send failed:', fallbackError);
+      }
     }
   };
 

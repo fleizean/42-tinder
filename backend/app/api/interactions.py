@@ -107,28 +107,47 @@ async def create_block(
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
-    Block a profile
+    Block a profile by either blocked_id (profile_id) or blocked_user_id (user_id)
     """
     # Get user's profile
     profile = await get_profile_by_user_id(db, current_user.id)
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Your profile not found"
+            detail="Profil bulunamadı"
         )
     
+    # Determine blocked profile ID
+    blocked_profile_id = None
+    
+    # If blocked_id is provided (profile_id)
+    if block_data.blocked_id:
+        blocked_profile_id = block_data.blocked_id
+    # If blocked_user_id is provided, get the profile_id
+    elif block_data.blocked_user_id:
+        blocked_profile = await get_profile_by_user_id(db, block_data.blocked_user_id)
+        if not blocked_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Profil bulunamadı"
+            )
+        blocked_profile_id = blocked_profile.id
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profil ID veya kullanıcı ID'si sağlanmalıdır"
+        )
     # Block profile
-    result = await block_profile(db, profile.id, block_data.blocked_id)
+    result = await block_profile(db, profile.id, blocked_profile_id)
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Could not block profile. The profile may not exist."
+            detail="Profil engellenemedi. Profil mevcut olmayabilir."
         )
     
     return {
-        "message": "Profile blocked successfully"
+        "message": "Profil başarıyla engellendi"
     }
-
 
 @router.delete("/block/{profile_id}", response_model=dict)
 async def delete_block(

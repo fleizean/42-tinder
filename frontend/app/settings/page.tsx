@@ -628,7 +628,6 @@ const SettingsPage = () => {
           await updateLocationInfo(pos.coords.latitude, pos.coords.longitude);
           return;
         } catch (geoError) {
-          console.log('Geolocation failed, falling back to IP:', geoError);
         }
       }
 

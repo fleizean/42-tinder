@@ -86,7 +86,8 @@ const ChatPage = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
-
+  const [isBlockLoading, setIsBlockLoading] = useState(false);
+  const [isReportLoading, setIsReportLoading] = useState(false);
   useEffect(() => {
     document.title = metadata.title as string;
 
@@ -592,11 +593,36 @@ const ChatPage = () => {
     setShowMenu(false);
   };
 
-  const confirmBlock = async () => {
+    const confirmBlock = async () => {
     if (!session?.user?.accessToken || !activeChat) return;
-
+  
     try {
-      const response = await fetch(
+      // Yükleme durumu için state ekleyebiliriz
+      setIsBlockLoading(true);
+  
+      // Önce user_id ile profil bilgilerini al
+      const profileResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/get-by-user_id/${activeChat}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+  
+      if (!profileResponse.ok) {
+        throw new Error('Failed to fetch user profile');
+      }
+  
+      const profileData = await profileResponse.json();
+      
+      if (!profileData.id) {
+        throw new Error('Profile ID not found');
+      }
+  
+      // Şimdi profile_id ile engelleme işlemi yap
+      const blockResponse = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/block`,
         {
           method: 'POST',
@@ -605,24 +631,27 @@ const ChatPage = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            blocked_id: activeChat
+            blocked_id: profileData.id
           })
         }
       );
-
-      if (!response.ok) {
+  
+      if (!blockResponse.ok) {
         throw new Error('Failed to block user');
       }
-
+  
       toast.success('Kullanıcı engellendi');
       setShowBlockModal(false);
-
+  
       // Remove the conversation from the list
       setConversations(prev => prev.filter(conv => conv.user.id !== activeChat));
       setActiveChat(null);
     } catch (error) {
       console.error('Block error:', error);
       toast.error('Kullanıcı engellenemedi');
+    } finally {
+      // Yükleme durumunu kapat
+      setIsBlockLoading(false);
     }
   };
 
@@ -638,11 +667,36 @@ const ChatPage = () => {
     }
   }, [messages]);
 
-  const submitReport = async () => {
+    const submitReport = async () => {
     if (!session?.user?.accessToken || !activeChat) return;
-
+  
     try {
-      const response = await fetch(
+      // Yükleme durumu için state ekleyebiliriz
+      setIsReportLoading(true);
+  
+      // Önce user_id ile profil bilgilerini al
+      const profileResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/get-by-user_id/${activeChat}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+  
+      if (!profileResponse.ok) {
+        throw new Error('Failed to fetch user profile');
+      }
+  
+      const profileData = await profileResponse.json();
+      
+      if (!profileData.id) {
+        throw new Error('Profile ID not found');
+      }
+  
+      // Şimdi profile_id ile şikayet işlemi yap
+      const reportResponse = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/report`,
         {
           method: 'POST',
@@ -651,17 +705,17 @@ const ChatPage = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            reported_id: activeChat,
+            reported_id: profileData.id,
             reason: reportReason,
             description: reportDescription
           })
         }
       );
-
-      if (!response.ok) {
+  
+      if (!reportResponse.ok) {
         throw new Error('Failed to report user');
       }
-
+  
       toast.success('Kullanıcı rapor edildi');
       setShowReportModal(false);
       setReportReason("");
@@ -669,6 +723,9 @@ const ChatPage = () => {
     } catch (error) {
       console.error('Report error:', error);
       toast.error('Kullanıcı rapor edilemedi');
+    } finally {
+      // Yükleme durumunu kapat
+      setIsReportLoading(false);
     }
   };
 
@@ -759,7 +816,7 @@ const ChatPage = () => {
   }, [activeChat, conversations]);
 
   return (
-    <section className="pt-[150px] pb-[120px] bg-[#1C1C1E] min-h-screen">
+    <section className="pt-[100px] pb-[60px] bg-[#1C1C1E] min-h-screen">
       <Toaster position="top-right" />
       <div className="contacontainer mx-auto px-4 h-full">
         <div className="flex flex-col lg:flex-row bg-[#2C2C2E] rounded-xl overflow-hidden h-[calc(100vh-160px)]">
@@ -891,14 +948,24 @@ const ChatPage = () => {
                   <button
                     onClick={() => setShowBlockModal(false)}
                     className="px-4 py-2 text-gray-300 hover:text-white"
+                    disabled={isBlockLoading}
                   >
                     İptal
                   </button>
                   <button
                     onClick={confirmBlock}
+                    disabled={isBlockLoading}
                     className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
                   >
-                    Engelle
+                    {isBlockLoading ? (
+                    <>
+                      <span className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                      İşleniyor...
+                    </>
+                  ) : (
+                    'Engelle'
+                  )}
+                    
                   </button>
                 </div>
               </div>
@@ -934,6 +1001,7 @@ const ChatPage = () => {
                     onChange={(e) => setReportDescription(e.target.value)}
                     className="w-full bg-[#3C3C3E] text-white rounded-lg px-4 py-2 min-h-[100px]"
                     placeholder="Lütfen detaylı açıklama yapınız..."
+                    disabled={isReportLoading}
                   />
                 </div>
 
@@ -945,15 +1013,23 @@ const ChatPage = () => {
                       setReportDescription("");
                     }}
                     className="px-4 py-2 text-gray-300 hover:text-white"
+                    disabled={isReportLoading}
                   >
                     İptal
                   </button>
                   <button
                     onClick={submitReport}
-                    disabled={!reportReason || !reportDescription}
+                    disabled={!reportReason || !reportDescription || isReportLoading}
                     className="px-4 py-2 bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white rounded-lg hover:opacity-90 disabled:opacity-50"
                   >
-                    Raporla
+                    {isReportLoading ? (
+                    <>
+                      <span className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                      İşleniyor...
+                    </>
+                  ) : (
+                    'Raporla'
+                  )}
                   </button>
                 </div>
               </div>

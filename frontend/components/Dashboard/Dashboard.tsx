@@ -65,20 +65,25 @@ enum SortOption {
 }
 
 const Dashboard = () => {
-  const [ageRange, setAgeRange] = useState([18, 99]);
-  const [fameRating, setFameRating] = useState([0, 5]);
+  const DEFAULT_MIN_AGE = 18;
+  const DEFAULT_MAX_AGE = 99;
+  const DEFAULT_MIN_FAME = 0;
+  const DEFAULT_MAX_FAME = 5;
+  const DEFAULT_MAX_DISTANCE = 20000;
+  const [ageRange, setAgeRange] = useState([DEFAULT_MIN_AGE, DEFAULT_MAX_AGE]);
+  const [fameRating, setFameRating] = useState([DEFAULT_MIN_FAME, DEFAULT_MAX_FAME]);
   const [tags, setTags] = useState<string[]>([]);
   const { data: session } = useSession();
   const [profiles, setProfiles] = useState<SuggestedProfile[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [filters, setFilters] = useState<FilterState>({
-    min_age: 18,
-    max_age: 99,
-    min_fame: 0,
-    max_fame: 5,
-    max_distance: 5000,
+    min_age: DEFAULT_MIN_AGE,
+    max_age: DEFAULT_MAX_AGE,
+    min_fame: DEFAULT_MIN_FAME,
+    max_fame: DEFAULT_MAX_FAME,
+    max_distance: DEFAULT_MAX_DISTANCE,
     tags: []
   });
   const [likedProfiles, setLikedProfiles] = useState<Set<string>>(new Set());
@@ -89,6 +94,7 @@ const Dashboard = () => {
     latitude: number;
     longitude: number;
   } | null>(null);
+  const [loadedProfileIds, setLoadedProfileIds] = useState<Set<string>>(new Set());
 
   const distanceOptions = [
     { label: "5 km (Aynı mahalle)", value: 5 },
@@ -104,9 +110,9 @@ const Dashboard = () => {
     { label: "10000 km (Global)", value: 10000 },
     { label: "20000 km (Dünya geneli)", value: 20000 }
   ];
-  const [distance, setDistance] = useState(20000); // Başlangıç değeri olarak 50km
+  const [distance, setDistance] = useState(DEFAULT_MAX_DISTANCE); // Başlangıç değeri olarak 50km
 
-  // Update filter submit to set the filtersApplied flag
+  // handleFilterSubmit fonksiyonunu güncelle
   const handleFilterSubmit = () => {
     setFilters({
       min_age: ageRange[0],
@@ -117,7 +123,8 @@ const Dashboard = () => {
       tags: tags
     });
     setFiltersApplied(true);
-    setPage(0); // Reset page for new filters
+    setPage(0);
+    setLoadedProfileIds(new Set()); // Yüklenen profiller listesini sıfırla
   };
 
   useEffect(() => {
@@ -125,19 +132,39 @@ const Dashboard = () => {
   }, []);
 
   const observer = useRef<IntersectionObserver>();
+  // Bu ref son eleman görünür olduğunda tetiklenir
   const lastProfileRef = useCallback((node: HTMLDivElement) => {
     if (isLoading) return;
     if (observer.current) observer.current.disconnect();
 
     observer.current = new IntersectionObserver(entries => {
+      // Kullanıcı sayfanın sonuna geldiğinde ve daha fazla veri varsa
       if (entries[0].isIntersecting && hasMore) {
-        setPage(prev => prev + 1);
+        setPage(prev => prev + 1);  // Sayfa numarasını artır
       }
     });
 
     if (node) observer.current.observe(node);
   }, [isLoading, hasMore]);
 
+  useEffect(() => {
+    const initializeData = async () => {
+      if (session?.user?.accessToken) {
+        setIsLoading(true);
+        // Önce kullanıcı profilini getir
+        await fetchUserProfile();
+
+        // Sonra diğer işlemleri yap
+        setPage(0);
+        setLoadedProfileIds(new Set());
+        await fetchProfiles();
+      }
+    };
+
+    initializeData();
+  }, [session, filters]);
+
+  // fetchUserProfile fonksiyonunu Promise döndürecek şekilde güncelleyelim
   const fetchUserProfile = async () => {
     if (!session?.user?.accessToken) return;
 
@@ -159,8 +186,11 @@ const Dashboard = () => {
         latitude: data.latitude,
         longitude: data.longitude
       });
+
+      return data; // Veriyi döndür
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      toast.error('Kullanıcı konumu alınamadı');
     }
   };
 
@@ -202,7 +232,7 @@ const Dashboard = () => {
   useEffect(() => {
     const checkLikedProfiles = async () => {
       if (!session?.user?.accessToken || profiles.length === 0) return;
-      
+
       try {
         // Her profil için beğeni durumunu kontrol et
         const likedStatusPromises = profiles.map(async (profile) => {
@@ -215,16 +245,16 @@ const Dashboard = () => {
               }
             }
           );
-          
+
           if (response.ok) {
             const data = await response.json();
             return { profileId: profile.id, isLiked: data.is_liked };
           }
           return { profileId: profile.id, isLiked: false };
         });
-        
+
         const likedStatuses = await Promise.all(likedStatusPromises);
-        
+
         // Beğenilen profilleri Set'e ekle
         const newLikedProfiles = new Set<string>();
         likedStatuses.forEach(status => {
@@ -232,22 +262,29 @@ const Dashboard = () => {
             newLikedProfiles.add(status.profileId);
           }
         });
-        
+
         setLikedProfiles(newLikedProfiles);
       } catch (error) {
         console.error('Error checking liked profiles:', error);
       }
     };
-  
+
     checkLikedProfiles();
   }, [profiles, session]);
 
   // Sayfa yüklendiğinde kullanıcı profilini getir
   useEffect(() => {
     if (session?.user?.accessToken) {
-      fetchUserProfile();
+      setPage(0);
+      setLoadedProfileIds(new Set()); // Yüklenen profiller listesini sıfırla
+      fetchProfiles();
     }
-  }, [session]);
+  }, [session, filters]);
+
+  const checkForDuplicates = (currentProfiles: SuggestedProfile[], newProfiles: SuggestedProfile[]): SuggestedProfile[] => {
+    const currentIds = new Set(currentProfiles.map(p => p.id));
+    return newProfiles.filter(profile => !currentIds.has(profile.id));
+  };
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371; // Dünya'nın yarıçapı (km)
@@ -279,6 +316,7 @@ const Dashboard = () => {
         offset: (page * 10).toString(),
       });
 
+      // Filtre parametrelerini ekle
       if (page > 0 || filtersApplied) {
         queryParams.append('min_age', filters.min_age.toString());
         queryParams.append('max_age', filters.max_age.toString());
@@ -293,6 +331,7 @@ const Dashboard = () => {
         }
       }
 
+      console.log(`Profiller yükleniyor... sayfa: ${page + 1}`);
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/suggested?${queryParams}`,
@@ -307,8 +346,34 @@ const Dashboard = () => {
       if (!response.ok) throw new Error('Failed to fetch profiles');
 
       const data = await response.json();
-      setProfiles(prev => page === 0 ? data : [...prev, ...data]);
+
+      // Yeni ve daha önce yüklenmemiş profilleri filtrele
+      const uniqueNewProfiles = data.filter((profile: SuggestedProfile) =>
+        !loadedProfileIds.has(profile.id)
+      );
+
+      // Yeni profil yoksa, daha fazla yüklemeyi durdur
+      if (uniqueNewProfiles.length === 0) {
+        setHasMore(false);
+        return;
+      }
+
+      // Yeni profil ID'lerini ekle
+      const updatedProfileIds = new Set(loadedProfileIds);
+      uniqueNewProfiles.forEach((profile: SuggestedProfile) => {
+        updatedProfileIds.add(profile.id);
+      });
+      setLoadedProfileIds(updatedProfileIds);
+
+      // Profilleri güncelle
+      setProfiles(prev =>
+        page === 0 ? uniqueNewProfiles : [...prev, ...uniqueNewProfiles]
+      );
+
+      // Daha fazla veri var mı kontrolü
       setHasMore(data.length === 10);
+
+      console.log(`Yüklenen benzersiz yeni profil sayısı: ${uniqueNewProfiles.length}`);
 
     } catch (error) {
       console.error('Error fetching profiles:', error);
@@ -317,6 +382,12 @@ const Dashboard = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (page > 0 && session?.user?.accessToken) {
+      fetchProfiles();
+    }
+  }, [page]);
 
   useEffect(() => {
     if (session?.user?.accessToken) {
@@ -349,6 +420,25 @@ const Dashboard = () => {
 
     return age;
   };
+
+  const resetFilters = () => {
+    setFilters({
+      min_age: DEFAULT_MIN_AGE,
+      max_age: DEFAULT_MAX_AGE,
+      min_fame: DEFAULT_MIN_FAME,
+      max_fame: DEFAULT_MAX_FAME,
+      max_distance: DEFAULT_MAX_DISTANCE,
+      tags: []
+    });
+    setAgeRange([DEFAULT_MIN_AGE, DEFAULT_MAX_AGE]);
+    setFameRating([DEFAULT_MIN_FAME, DEFAULT_MAX_FAME]);
+    setDistance(DEFAULT_MAX_DISTANCE);
+    setTags([]);
+    setFiltersApplied(false);
+    setPage(0);
+    setLoadedProfileIds(new Set());
+  };
+
 
   const handleLike = async (profileId: string) => {
     if (isLikeLoading === profileId) return;
@@ -490,8 +580,8 @@ const Dashboard = () => {
                       }}
                       title={option.label} // Tooltip olarak tüm açıklamayı göster
                       className={`text-xs py-1 px-2 rounded ${distance === option.value
-                          ? 'bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white'
-                          : 'bg-[#3C3C3E] text-gray-300'
+                        ? 'bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white'
+                        : 'bg-[#3C3C3E] text-gray-300'
                         } transition-colors`}
                     >
                       {option.value} km
@@ -579,125 +669,172 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {sortProfiles(profiles).map((profile, index) => (
-                <div
-                  key={profile.id}
-                  ref={index === profiles.length - 1 ? lastProfileRef : null}
-                  className="bg-[#2C2C2E] rounded-xl overflow-hidden"
-                >
-                  <Link href={`/profile/${profile.username}`}>
-                    <div className="relative h-48 group">
-                      <Image
-                        src={profile.pictures.find(p => p.is_primary)?.backend_url || '/images/defaults/profile-default.jpg'}
-                        alt={`${profile.first_name}'s profile`}
-                        fill
-                        priority
-                        sizes="100%"
-                        className="object-cover"
-                      />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          handleLike(profile.id);
-                        }}
-                        disabled={isLikeLoading === profile.id}
-                        className={`absolute top-2 right-2 p-2 rounded-full transition-all
-        ${likedProfiles.has(profile.id)
-                            ? 'bg-[#D63384] text-white'
-                            : 'bg-white/80 hover:bg-white text-gray-600'}
-        ${isLikeLoading === profile.id ? 'opacity-50' : ''}
-      `}
-                      >
-                        <FiHeart
-                          className={`w-5 h-5 ${likedProfiles.has(profile.id) ? 'fill-current' : ''}`}
-                        />
-                      </button>
-                    </div>
-                  </Link>
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-xl font-semibold text-white">
-                        {profile.first_name}, {calculateAge(profile.birth_date)}
-                      </h3>
-                      <div className="flex items-center">
-                        <FiStar className="w-4 h-4 text-[#D63384]" />
-                        <span className="text-gray-300 ml-1">{Math.round(profile.fame_rating)}</span>
-                      </div>
-                    </div>
-
-                    {/* Biography */}
-                    <div className="relative mb-3">
-                      <p className="text-gray-300 text-sm line-clamp-2">
-                        {profile.biography || "Henüz bir biyografi eklenmemiş."}
-                      </p>
-                      {profile.biography && profile.biography.length > 100 && (
-                        <div className="absolute bottom-0 right-0 bg-gradient-to-l from-[#2C2C2E] to-transparent pl-2 pr-1">
-                          <Link href={`/profile/${profile.username}`}>
-                            <FiMoreHorizontal className="w-4 h-4 text-gray" />
-                          </Link>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Location */}
-                    <div className="flex items-center text-gray-400 text-sm mb-3">
-                      <FiMapPin className="w-4 h-4 mr-1" />
-                      <span>
-                        {userProfile
-                          ? formatDistance(calculateDistance(
-                            userProfile.latitude,
-                            userProfile.longitude,
-                            profile.latitude,
-                            profile.longitude
-                          ))
-                          : "Mesafe hesaplanıyor..."
-                        }
-                      </span>
-                    </div>
-
-                    {/* Tags */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {profile.tags.map((tag, i) => (
-                        <span
-                          key={i}
-                          className="text-xs bg-[#3C3C3E] text-gray-300 px-2 py-1 rounded-full cursor-pointer hover:bg-[#4C4C4E] transition-colors"
-                          onClick={(e) => {
-                            e.preventDefault(); // Prevent navigation to profile page
-                            e.stopPropagation(); // Stop event propagation
-
-                            // Only add the tag if it's not already in the filters
-                            if (!tags.includes(tag.name)) {
-                              setTags([...tags, tag.name]);
-                              toast.success(`'${tag.name}' etiketi filtrelere eklendi`);
-                            } else {
-                              toast.error(`'${tag.name}' etiketi zaten eklenmiş`);
-                            }
-                          }}
-                        >
-                          #{tag.name}
-                        </span>
-                      )).slice(0, 3)}
-                      {profile.tags.length > 3 && (
-                        <span className="text-xs text-gray-400">
-                          +{profile.tags.length - 3}
-                        </span>
-                      )}
-                    </div>
-
-
-                  </div>
-
+            {isLoading ? (
+              <div className="flex justify-center items-center h-60">
+                <div className="animate-pulse flex flex-col items-center">
+                  <div className="h-10 w-10 border-4 border-t-transparent border-[#D63384] rounded-full animate-spin mb-4"></div>
+                  <p className="text-gray-300 font-medium">Profiller yükleniyor...</p>
                 </div>
-              ))}
-            </div>
-            {isLoading && (
-              <div className="flex justify-center mt-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D63384]"></div>
               </div>
+            ) : (
+              <>
+                {profiles.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-60 text-center p-8 bg-[#2C2C2E] rounded-xl">
+                    <div className="text-gray-300 text-xl mb-2">Bu filtrelere uygun profil bulunamadı</div>
+                    <div className="text-gray-400 mb-4">Farklı filtre seçeneklerini deneyebilirsiniz</div>
+                    <button
+                      onClick={resetFilters}
+                      className="px-6 py-2 bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white rounded-lg hover:opacity-90 transition-opacity"
+                    >
+                      Filtreleri Sıfırla
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {sortProfiles(profiles).map((profile, index) => (
+                        <div
+                          key={profile.id}
+                          ref={index === profiles.length - 1 ? lastProfileRef : null}
+                          className="bg-[#2C2C2E] rounded-xl overflow-hidden"
+                        >
+                          <Link href={`/profile/${profile.username}`}>
+                            <div className="relative h-48 group">
+                              <Image
+                                src={profile.pictures.find(p => p.is_primary)?.backend_url || '/images/defaults/profile-default.jpg'}
+                                alt={`${profile.first_name}'s profile`}
+                                fill
+                                priority
+                                sizes="100%"
+                                className="object-cover"
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  handleLike(profile.id);
+                                }}
+                                disabled={isLikeLoading === profile.id}
+                                className={`absolute top-2 right-2 p-2 rounded-full transition-all
+            ${likedProfiles.has(profile.id)
+                                    ? 'bg-[#D63384] text-white'
+                                    : 'bg-white/80 hover:bg-white text-gray-600'}
+            ${isLikeLoading === profile.id ? 'opacity-50' : ''}
+          `}
+                              >
+                                <FiHeart
+                                  className={`w-5 h-5 ${likedProfiles.has(profile.id) ? 'fill-current' : ''}`}
+                                />
+                              </button>
+                            </div>
+                          </Link>
+                          <div className="p-4">
+                            <div className="flex justify-between items-start mb-2">
+                              <h3 className="text-xl font-semibold text-white">
+                                {profile.first_name}, {calculateAge(profile.birth_date)}
+                              </h3>
+                              <div className="flex items-center">
+                                <FiStar className="w-4 h-4 text-[#D63384]" />
+                                <span className="text-gray-300 ml-1">{Math.round(profile.fame_rating)}</span>
+                              </div>
+                            </div>
+
+                            {/* Biography */}
+                            <div className="relative mb-3">
+                              <p className="text-gray-300 text-sm line-clamp-2">
+                                {profile.biography || "Henüz bir biyografi eklenmemiş."}
+                              </p>
+                              {profile.biography && profile.biography.length > 100 && (
+                                <div className="absolute bottom-0 right-0 bg-gradient-to-l from-[#2C2C2E] to-transparent pl-2 pr-1">
+                                  <Link href={`/profile/${profile.username}`}>
+                                    <FiMoreHorizontal className="w-4 h-4 text-gray" />
+                                  </Link>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Location */}
+                            <div className="flex items-center text-gray-400 text-sm mb-3">
+                              <FiMapPin className="w-4 h-4 mr-1" />
+                              <span>
+                                {userProfile ? (
+                                  formatDistance(calculateDistance(
+                                    userProfile.latitude,
+                                    userProfile.longitude,
+                                    profile.latitude,
+                                    profile.longitude
+                                  ))
+                                ) : (
+                                  <span className="flex items-center">
+                                    <div className="w-3 h-3 mr-1 rounded-full border-2 border-t-0 border-l-0 border-[#D63384] animate-spin"></div>
+                                    Konum alınıyor...
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+
+                            {/* Tags */}
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {profile.tags.map((tag, i) => (
+                                <span
+                                  key={i}
+                                  className="text-xs bg-[#3C3C3E] text-gray-300 px-2 py-1 rounded-full cursor-pointer hover:bg-[#4C4C4E] transition-colors"
+                                  onClick={(e) => {
+                                    e.preventDefault(); // Prevent navigation to profile page
+                                    e.stopPropagation(); // Stop event propagation
+
+                                    // Only add the tag if it's not already in the filters
+                                    if (!tags.includes(tag.name)) {
+                                      setTags([...tags, tag.name]);
+                                      toast.success(`'${tag.name}' etiketi filtrelere eklendi`);
+                                    } else {
+                                      toast.error(`'${tag.name}' etiketi zaten eklenmiş`);
+                                    }
+                                  }}
+                                >
+                                  #{tag.name}
+                                </span>
+                              )).slice(0, 3)}
+                              {profile.tags.length > 3 && (
+                                <span className="text-xs text-gray-400">
+                                  +{profile.tags.length - 3}
+                                </span>
+                              )}
+                            </div>
+
+
+                          </div>
+
+                        </div>
+                      ))}
+                    </div>
+                    {isLoading && (
+                      <div className="flex justify-center mt-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D63384]"></div>
+                      </div>
+                    )}
+
+                    {/* Buraya da "loadMore" spinner'ı ve "Tüm profiller yüklendi" mesajları */}
+                    {hasMore && (
+                      <div className="flex justify-center items-center py-8" ref={lastProfileRef}>
+                        <div className="animate-pulse flex flex-col items-center">
+                          <div className="h-8 w-8 border-t-2 border-b-2 border-[#D63384] rounded-full animate-spin mb-2"></div>
+                          <p className="text-gray-400">Yeni profiller aranıyor...</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {!hasMore && !isLoading && (
+                      <div className="text-center py-8 text-gray-400">
+                        <p className="mb-1">Tüm profiller yüklendi ({profiles.length})</p>
+                        <p className="text-sm">Filtreleri değiştirerek daha fazla profil bulabilirsiniz</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
             )}
+
           </div>
         </div>
       </div>

@@ -610,7 +610,6 @@ const ProfilePage = () => {
 
         if (!response.ok) throw new Error('Failed to check block status');
         const data = await response.json();
-        console.log('Block status:', data);
         setBlockStatus(data);
       } catch (error) {
         console.error('Block status check error:', error);

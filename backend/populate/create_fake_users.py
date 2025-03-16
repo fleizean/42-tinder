@@ -141,7 +141,7 @@ def create_fake_users(count=50):
         db.add(profile)
         
         # Profil fotoğrafları
-        for i in range(random.randint(1, 5)):
+        for i in range(random.randint(1, 3)):
             # Download AI-generated photo
             success = download_ai_profile_picture(profile.id, i)
             
@@ -181,4 +181,4 @@ def create_fake_users(count=50):
         db.close()
 
 if __name__ == "__main__":
-    create_fake_users(5)  # 50 sahte kullanıcı oluştur
+    create_fake_users(200)  # 50 sahte kullanıcı oluştur

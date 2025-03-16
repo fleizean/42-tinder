@@ -122,7 +122,6 @@ async def verify_email(
     """
     Verify email with token
     """
-    print('token:', token)
     user = await verify_user(db, token)
     if not user:
         raise HTTPException(

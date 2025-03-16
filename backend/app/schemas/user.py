@@ -59,9 +59,59 @@ class UserCreate(UserBase):
             'password', '123456', '12345678', '1234', 'qwerty', '12345', 'abc123',
             'password1', 'admin', 'letmein', 'welcome', 'monkey', 'football', 'iloveyou'
         ]
-
-        if v.lower() in common_words:
-            raise ValueError('Şifre çok yaygın bir şifre olamaz')
+        
+        # Karakter değişim tablosu
+        substitutions = {
+            'a': ['@', '4', 'α'],
+            'b': ['8', '6', 'ß'],
+            'e': ['3', '€'],
+            'i': ['1', '!', '|'],
+            'l': ['1', '|', '!'],
+            'o': ['0', 'ø', 'Ø'],
+            's': ['$', '5'],
+            't': ['7', '+'],
+            'z': ['2']
+        }
+        
+        # Şifrenin olası "orijinal" versiyonlarını oluşturma
+        normalized_password = v.lower()
+        
+        # Karakter değişikliklerini tespit et ve normalize et
+        for char, replacements in substitutions.items():
+            for replacement in replacements:
+                normalized_password = normalized_password.replace(replacement, char)
+        
+        # Sayıları kaldırma (sondan)
+        cleaned_password = normalized_password.rstrip('0123456789')
+        
+        # Yaygın kelimelerin herhangi biri şifrenin bir parçası mı kontrol et
+        for word in common_words:
+            # Tam eşleşme
+            if normalized_password == word:
+                raise ValueError('Şifre çok yaygın bir şifre olamaz')
+            
+            # Basit karakter değişimiyle eşleşme
+            if cleaned_password and cleaned_password == word:
+                raise ValueError('Şifre yaygın bir şifrenin basit değişimi olamaz')
+            
+            # Şifre yaygın bir kelimeyi içeriyor mu
+            if len(normalized_password) > 3 and word in normalized_password:
+                raise ValueError('Şifre yaygın bir şifre içeremez')
+        
+        # Minimum şifre uzunluğunu kontrol et
+        if len(v) < 8:
+            raise ValueError('Şifre en az 8 karakter uzunluğunda olmalıdır')
+        
+        # Şifre karmaşıklığını kontrol et
+        has_upper = any(char.isupper() for char in v)
+        has_lower = any(char.islower() for char in v)
+        has_digit = any(char.isdigit() for char in v)
+        has_special = any(not char.isalnum() for char in v)
+        
+        complexity_score = sum([has_upper, has_lower, has_digit, has_special])
+        if complexity_score < 3:
+            raise ValueError('Şifre en az 3 farklı karakter tipi içermelidir (büyük harf, küçük harf, rakam, özel karakter)')
+        
         return v
 
 

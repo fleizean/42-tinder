@@ -38,6 +38,32 @@ class UserCreate(UserBase):
         assert len(v) >= 8, 'Şifre en az 8 karakter olmalıdır'
         return v
 
+    def password_special_characters(cls, v):
+        special_characters = "!@#$%^&*()-+.,"
+        if not any(char in special_characters for char in v):
+            raise ValueError('Şifre en az bir özel karakter içermelidir')
+        return v
+    
+    def password_uppercase(cls, v):
+        if not any(char.isupper() for char in v):
+            raise ValueError('Şifre en az bir büyük harf içermelidir')
+        return v
+
+    def password_lowercase(cls, v):
+        if not any(char.islower() for char in v):
+            raise ValueError('Şifre en az bir küçük harf içermelidir')
+        return v
+    
+    def password_common_words(cls, v):
+        common_words = [
+            'password', '123456', '12345678', '1234', 'qwerty', '12345', 'abc123',
+            'password1', 'admin', 'letmein', 'welcome', 'monkey', 'football', 'iloveyou'
+        ]
+
+        if v.lower() in common_words:
+            raise ValueError('Şifre çok yaygın bir şifre olamaz')
+        return v
+
 
 # Properties to receive via API on update
 class UserUpdate(UserBase):

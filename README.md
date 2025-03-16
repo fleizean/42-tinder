@@ -75,8 +75,8 @@ A modern dating web application inspired by Tinder, built as part of 42 School's
 - [x] Show who viewed their profile
 - [x] Show who liked their profile
 - [x] Implement public "fame rating" for each user
-- [ ] Determine user location via GPS (with manual override option)
-- [ ] If GPS tracking is disabled, use an alternative location method 🤔
+- [x] Determine user location via GPS (with manual override option)
+- [x] If GPS tracking is disabled, use an alternative location method 🤔
 
 </div>
 </details>

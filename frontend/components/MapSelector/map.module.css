@@ -1,0 +1,10 @@
+.mapContainer {
+  width: 100%;
+  border-radius: 0.5rem;
+  z-index: 1;
+}
+
+/* Global Leaflet stillerini aşağıdaki gibi tanımlayın */
+.leafletOverrides :global(.leaflet-control-attribution) {
+  font-size: 9px;
+}

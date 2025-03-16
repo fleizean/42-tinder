@@ -6,7 +6,7 @@ import { signOut, useSession } from "next-auth/react";
 import { FiUser, FiLock, FiMapPin, FiBell, FiUserX, FiX, FiPlus } from "react-icons/fi";
 import { toast, Toaster } from "react-hot-toast";
 import { FiLoader } from "react-icons/fi";
-
+import { SimpleMap } from "@/components/MapSelector/SimpleMap";
 
 interface ProfilePicture {
   id: string;
@@ -101,6 +101,10 @@ const SettingsPage = () => {
       <p className="mt-4 text-gray-400">Yükleniyor...</p>
     </div>
   );
+
+  const [showMap, setShowMap] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState<[number, number] | null>(null);
+
 
   // Tab state
   const [activeTab, setActiveTab] = useState("account");
@@ -363,9 +367,9 @@ const SettingsPage = () => {
       }));
 
       setTags(profileData.tags);
-      const locationString = profileData.latitude && profileData.longitude ? 
-      await getCityCountryFromCoords(profileData.latitude, profileData.longitude) :
-      'Konum bilgisi yok';
+      const locationString = profileData.latitude && profileData.longitude ?
+        await getCityCountryFromCoords(profileData.latitude, profileData.longitude) :
+        'Konum bilgisi yok';
 
       // Update profileInfo with both coordinates and location string
       setProfileInfo(prev => ({
@@ -510,20 +514,20 @@ const SettingsPage = () => {
     if (!latitude || !longitude) {
       return 'Konum bilgisi yok';
     }
-  
+
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`
       );
-  
+
       if (!response.ok) {
         throw new Error('Geocoding failed');
       }
-  
+
       const data = await response.json();
       const city = data.address?.province || data.address?.city || '';
       const country = data.address?.country || '';
-  
+
       return city && country ? `${city}, ${country}` : 'Konum bilgisi bulunamadı';
     } catch (error) {
       console.error('Geocoding error:', error);
@@ -800,6 +804,38 @@ const SettingsPage = () => {
     }
   };
 
+  const handleManualLocationSelect = async () => {
+    if (!selectedPosition) return;
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me/location`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${session?.user?.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          latitude: selectedPosition[0],
+          longitude: selectedPosition[1],
+        }),
+      });
+
+      if (!response.ok) throw new Error("Location update failed");
+
+      setProfileInfo((prev) => ({
+        ...prev,
+        latitude: selectedPosition[0],
+        longitude: selectedPosition[1],
+        location: `${selectedPosition[0].toFixed(4)}, ${selectedPosition[1].toFixed(4)}`,
+      }));
+
+      setShowMap(false);
+      toast.success("Konum başarıyla güncellendi");
+    } catch (error) {
+      console.error("Konum güncelleme hatası:", error);
+    }
+  };
+
+
 
   // Update TabButton definition
   const TabButton = ({ value, icon: Icon, label }: { value: string; icon: any; label: string }) => (
@@ -1033,9 +1069,6 @@ const SettingsPage = () => {
                       </div>
                     </div>
 
-                    {/* Location */}
-                    <hr className="border-[#3C3C3E]" />
-                    <h3 className="text-xl font-semibold text-white mb-4">Konum</h3>
                     <div>
                       <label className="block text-gray-300 mb-2">Konum</label>
                       <div className="flex space-x-2">
@@ -1052,14 +1085,57 @@ const SettingsPage = () => {
                           <FiMapPin />
                           <span>Konumu Algıla</span>
                         </button>
+                        <button
+                          onClick={() => setShowMap(!showMap)}
+                          className="bg-[#3C3C3E] text-white px-4 py-2 rounded-lg hover:bg-[#4C4C4E] transition-colors flex items-center space-x-2"
+                        >
+                          <FiMapPin />
+                          <span>Haritadan Seç</span>
+                        </button>
                       </div>
-                      {profileInfo.latitude && profileInfo.longitude && (
-                        <p className="mt-2 text-sm text-gray-400">
-                          Lat: {profileInfo.latitude.toFixed(4)}, Long: {profileInfo.longitude.toFixed(4)}
-                        </p>
-                      )}
-                    </div>
 
+                      {showMap && (
+                        <div className="mt-4">
+                          <SimpleMap
+                            initialLocation={
+                              profileInfo.latitude && profileInfo.longitude 
+                                ? [profileInfo.latitude, profileInfo.longitude] 
+                                : undefined
+                            }
+                            onLocationSelect={(lat, lng) => {
+                              // Burada koordinatları doğru formatta ayarlıyoruz
+                              const position: [number, number] = [lat, lng];
+                              setSelectedPosition(position);
+                            }}
+                          />
+                          <div className="mt-2 flex justify-end">
+                            <button
+                              onClick={() => setShowMap(false)}
+                              className="mr-2 bg-gray-600 text-white px-4 py-2 rounded-lg"
+                            >
+                              İptal
+                            </button>
+                            <button
+                              onClick={handleManualLocationSelect}
+                              disabled={!selectedPosition}
+                              className={`bg-[#D63384] text-white px-4 py-2 rounded-lg ${
+                                !selectedPosition ? "opacity-50 cursor-not-allowed" : ""
+                              }`}
+                            >
+                              Konumu Güncelle
+                            </button>
+                          </div>
+                          
+                        
+                        </div>
+                      )}
+
+                      <div className="flex justify-end mt-4">
+                        <p className="text-gray-400 text-sm">
+                          Latitude: {profileInfo.latitude.toFixed(4)}, Longitude: {profileInfo.longitude.toFixed(4)}
+                        </p>
+                        </div>
+                    </div>
 
 
 

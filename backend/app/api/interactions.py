@@ -1,15 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Any, List, Dict
-
+from typing import Any, List
+from app.api.realtime import manager
 from app.core.db import get_db
-from app.core.security import get_current_user, get_current_verified_user
+from app.core.security import  get_current_verified_user
 from app.models.user import User
-from app.schemas.interactions import LikeCreate, Like, Visit, BlockCreate, Block, ReportCreate, Report
+from app.models.interactions import Like
+from app.models.profile import Profile
+from app.schemas.interactions import LikeCreate,  BlockCreate, ReportCreate
 from app.schemas.profile import PublicProfile
 from app.services.profile import get_profile_by_user_id, get_profile_by_username
 from app.services.interactions import (
-    get_blocks_received,
     get_blocks_sent,
     is_blocked,
     like_profile,
@@ -19,8 +22,10 @@ from app.services.interactions import (
     report_profile,
     get_likes_received,
     get_visits_received,
-    get_matches
+    get_matches,
+    visit_profile
 )
+from app.api.realtime import broadcast_notification
 
 router = APIRouter()
 
@@ -64,6 +69,41 @@ async def create_like(
             detail="Could not like profile. The profile may not exist or might be blocked."
         )
     
+    # Get the target profile's user_id for WebSocket notification
+    liked_profile_result = await db.execute(
+        select(Profile).options(selectinload(Profile.user)).filter(Profile.id == like_data.liked_id)
+    )
+    liked_profile = liked_profile_result.scalars().first()
+    
+    if liked_profile:
+        # Use the broadcast_notification function for WebSocket notification
+        if result["is_match"]:
+            # It's a match! Send match notification to both users
+            await broadcast_notification(
+                manager, 
+                liked_profile.user_id, 
+                "match", 
+                current_user.id, 
+                f"{current_user.first_name} ile eşleştiniz!"
+            )
+            
+            await broadcast_notification(
+                manager, 
+                current_user.id, 
+                "match", 
+                liked_profile.user_id, 
+                f"{liked_profile.user.first_name} ile eşleştiniz!"
+            )
+        else:
+            # Just a like, notify the liked user
+            await broadcast_notification(
+                manager, 
+                liked_profile.user_id, 
+                "like", 
+                current_user.id, 
+                f"{current_user.first_name} profilinizi beğendi!"
+            )
+    
     return {
         "message": "Profile liked successfully",
         "is_match": result["is_match"]
@@ -87,6 +127,13 @@ async def delete_like(
             detail="Your profile not found"
         )
     
+    # Check if this was a match before unliking
+    result = await db.execute(
+        select(Like).filter(Like.liker_id == profile_id, Like.liked_id == profile.id)
+    )
+    mutual_like = result.scalars().first()
+    was_match = mutual_like is not None
+    
     # Unlike profile
     result = await unlike_profile(db, profile.id, profile_id)
     if not result:
@@ -94,6 +141,22 @@ async def delete_like(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Could not unlike profile. You might not have liked this profile."
         )
+    
+    # If it was a match, send unmatch notification via WebSocket
+    if was_match:
+        # Get the target profile's user_id for WebSocket notification
+        unliked_profile_result = await db.execute(select(Profile).filter(Profile.id == profile_id))
+        unliked_profile = unliked_profile_result.scalars().first()
+        
+        if unliked_profile:
+            # Send unmatch notification
+            await broadcast_notification(
+                manager, 
+                unliked_profile.user_id, 
+                "unmatch", 
+                current_user.id, 
+                f"{current_user.first_name} artık eşleşmenizde değil."
+            )
     
     return {
         "message": "Profile unliked successfully"
@@ -305,7 +368,7 @@ async def get_likes(
     # Convert to public profiles
     profiles = []
     for like_data in likes:
-        like = like_data["like"]
+        #like = like_data["like"]
         liker_profile = like_data["profile"]
         liker_user = like_data["user"]
         liker_pictures = like_data.get("pictures", [])  # Eagerly loaded pictures
@@ -330,6 +393,49 @@ async def get_likes(
         ))
     
     return profiles
+
+@router.post("/visit/{profile_id}", response_model=dict)
+async def create_visit(
+    profile_id: str,
+    current_user: User = Depends(get_current_verified_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Visit a profile
+    """
+    # Get user's profile
+    profile = await get_profile_by_user_id(db, current_user.id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Your profile not found"
+        )
+    
+    # Visit profile
+    result = await visit_profile(db, profile.id, profile_id)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not visit profile. The profile may not exist or might be blocked."
+        )
+    
+    # Get the target profile's user_id for WebSocket notification
+    visited_profile_result = await db.execute(select(Profile).filter(Profile.id == profile_id))
+    visited_profile = visited_profile_result.scalars().first()
+    
+    if visited_profile:
+        # Send visit notification via WebSocket
+        await broadcast_notification(
+            manager, 
+            visited_profile.user_id, 
+            "visit", 
+            current_user.id, 
+            f"{current_user.first_name} profilinizi ziyaret etti!"
+        )
+    
+    return {
+        "message": "Profile visited successfully"
+    }
 
 @router.get("/visits", response_model=List[PublicProfile])
 async def get_visits(
@@ -371,7 +477,7 @@ async def get_visits(
     # Ziyaretçilerin profillerini oluştur
     profiles = []
     for visit_data in visits:
-        visit = visit_data["visit"]
+        #visit = visit_data["visit"]
         visitor_profile = visit_data["profile"] 
         visitor_user = visit_data["user"]
         visitor_pictures = visit_data.get("pictures", [])  # Eagerly loaded pictures

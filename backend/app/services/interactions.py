@@ -1,11 +1,11 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, and_, or_
+from sqlalchemy import and_, or_
 from datetime import datetime
 from sqlalchemy.orm import selectinload
 from app.models.interactions import Like, Visit, Block, Report
-from app.models.realtime import Notification, NotificationType, Connection
+from app.models.realtime import Message, Notification, NotificationType, Connection
 from app.models.profile import Profile
 from app.models.user import User
 from app.services.profile import update_fame_rating
@@ -65,6 +65,13 @@ async def like_profile(db: AsyncSession, liker_id: str, liked_id: str) -> Option
     
     is_match = mutual_like is not None
     
+    # Get user info for notifications
+    liker_user_result = await db.execute(select(User).filter(User.id == liker.user_id))
+    liker_user = liker_user_result.scalars().first()
+    
+    liked_user_result = await db.execute(select(User).filter(User.id == liked.user_id))
+    liked_user = liked_user_result.scalars().first()
+    
     # If it's a match, create a connection
     if is_match:
         # Check if connection already exists
@@ -89,19 +96,19 @@ async def like_profile(db: AsyncSession, liker_id: str, liked_id: str) -> Option
             db.add(connection)
             await db.commit()
             
-            # Create match notifications for both users
+            # Create match notifications for both users with improved content
             liker_notification = Notification(
                 user_id=liker.user_id,
                 sender_id=liked.user_id,
                 type=NotificationType.MATCH,
-                content=f"You matched with a user!"
+                content=f"{liked_user.first_name} ile eşleştiniz! Şimdi sohbet edebilirsiniz."
             )
             
             liked_notification = Notification(
                 user_id=liked.user_id,
                 sender_id=liker.user_id,
                 type=NotificationType.MATCH,
-                content=f"You matched with a user!"
+                content=f"{liker_user.first_name} ile eşleştiniz! Şimdi sohbet edebilirsiniz."
             )
             
             db.add(liker_notification)
@@ -112,26 +119,254 @@ async def like_profile(db: AsyncSession, liker_id: str, liked_id: str) -> Option
             existing_connection.is_active = True
             db.add(existing_connection)
             await db.commit()
-    else:
-        # Create like notification
-        result = await db.execute(select(User).filter(User.id == liked.user_id))
-        liked_user = result.scalars().first()
-        
-        if liked_user:
-            notification = Notification(
-                user_id=liked_user.id,
-                sender_id=liker.user_id,
-                type=NotificationType.LIKE,
-                content=f"Someone liked your profile!"
+            
+            # Create match notifications for reconnection
+            liker_notification = Notification(
+                user_id=liker.user_id,
+                sender_id=liked.user_id,
+                type=NotificationType.MATCH,
+                content=f"{liked_user.first_name} ile yeniden eşleştiniz!"
             )
             
-            db.add(notification)
+            liked_notification = Notification(
+                user_id=liked.user_id,
+                sender_id=liker.user_id,
+                type=NotificationType.MATCH,
+                content=f"{liker_user.first_name} ile yeniden eşleştiniz!"
+            )
+            
+            db.add(liker_notification)
+            db.add(liked_notification)
             await db.commit()
+    else:
+        # Create like notification with more descriptive content
+        notification = Notification(
+            user_id=liked.user_id,
+            sender_id=liker.user_id,
+            type=NotificationType.LIKE,
+            content=f"{liker_user.first_name} profilinizi beğendi!"
+        )
+        
+        db.add(notification)
+        await db.commit()
     
     # Update fame ratings
     await update_fame_rating(db, liked_id)
     
     return {"like": like, "is_match": is_match}
+
+# Now let's improve the unlike_profile function to properly handle notifications
+
+async def unlike_profile(db: AsyncSession, liker_id: str, liked_id: str) -> bool:
+    """
+    Unlike a profile
+    """
+    # Check if the like exists
+    result = await db.execute(
+        select(Like).filter(Like.liker_id == liker_id, Like.liked_id == liked_id)
+    )
+    like = result.scalars().first()
+    
+    if not like:
+        return False
+    
+    # Delete like
+    await db.delete(like)
+    await db.commit()
+    
+    # Check if it was a match
+    result = await db.execute(
+        select(Like).filter(Like.liker_id == liked_id, Like.liked_id == liker_id)
+    )
+    mutual_like = result.scalars().first()
+    
+    if mutual_like:
+        # It was a match, update connection
+        # Get profiles for notification
+        liker_profile_result = await db.execute(select(Profile).filter(Profile.id == liker_id))
+        liker_profile = liker_profile_result.scalars().first()
+        
+        liked_profile_result = await db.execute(select(Profile).filter(Profile.id == liked_id))
+        liked_profile = liked_profile_result.scalars().first()
+        
+        if liker_profile and liked_profile:
+            # Get users for notification content
+            liker_user_result = await db.execute(select(User).filter(User.id == liker_profile.user_id))
+            liker_user = liker_user_result.scalars().first()
+            
+            liked_user_result = await db.execute(select(User).filter(User.id == liked_profile.user_id))
+            liked_user = liked_user_result.scalars().first()
+            
+            # Find connection
+            result = await db.execute(
+                select(Connection).filter(
+                    or_(
+                        and_(Connection.user1_id == liker_profile.user_id, Connection.user2_id == liked_profile.user_id),
+                        and_(Connection.user1_id == liked_profile.user_id, Connection.user2_id == liker_profile.user_id)
+                    )
+                )
+            )
+            connection = result.scalars().first()
+            
+            if connection:
+                # Deactivate connection
+                connection.is_active = False
+                db.add(connection)
+                await db.commit()
+                
+                # Create unmatch notification for the liked user
+                notification_for_liked = Notification(
+                    user_id=liked_profile.user_id,
+                    sender_id=liker_profile.user_id,
+                    type=NotificationType.UNMATCH,
+                    content=f"{liker_user.first_name} artık eşleşmenizde değil."
+                )
+                
+                db.add(notification_for_liked)
+                
+                # Create unmatch notification for the liker as well
+                # This ensures both users get notified when mutual unlike happens
+                notification_for_liker = Notification(
+                    user_id=liker_profile.user_id,
+                    sender_id=liked_profile.user_id,
+                    type=NotificationType.UNMATCH,
+                    content=f"{liked_user.first_name} artık eşleşmenizde değil."
+                )
+                
+                db.add(notification_for_liker)
+                await db.commit()
+    
+    # Update fame rating
+    await update_fame_rating(db, liked_id)
+    
+    return True
+
+# Let's also modify the visit_profile function to improve visit notifications
+
+async def visit_profile(db: AsyncSession, visitor_id: str, visited_id: str) -> Optional[Visit]:
+    """
+    Record a profile visit
+    """
+    # Check if profiles exist
+    visitor_result = await db.execute(select(Profile).filter(Profile.id == visitor_id))
+    visitor = visitor_result.scalars().first()
+    
+    visited_result = await db.execute(select(Profile).filter(Profile.id == visited_id))
+    visited = visited_result.scalars().first()
+    
+    if not visitor or not visited or visitor_id == visited_id:
+        return None
+    
+    # Check if blocked
+    result = await db.execute(
+        select(Block).filter(
+            or_(
+                and_(Block.blocker_id == visitor_id, Block.blocked_id == visited_id),
+                and_(Block.blocker_id == visited_id, Block.blocked_id == visitor_id)
+            )
+        )
+    )
+    if result.scalars().first():
+        return None
+    
+    # Create visit
+    visit = Visit(
+        visitor_id=visitor_id,
+        visited_id=visited_id
+    )
+    
+    db.add(visit)
+    await db.commit()
+    await db.refresh(visit)
+    
+    # Get visitor user info for notification
+    visitor_user_result = await db.execute(select(User).filter(User.id == visitor.user_id))
+    visitor_user = visitor_user_result.scalars().first()
+    
+    # Create notification with improved content
+    result = await db.execute(select(User).filter(User.id == visited.user_id))
+    visited_user = result.scalars().first()
+    
+    if visited_user:
+        notification = Notification(
+            user_id=visited_user.id,
+            sender_id=visitor.user_id,
+            type=NotificationType.VISIT,
+            content=f"{visitor_user.first_name} profilinizi ziyaret etti!"
+        )
+        
+        db.add(notification)
+        await db.commit()
+    
+    # Update fame rating
+    await update_fame_rating(db, visited_id)
+    
+    return visit
+
+# Now modify the send_message function to improve message notifications
+
+async def send_message(db: AsyncSession, sender_id: str, recipient_id: str, content: str) -> Optional[Dict[str, Any]]:
+    """
+    Send a message from one user to another
+    """
+    # Check if users exist
+    sender_result = await db.execute(select(User).filter(User.id == sender_id))
+    sender = sender_result.scalars().first()
+    
+    recipient_result = await db.execute(select(User).filter(User.id == recipient_id))
+    recipient = recipient_result.scalars().first()
+    
+    if not sender or not recipient:
+        return None
+    
+    # Check if they are connected
+    result = await db.execute(
+        select(Connection).filter(
+            Connection.is_active == True,
+            or_(
+                and_(Connection.user1_id == sender_id, Connection.user2_id == recipient_id),
+                and_(Connection.user1_id == recipient_id, Connection.user2_id == sender_id)
+            )
+        )
+    )
+    connection = result.scalars().first()
+    
+    if not connection:
+        return None
+    
+    # Create message
+    message = Message(
+        sender_id=sender_id,
+        recipient_id=recipient_id,
+        content=content,
+        is_read=False
+    )
+    
+    db.add(message)
+    await db.commit()
+    await db.refresh(message)
+    
+    # Create notification with improved content
+    notification = Notification(
+        user_id=recipient_id,
+        sender_id=sender_id,
+        type=NotificationType.MESSAGE,
+        content=f"{sender.first_name} size yeni bir mesaj gönderdi: '{content[:30]}...'" if len(content) > 30 else f"{sender.first_name} size yeni bir mesaj gönderdi: '{content}'"
+    )
+    
+    db.add(notification)
+    await db.commit()
+    
+    # Update connection timestamp
+    connection.updated_at = datetime.utcnow()
+    db.add(connection)
+    await db.commit()
+    
+    return {
+        "message": message,
+        "sender": sender,
+        "recipient": recipient
+    }
 
 async def is_blocked(db: AsyncSession, blocker_id: str, blocked_id: str) -> Dict[str, Any]:
     """
@@ -225,131 +460,6 @@ async def get_blocks_received(db: AsyncSession, profile_id: str, limit: int = 10
     
     return blocks
 
-async def unlike_profile(db: AsyncSession, liker_id: str, liked_id: str) -> bool:
-    """
-    Unlike a profile
-    """
-    # Check if the like exists
-    result = await db.execute(
-        select(Like).filter(Like.liker_id == liker_id, Like.liked_id == liked_id)
-    )
-    like = result.scalars().first()
-    
-    if not like:
-        return False
-    
-    # Delete like
-    await db.delete(like)
-    await db.commit()
-    
-    # Check if it was a match
-    result = await db.execute(
-        select(Like).filter(Like.liker_id == liked_id, Like.liked_id == liker_id)
-    )
-    mutual_like = result.scalars().first()
-    
-    if mutual_like:
-        # It was a match, update connection
-        result = await db.execute(
-            select(Profile).filter(Profile.id == liker_id)
-        )
-        liker_profile = result.scalars().first()
-        
-        result = await db.execute(
-            select(Profile).filter(Profile.id == liked_id)
-        )
-        liked_profile = result.scalars().first()
-        
-        if liker_profile and liked_profile:
-            # Find connection
-            result = await db.execute(
-                select(Connection).filter(
-                    or_(
-                        and_(Connection.user1_id == liker_profile.user_id, Connection.user2_id == liked_profile.user_id),
-                        and_(Connection.user1_id == liked_profile.user_id, Connection.user2_id == liker_profile.user_id)
-                    )
-                )
-            )
-            connection = result.scalars().first()
-            
-            if connection:
-                # Deactivate connection
-                connection.is_active = False
-                db.add(connection)
-                await db.commit()
-                
-                # Create unmatch notification
-                notification = Notification(
-                    user_id=liked_profile.user_id,
-                    sender_id=liker_profile.user_id,
-                    type=NotificationType.UNMATCH,
-                    content=f"Someone unmatched with you"
-                )
-                
-                db.add(notification)
-                await db.commit()
-    
-    # Update fame rating
-    await update_fame_rating(db, liked_id)
-    
-    return True
-
-
-async def visit_profile(db: AsyncSession, visitor_id: str, visited_id: str) -> Optional[Visit]:
-    """
-    Record a profile visit
-    """
-    # Check if profiles exist
-    visitor_result = await db.execute(select(Profile).filter(Profile.id == visitor_id))
-    visitor = visitor_result.scalars().first()
-    
-    visited_result = await db.execute(select(Profile).filter(Profile.id == visited_id))
-    visited = visited_result.scalars().first()
-    
-    if not visitor or not visited or visitor_id == visited_id:
-        return None
-    
-    # Check if blocked
-    result = await db.execute(
-        select(Block).filter(
-            or_(
-                and_(Block.blocker_id == visitor_id, Block.blocked_id == visited_id),
-                and_(Block.blocker_id == visited_id, Block.blocked_id == visitor_id)
-            )
-        )
-    )
-    if result.scalars().first():
-        return None
-    
-    # Create visit
-    visit = Visit(
-        visitor_id=visitor_id,
-        visited_id=visited_id
-    )
-    
-    db.add(visit)
-    await db.commit()
-    await db.refresh(visit)
-    
-    # Create notification
-    result = await db.execute(select(User).filter(User.id == visited.user_id))
-    visited_user = result.scalars().first()
-    
-    if visited_user:
-        notification = Notification(
-            user_id=visited_user.id,
-            sender_id=visitor.user_id,
-            type=NotificationType.VISIT,
-            content=f"Biri senin profilini ziyaret etti!"
-        )
-        
-        db.add(notification)
-        await db.commit()
-    
-    # Update fame rating
-    await update_fame_rating(db, visited_id)
-    
-    return visit
 
 
 async def block_profile(db: AsyncSession, blocker_id: str, blocked_id: str) -> Optional[Block]:

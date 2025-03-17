@@ -7,16 +7,19 @@ import { useSession, signOut } from "next-auth/react";
 import { IoIosSettings } from "react-icons/io";
 import ThemeToggler from "./ThemeToggler";
 import menuData from "./menuData";
-import { FaUserCircle, FaSignOutAlt, FaComment, FaBell, FaHeart, FaKissWinkHeart } from "react-icons/fa";
+import { FaUserCircle, FaSignOutAlt, FaComment, FaBell, FaHeart, FaKissWinkHeart, FaEye, FaHeartBroken } from "react-icons/fa";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 interface NotificationType {
   id: number;
-  type: "like" | "match" | "visit" | "message";
+  type: "like" | "match" | "visit" | "message" | "unmatch";
   message: string;
   time: string;
   sender_id?: string;
   sender_username?: string;
   read: boolean;
+  content?: string;
 }
 
 interface UserData {
@@ -35,6 +38,7 @@ interface UserData {
 }
 
 const Header = () => {
+  const router = useRouter();
   const [navbarOpen, setNavbarOpen] = useState(false);
   const [sticky, setSticky] = useState(false);
   const [openIndex, setOpenIndex] = useState(-1);
@@ -315,28 +319,139 @@ const Header = () => {
     // Navigate based on notification type
     switch (notification.type) {
       case "like":
-      case "visit":
-        // Navigate to the profile of sender using username
+        // Navigate to the profile of the user who liked you
         if (notification.sender_username) {
-          window.location.href = `/profile/${notification.sender_username}`;
+          router.push(`/profile/${notification.sender_username}`);
         }
         break;
       case "match":
         // Navigate to chat with the matched user
         if (notification.sender_id) {
-          window.location.href = `/chat?user=${notification.sender_id}`;
+          router.push(`/chat?user=${notification.sender_id}`);
         }
         break;
       case "message":
         // Navigate to chat with the message sender
         if (notification.sender_id) {
-          window.location.href = `/chat?user=${notification.sender_id}`;
+          router.push(`/chat?user=${notification.sender_id}`);
         }
         break;
+      case "visit":
+        // Navigate to the profile of the visitor
+        if (notification.sender_username) {
+          router.push(`/profile/${notification.sender_username}`);
+        }
+        break;
+      case "unmatch":
+        // Just indicate the unmatch but there's nowhere specific to navigate
+        // Show toast notification with more info
+        toast.custom(`${notification.message}`);
+        router.push('/dashboard'); // Redirect to dashboard to refresh the matching view
+        break;
       default:
+        // For unknown notification types, navigate to dashboard
+        router.push('/dashboard');
         break;
     }
   };
+
+  const formatNotificationMessage = (notification: NotificationType): string => {
+    switch (notification.type) {
+      case "like":
+        return notification.sender_username 
+          ? `${notification.sender_username} profilinizi beğendi`
+          : "Profiliniz beğenildi";
+      case "match":
+        return notification.sender_username 
+          ? `${notification.sender_username} ile eşleştiniz! Şimdi sohbet edebilirsiniz.`
+          : "Yeni bir eşleşmeniz var!";
+      case "message":
+        return notification.sender_username 
+          ? `${notification.sender_username} size yeni bir mesaj gönderdi`
+          : "Yeni bir mesajınız var";
+      case "visit":
+        return notification.sender_username 
+          ? `${notification.sender_username} profilinizi ziyaret etti`
+          : "Birisi profilinizi ziyaret etti";
+      case "unmatch":
+        return notification.sender_username
+          ? `${notification.sender_username} artık eşleşmeleriniz arasında değil`
+          : "Bir eşleşmeniz sona erdi";
+      default:
+        return notification.message || "Yeni bir bildiriminiz var";
+    }
+  };
+
+  const formatTimestamp = (timestamp: string): string => {
+    try {
+      if (!timestamp) return "";
+      
+      // First check if it's already formatted like "DD/MM HH:MM"
+      if (/^\d{1,2}\/\d{1,2}\s\d{1,2}:\d{1,2}$/.test(timestamp)) {
+        return timestamp; // Return as is if already formatted
+      }
+      
+      // Try to parse the timestamp
+      const date = new Date(timestamp);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.error('Invalid date format:', timestamp);
+        return timestamp; // Return original timestamp instead of empty string
+      }
+      
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+      if (diffMins < 1) {
+        return "Az önce";
+      } else if (diffMins < 60) {
+        return `${diffMins} dakika önce`;
+      } else if (diffHours < 24) {
+        return `${diffHours} saat önce`;
+      } else if (diffDays < 7) {
+        return `${diffDays} gün önce`;
+      } else {
+        // Format the date properly for older notifications
+        try {
+          return new Intl.DateTimeFormat('tr-TR', {
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit'
+          }).format(date);
+        } catch (formattingError) {
+          console.error('Date formatting error:', formattingError);
+          // Fallback to a simpler format
+          return date.toLocaleDateString();
+        }
+      }
+    } catch (error) {
+      console.error('Timestamp format error:', error, 'for timestamp:', timestamp);
+      return timestamp || ""; // Return original timestamp as fallback
+    }
+  };
+
+  // Get notification icon based on type
+const getNotificationIcon = (type: string) => {
+  switch (type) {
+    case 'like':
+      return <FaHeart className="text-pink-500" />;
+    case 'match':
+      return <FaKissWinkHeart className="text-pink-500" />;
+    case 'visit':
+      return <FaEye className="text-blue-400" />;
+    case 'message':
+      return <FaComment className="text-green-400" />;
+    case 'unmatch':
+      return <FaHeartBroken className="text-red-400" />;
+    default:
+      return <FaBell className="text-gray-400" />;
+  }
+};
 
   // Function to toggle notification panel
   const toggleNotifications = () => {
@@ -446,7 +561,7 @@ const Header = () => {
                     <div className="flex items-start">
                       <div className={`w-2 h-2 rounded-full mt-2 mr-2 flex-shrink-0 ${!notification.read ? 'bg-[#D63384]' : 'bg-transparent'}`}></div>
                       <div className="flex-1">
-                        <p className="text-sm text-white">{notification.message}</p>
+                        <p className="text-sm text-white">{formatNotificationMessage(notification)}</p>
                         <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
                       </div>
                     </div>
@@ -793,53 +908,62 @@ const Header = () => {
 
                         {/* Notification Dropdown */}
                         {showNotifications && (
-                          <div className="absolute right-0 mt-2 w-80 bg-[#2C2C2E]/95 backdrop-blur-sm rounded-xl shadow-lg border border-pink-500/20 z-50">
-                            <div className="p-4 border-b border-[#3C3C3E] flex justify-between items-center">
-                              <h3 className="text-white font-medium">Bildirimler</h3>
-                              {notificationCount > 0 && (
-                                <button
-                                  onClick={markAllNotificationsAsRead}
-                                  className="text-sm text-pink-400 hover:text-pink-300"
-                                >
-                                  Tümünü okundu işaretle
-                                </button>
-                              )}
-                            </div>
-
-                            <div
-                              className="max-h-96 overflow-y-auto"
-                              onScroll={handleNotificationsScroll}
-                            >
-                              {isLoadingNotifications && notificationsPage === 0 ? (
-                                <div className="flex justify-center items-center p-4">
-                                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-pink-500"></div>
-                                </div>
-                              ) : notifications.length > 0 ? (
-                                <ul>
-                                  {notifications.map((notification) => (
-                                    <li
-                                      key={notification.id}
-                                      className={`p-3 border-b border-[#3C3C3E] hover:bg-[#3C3C3E] cursor-pointer ${!notification.read ? 'bg-[#3C3C3E]/50' : ''}`}
-                                      onClick={() => handleNotificationClick(notification)}
-                                    >
-                                      <div className="flex items-start">
-                                        <div className={`w-2 h-2 rounded-full mt-2 mr-2 flex-shrink-0 ${!notification.read ? 'bg-[#D63384]' : 'bg-transparent'}`}></div>
-                                        <div className="flex-1">
-                                          <p className="text-sm text-white">{notification.message}</p>
-                                          <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
-                                        </div>
-                                      </div>
-                                    </li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <div className="p-4 text-center text-gray-400">
-                                  <p>Bildirim bulunmamaktadır</p>
-                                </div>
-                              )}
-                            </div>
+                        <div className="absolute right-0 mt-2 w-80 bg-[#2C2C2E]/95 backdrop-blur-sm rounded-xl shadow-lg border border-pink-500/20 z-50">
+                          <div className="p-4 border-b border-[#3C3C3E] flex justify-between items-center">
+                            <h3 className="text-white font-medium">Bildirimler</h3>
+                            {notificationCount > 0 && (
+                              <button
+                                onClick={markAllNotificationsAsRead}
+                                className="text-sm text-pink-400 hover:text-pink-300"
+                              >
+                                Tümünü okundu işaretle
+                              </button>
+                            )}
                           </div>
-                        )}
+
+                          <div
+                            className="max-h-96 overflow-y-auto"
+                            onScroll={handleNotificationsScroll}
+                          >
+                            {isLoadingNotifications && notificationsPage === 0 ? (
+                              <div className="flex justify-center items-center p-4">
+                                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-pink-500"></div>
+                              </div>
+                            ) : notifications.length > 0 ? (
+                              <ul>
+                                {notifications.map((notification) => (
+                                  <li
+                                    key={notification.id}
+                                    className={`p-3 border-b border-[#3C3C3E] hover:bg-[#3C3C3E] cursor-pointer ${!notification.read ? 'bg-[#3C3C3E]/50' : ''}`}
+                                    onClick={() => handleNotificationClick(notification)}
+                                  >
+                                    <div className="flex items-start">
+                                      <div className="mr-3 mt-1">
+                                        {getNotificationIcon(notification.type)}
+                                      </div>
+                                      <div className="flex-1">
+                                        <p className="text-sm text-white">
+                                          {notification.content || formatNotificationMessage(notification)}
+                                        </p>
+                                        <p className="text-xs text-gray-400 mt-1">
+                                          {formatTimestamp(notification.time)}
+                                        </p>
+                                      </div>
+                                      {!notification.read && (
+                                        <div className="w-2 h-2 rounded-full bg-[#D63384] flex-shrink-0 mt-2"></div>
+                                      )}
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <div className="p-4 text-center text-gray-400">
+                                <p>Bildirim bulunmamaktadır</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       </div>
                     </>
                   ) : (

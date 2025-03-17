@@ -170,7 +170,7 @@ const ChatPage = () => {
     // WebSocket mesaj işleyiciyi güncelleyin
     const handleWsMessage = (data: any) => {
       console.log("WebSocket message received:", data);
-
+    
       if (data.type === 'message') {
         // Gelen mesaj mevcut aktif sohbeti ilgilendiriyor mu kontrol et
         const isCurrentChat =
@@ -217,24 +217,6 @@ const ChatPage = () => {
         fetchConversations();
       }
     };
-
-    const formatTimestamp = (timestamp: string) => {
-      try {
-        const date = new Date(timestamp);
-
-        // Tarih geçerli mi kontrol et
-        if (isNaN(date.getTime())) {
-          // Geçerli değilse şimdiki zamanı kullan
-          return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
-
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      } catch (error) {
-        console.error('Timestamp format error:', error);
-        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      }
-    };
-
 
 
     const handleWsConnect = () => {
@@ -733,35 +715,35 @@ const ChatPage = () => {
     try {
       // Zaman damgası yoksa boş string döndür
       if (!timestamp) return "";
-
+  
       // ISO formatındaki zamanı Date nesnesine çevir
       const date = new Date(timestamp);
-
+  
       // Tarih geçerli mi kontrol et
       if (isNaN(date.getTime())) {
         console.warn("Invalid timestamp:", timestamp);
         return "";
       }
-
+  
       // Tarih ve saat arasında çok büyük fark varsa, günü de göster
       const now = new Date();
       const diffMs = Math.abs(now.getTime() - date.getTime());
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-      if (diffDays >= 1) {
-        // Bir günden fazla ise tarih ve saati göster
-        return new Intl.DateTimeFormat('tr-TR', {
-          day: 'numeric',
-          month: 'short',
-          hour: '2-digit',
-          minute: '2-digit'
-        }).format(date);
-      } else {
-        // Aynı gün içindeyse sadece saati göster
-        return new Intl.DateTimeFormat('tr-TR', {
-          hour: '2-digit',
-          minute: '2-digit'
-        }).format(date);
+  
+        if (diffDays >= 1) {
+          // Bir günden fazla ise tarih ve saati göster
+          return new Intl.DateTimeFormat('tr-TR', {
+            day: 'numeric', 
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit'
+          }).format(date);
+        } else {
+          // Aynı gün içindeyse sadece saati göster
+          return new Intl.DateTimeFormat('tr-TR', {
+            hour: '2-digit',
+            minute: '2-digit'
+          }).format(date);
       }
     } catch (error) {
       console.error('Timestamp format error:', error);

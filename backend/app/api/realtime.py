@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Any, List, Dict, Optional
@@ -86,13 +87,23 @@ async def websocket_endpoint(websocket: WebSocket, token: str, db: AsyncSession 
                     result = await send_message(db, user.id, recipient_id, content)
                     
                     if result:
-                        # Send to recipient if online
+                        # Send message to recipient if online
                         await manager.send_personal_message({
                             "type": "message",
                             "sender_id": user.id,
                             "recipient_id": recipient_id,
                             "content": content,
                             "timestamp": result["message"].created_at.isoformat()
+                        }, recipient_id)
+                        
+                        # Also send notification event
+                        await manager.send_personal_message({
+                            "type": "notification",
+                            "data": {
+                                "type": "message",
+                                "sender_id": user.id,
+                                "content": f"New message from {result['sender'].first_name}: {content[:30]}..." if len(content) > 30 else f"New message from {result['sender'].first_name}: {content}"
+                            }
                         }, recipient_id)
                 
                 elif message_data["type"] == "ping":
@@ -121,6 +132,60 @@ async def websocket_endpoint(websocket: WebSocket, token: str, db: AsyncSession 
         except Exception:
             pass  # Already closed or other error
 
+async def broadcast_notification(
+    manager: ConnectionManager,
+    user_id: str, 
+    notification_type: str, 
+    sender_id: str = None, 
+    content: str = None
+):
+    """
+    Broadcast a notification to a user over WebSocket if they're connected
+    """
+    try:
+        if user_id in manager.active_connections:
+            notification_data = {
+                "type": "notification",
+                "data": {
+                    "type": notification_type,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            }
+            
+            if sender_id:
+                notification_data["data"]["sender_id"] = sender_id
+                
+            if content:
+                notification_data["data"]["content"] = content
+                
+            await manager.send_personal_message(notification_data, user_id)
+            logger.info(f"Sent {notification_type} notification to user {user_id}")
+    except Exception as e:
+        logger.error(f"Error broadcasting notification: {str(e)}")
+
+
+async def send_message_with_notification(db: AsyncSession, sender_id: str, recipient_id: str, content: str) -> Optional[Dict[str, Any]]:
+    """
+    Send a message from one user to another and broadcast notification
+    """
+    # First, use the existing send_message function
+    result = await send_message(db, sender_id, recipient_id, content)
+    
+    if result:
+        # Get sender info for notification
+        sender = result["sender"]
+        
+        # Broadcast notification to recipient
+        await broadcast_notification(
+            manager,
+            recipient_id,
+            "message",
+            sender_id,
+            f"{sender.first_name} size yeni bir mesaj gönderdi: '{content[:30]}...'" if len(content) > 30 else f"{sender.first_name} size yeni bir mesaj gönderdi: '{content}'"
+        )
+    
+    return result
+        
 
 @router.get("/notifications", response_model=List[Dict[str, Any]])
 async def read_notifications(
@@ -217,21 +282,13 @@ async def create_message(
     """
     Send a message to another user
     """
-    result = await send_message(db, current_user.id, message_data.recipient_id, message_data.content)
+    result = await send_message_with_notification(db, current_user.id, message_data.recipient_id, message_data.content)
     
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Could not send message. You might not be connected with this user."
         )
-    
-    # Send real-time notification via WebSocket if recipient is online
-    await manager.send_personal_message({
-        "type": "message",
-        "sender_id": current_user.id,
-        "content": message_data.content,
-        "timestamp": result["message"].created_at.isoformat()
-    }, message_data.recipient_id)
     
     return result["message"]
 

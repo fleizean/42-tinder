@@ -151,11 +151,11 @@ A modern dating web application inspired by Tinder, built as part of 42 School's
 <div class="checklist-container">
 
 - [x] Notify users when:
-  - [ ] They receive a new like 🤔
+  - [x] They receive a new like 🤔
   - [x] Their profile is viewed
   - [x] They receive a new message
-  - [x] A "liked" user likes them back
-  - [ ] A connected user "unlikes" them 🤔
+  - [X] A "liked" user likes them back
+  - [X] A connected user "unlikes" them 🤔
 - [x] Display unread notifications on all pages
 - [x] Ensure notifications update within 10 seconds
 

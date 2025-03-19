@@ -101,7 +101,6 @@ const ForgotPasswordPage = () => {
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            // ...existing mask and paths...
             <defs>
               <linearGradient
                 id="paint0_linear_95:1005"

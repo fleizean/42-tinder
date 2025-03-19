@@ -268,12 +268,12 @@ const SignupPage = () => {
                           {" "}
                           Şartlar ve Koşullar{" "}
                         </a>
-                        'ı ve
+                        ı ve
                         <a href="/privacy" className="text-[#D63384] hover:text-[#8A2BE2] transition-colors duration-300">
                           {" "}
                           Gizlilik Politikası{" "}
                         </a>
-                        'nı kabul etmiş olursunuz.
+                        nı kabul etmiş olursunuz.
                       </span>
                     </label>
                   </div>

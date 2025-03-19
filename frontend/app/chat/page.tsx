@@ -8,7 +8,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast, Toaster } from "react-hot-toast";
 import { Metadata } from "next";
-import WebSocketService from "@/services/websocket";
+import WebSocketService from "@/services/websocket";  
 
 const metadata: Metadata = {
   title: "Mesajlar | CrushIt",
@@ -88,6 +88,7 @@ const ChatPage = () => {
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
   const [isBlockLoading, setIsBlockLoading] = useState(false);
   const [isReportLoading, setIsReportLoading] = useState(false);
+
   useEffect(() => {
     document.title = metadata.title as string;
 
@@ -100,180 +101,32 @@ const ChatPage = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    // Temizleme işlevi için bir bayrak
-    let isMounted = true;
+  const fetchUserProfileDetails = async (username: string) => {
+    if (!session?.user?.accessToken) return null;
 
-    if (session?.user?.accessToken) {
-      // WebSocket'i kur
-      setupWebSocket();
-
-      // Konuşmaları getir
-      fetchConversations();
-
-      // Aktif sohbet varsa mesajları getir
-      if (activeChat) {
-        fetchMessages(activeChat);
-      }
-    }
-
-    return () => {
-      isMounted = false;
-      // Bileşen kaldırıldığında WebSocket bağlantısını kapat
-      wsService.current.disconnect();
-    };
-  }, [session, activeChat]);
-
-
-  useEffect(() => {
-    if (activeChat) {
-      fetchMessages(activeChat);
-    }
-  }, [activeChat]);
-
-  useEffect(() => {
-    const fetchCurrentUser = async () => {
-      if (!session?.user?.accessToken) return;
-
-      try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/users/me`,
-          {
-            headers: {
-              'Authorization': `Bearer ${session.user.accessToken}`,
-            }
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/get-by-username/${username}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+            'Content-Type': 'application/json',
           }
-        );
-
-        if (response.ok) {
-          const userData = await response.json();
-          setCurrentUserId(userData.id);
         }
-      } catch (error) {
-        console.error("Failed to fetch current user:", error);
-      }
-    };
-
-    fetchCurrentUser();
-  }, [session]);
-
-  const setupWebSocket = () => {
-    if (!session?.user?.accessToken || !process.env.NEXT_PUBLIC_BACKEND_API_URL) {
-      toast.error('WebSocket bağlantısı kurulamadı');
-      return;
-    }
-
-    // First, clean up by disconnecting any existing connection
-    wsService.current.disconnect();
-
-    // Define handlers
-    // WebSocket mesaj işleyiciyi güncelleyin
-    const handleWsMessage = (data: any) => {
-      console.log("WebSocket message received:", data);
-    
-      if (data.type === 'message') {
-        // Gelen mesaj mevcut aktif sohbeti ilgilendiriyor mu kontrol et
-        const isCurrentChat =
-          activeChat &&
-          (data.sender_id === activeChat || data.recipient_id === activeChat);
-
-        // Eğer bu aktif sohbetle ilgiliyse mesajlar listesine ekle
-        if (isCurrentChat) {
-          // Mesaj zaman damgasını doğru formatta ayarla
-          const timestamp = data.timestamp || new Date().toISOString();
-
-          // Yeni mesajı oluştur
-          const newMsg: Message = {
-            id: data.id || Date.now().toString(),
-            sender_id: data.sender_id,
-            recipient_id: data.recipient_id || currentUserId,
-            content: data.content,
-            timestamp: timestamp,
-            is_read: false
-          };
-
-          // Mesajlar listesini güncelle
-          setMessages(prevMessages => {
-            // Eğer mesaj zaten listede varsa tekrar ekleme
-            const msgExists = prevMessages.some(m => m.id === newMsg.id);
-            if (msgExists) return prevMessages;
-
-            // Yeni mesaj dizisini oluştur
-            const updatedMessages = [...prevMessages, newMsg];
-
-            // Mesaj eklendikten sonra, setTimeout ile aşağı kaydır
-            setTimeout(() => {
-              scrollToBottom();
-            }, 100);
-
-            return updatedMessages;
-          });
-
-          // Otomatik olarak en aşağı kaydır
-
-        }
-
-        // Her durumda konuşma listesini güncelle
-        fetchConversations();
-      }
-    };
-
-
-    const handleWsConnect = () => {
-      console.log('WebSocket connected successfully');
-      setWsConnected(true);
-    };
-
-    const handleWsDisconnect = () => {
-      console.log('WebSocket disconnected');
-      setWsConnected(false);
-    };
-
-    const handleWsError = (error: Event) => {
-      console.error('WebSocket error occurred');
-      setWsConnected(false);
-      // Don't show a toast on initial error - this can be annoying for users
-    };
-
-    // Clear any existing handlers
-    wsService.current.removeMessageHandler(handleWsMessage);
-    wsService.current.removeConnectHandler(handleWsConnect);
-    wsService.current.removeDisconnectHandler(handleWsDisconnect);
-    wsService.current.removeErrorHandler(handleWsError);
-
-    // Add new handlers
-    wsService.current.addMessageHandler(handleWsMessage);
-    wsService.current.addConnectHandler(handleWsConnect);
-    wsService.current.addDisconnectHandler(handleWsDisconnect);
-    wsService.current.addErrorHandler(handleWsError);
-
-    // Initialize connection only once, after a small delay
-    setTimeout(() => {
-      wsService.current.connect(
-        process.env.NEXT_PUBLIC_BACKEND_API_URL,
-        session.user.accessToken
       );
-    }, 500);
-  };
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value.toLowerCase();
-    setSearchQuery(query);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user profile');
+      }
 
-    if (!query.trim()) {
-      // Arama sorgusu yoksa filtrelenmiş konuşmaları temizle
-      setFilteredConversations([]);
-      return;
+      return await response.json();
+    } catch (error) {
+      console.error('Profile fetch error:', error);
+      toast.error('Profil bilgileri yüklenemedi');
+      return null;
     }
-
-    // İsime göre filtreleme yapın
-    const filtered = conversations.filter(conv =>
-      `${conv.user.first_name} ${conv.user.last_name}`.toLowerCase().includes(query) ||
-      (conv.recent_message?.content && conv.recent_message.content.toLowerCase().includes(query))
-    );
-
-    setFilteredConversations(filtered);
   };
+
 
   const fetchConversations = async () => {
     if (!session?.user?.accessToken) return;
@@ -415,6 +268,183 @@ const ChatPage = () => {
     }
   };
 
+  
+
+  const setupWebSocket = () => {
+    if (!session?.user?.accessToken || !process.env.NEXT_PUBLIC_BACKEND_API_URL) {
+      toast.error('WebSocket bağlantısı kurulamadı');
+      return;
+    }
+
+    // First, clean up by disconnecting any existing connection
+    wsService.current.disconnect();
+
+    // Define handlers
+    // WebSocket mesaj işleyiciyi güncelleyin
+    const handleWsMessage = (data: any) => {
+      console.log("WebSocket message received:", data);
+    
+      if (data.type === 'message') {
+        // Gelen mesaj mevcut aktif sohbeti ilgilendiriyor mu kontrol et
+        const isCurrentChat =
+          activeChat &&
+          (data.sender_id === activeChat || data.recipient_id === activeChat);
+
+        // Eğer bu aktif sohbetle ilgiliyse mesajlar listesine ekle
+        if (isCurrentChat) {
+          // Mesaj zaman damgasını doğru formatta ayarla
+          const timestamp = data.timestamp || new Date().toISOString();
+
+          // Yeni mesajı oluştur
+          const newMsg: Message = {
+            id: data.id || Date.now().toString(),
+            sender_id: data.sender_id,
+            recipient_id: data.recipient_id || currentUserId,
+            content: data.content,
+            timestamp: timestamp,
+            is_read: false
+          };
+
+          // Mesajlar listesini güncelle
+          setMessages(prevMessages => {
+            // Eğer mesaj zaten listede varsa tekrar ekleme
+            const msgExists = prevMessages.some(m => m.id === newMsg.id);
+            if (msgExists) return prevMessages;
+
+            // Yeni mesaj dizisini oluştur
+            const updatedMessages = [...prevMessages, newMsg];
+
+            // Mesaj eklendikten sonra, setTimeout ile aşağı kaydır
+            setTimeout(() => {
+              scrollToBottom();
+            }, 100);
+
+            return updatedMessages;
+          });
+
+          // Otomatik olarak en aşağı kaydır
+
+        }
+
+        // Her durumda konuşma listesini güncelle
+        fetchConversations();
+      }
+    };
+
+
+    const handleWsConnect = () => {
+      console.log('WebSocket connected successfully');
+      setWsConnected(true);
+    };
+
+    const handleWsDisconnect = () => {
+      console.log('WebSocket disconnected');
+      setWsConnected(false);
+    };
+
+    const handleWsError = (error: Event) => {
+      console.error('WebSocket error occurred');
+      setWsConnected(false);
+      // Don't show a toast on initial error - this can be annoying for users
+    };
+
+    // Clear any existing handlers
+    wsService.current.removeMessageHandler(handleWsMessage);
+    wsService.current.removeConnectHandler(handleWsConnect);
+    wsService.current.removeDisconnectHandler(handleWsDisconnect);
+    wsService.current.removeErrorHandler(handleWsError);
+
+    // Add new handlers
+    wsService.current.addMessageHandler(handleWsMessage);
+    wsService.current.addConnectHandler(handleWsConnect);
+    wsService.current.addDisconnectHandler(handleWsDisconnect);
+    wsService.current.addErrorHandler(handleWsError);
+
+    // Initialize connection only once, after a small delay
+    setTimeout(() => {
+      wsService.current.connect(
+        process.env.NEXT_PUBLIC_BACKEND_API_URL,
+        session.user.accessToken
+      );
+    }, 500);
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const wsServiceRef = wsService.current;
+  
+    if (session?.user?.accessToken) {
+      setupWebSocket();
+      fetchConversations();
+  
+      if (activeChat) {
+        fetchMessages(activeChat);
+      }
+    }
+  
+    return () => {
+      isMounted = false;
+      wsServiceRef.disconnect();
+    };
+  }, [session, activeChat, fetchConversations, fetchMessages, setupWebSocket]);
+
+  useEffect(() => {
+    if (activeChat) {
+      fetchMessages(activeChat);
+    }
+  }, [activeChat, fetchMessages]); // <-- eksik bağımlılık eklendi
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      if (!session?.user?.accessToken) return;
+
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/users/me`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.user.accessToken}`,
+            }
+          }
+        );
+
+        if (response.ok) {
+          const userData = await response.json();
+          setCurrentUserId(userData.id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch current user:", error);
+      }
+    };
+
+    fetchCurrentUser();
+  }, [session]);
+
+  
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value.toLowerCase();
+    setSearchQuery(query);
+
+    if (!query.trim()) {
+      // Arama sorgusu yoksa filtrelenmiş konuşmaları temizle
+      setFilteredConversations([]);
+      return;
+    }
+
+    // İsime göre filtreleme yapın
+    const filtered = conversations.filter(conv =>
+      `${conv.user.first_name} ${conv.user.last_name}`.toLowerCase().includes(query) ||
+      (conv.recent_message?.content && conv.recent_message.content.toLowerCase().includes(query))
+    );
+
+    setFilteredConversations(filtered);
+  };
+
+ 
+
+  
+
   // handleSendMessage fonksiyonunda WebSocket kontrolünü güncelleyin
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -493,12 +523,12 @@ const ChatPage = () => {
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
     }
   };
-
   useEffect(() => {
     if (activeChat && conversations.length > 0) {
       const conversation = conversations.find(c => c.user.id === activeChat);
-  
+      
       if (conversation) {
+        // Süslü parantezleri ekledik
         // Mevcut avatar'ı saklayalım, böylece zaten yüklenen fotoğraf kaybolmaz
         const currentAvatar = activeChatUser?.avatar;
         
@@ -516,7 +546,7 @@ const ChatPage = () => {
         });
       }
     }
-  }, [activeChat, conversations]);
+  }, [activeChat, conversations, activeChatUser]);
 
   // İlk olarak conversations bağımlılığını ekleyelim
   useEffect(() => {
@@ -536,16 +566,16 @@ const ChatPage = () => {
   // WebSocket bağlantı durumunu düzenli olarak kontrol et
   useEffect(() => {
     if (!session?.user?.accessToken) return;
-
+  
     const interval = setInterval(() => {
       if (!wsService.current.isConnected()) {
         setupWebSocket();
       }
-    }, 5000); // Her 5 saniyede bir kontrol et
-
+    }, 5000);
+  
     return () => clearInterval(interval);
-  }, [session]);
-
+  }, [session, setupWebSocket]);
+  
     const handleSelectChat = async (userId: string, username: string, user: ChatUser) => {
     // Önce mevcut bilgileri ayarla
     setActiveChat(userId);
@@ -751,26 +781,7 @@ const ChatPage = () => {
     }
   };
 
-  const fetchUserProfileDetails = async (username: string) => {
-    if (!session?.user?.accessToken) return null;
   
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/get-for-chat/${username}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${session.user.accessToken}`,
-          }
-        }
-      );
-  
-      if (!response.ok) return null;
-      return await response.json();
-    } catch (error) {
-      console.error('User profile fetch error:', error);
-      return null;
-    }
-  };
 
   useEffect(() => {
     const fetchUserDetailsForUrl = async () => {
@@ -795,7 +806,7 @@ const ChatPage = () => {
     if (activeChat) {
       fetchUserDetailsForUrl();
     }
-  }, [activeChat, conversations]);
+  }, [activeChat, conversations, fetchUserProfileDetails]);
 
   return (
     <section className="pt-[100px] pb-[60px] bg-[#1C1C1E] min-h-screen">
@@ -902,14 +913,14 @@ const ChatPage = () => {
                 <div className="flex flex-col items-center justify-center h-full p-4 text-center">
                   <p className="text-gray-400 mb-2">Henüz aktif sohbet bulunmuyor</p>
                   <p className="text-gray-500 text-sm">
-                    Birileriyle "eşleştiğinizde" burada onlarla sohbet edebilirsiniz
+                    Birileriyle eşleştiğinizde burada onlarla sohbet edebilirsiniz
                   </p>
                 </div>
               )}
 
               {searchQuery && filteredConversations.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-32 p-4 text-center">
-                  <p className="text-gray-400">"{searchQuery}" için sonuç bulunamadı</p>
+                  <p className="text-gray-400">{searchQuery} için sonuç bulunamadı</p>
                   <p className="text-gray-500 text-sm mt-2">
                     Farklı bir arama terimi deneyebilir veya filtrelerinizi temizleyebilirsiniz
                   </p>

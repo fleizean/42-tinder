@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import SectionTitle from "../Common/SectionTitle";
 import { useState } from "react";
+import { Image } from "lucide-react";
 import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
 
 const successStories = [

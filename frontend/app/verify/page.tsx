@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { FaHeart } from 'react-icons/fa';
 
@@ -16,7 +16,8 @@ const metadata = {
   }
 };
 
-export default function VerifyPage() {
+// Client component that uses useSearchParams
+function VerifyContent() {
   const searchParams = useSearchParams();
   const [verificationStatus, setVerificationStatus] = useState<'loading' | 'success' | 'error'>('loading');
 
@@ -63,6 +64,7 @@ export default function VerifyPage() {
 
     verifyToken();
   }, [searchParams]);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1C1C1E] via-[#8A2BE2]/10 to-[#D63384]/10">
       <div className="bg-white/10 backdrop-blur-sm p-8 rounded-lg shadow-xl max-w-md w-full text-center border border-pink-500/20">
@@ -94,5 +96,23 @@ export default function VerifyPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// Main page component with Suspense
+export default function VerifyPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1C1C1E] via-[#8A2BE2]/10 to-[#D63384]/10">
+        <div className="bg-white/10 backdrop-blur-sm p-8 rounded-lg shadow-xl max-w-md w-full text-center border border-pink-500/20">
+          <div className="animate-pulse text-pink-500 text-6xl mb-4">
+            <FaHeart className="mx-auto" />
+          </div>
+          <p className="mt-4 text-white">Yükleniyor...</p>
+        </div>
+      </div>
+    }>
+      <VerifyContent />
+    </Suspense>
   );
 }

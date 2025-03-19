@@ -18,7 +18,7 @@ const Quote = () => {
             Aşk Bir Tık Uzağında
           </h1>
           <p className="text-xl md:text-2xl text-gray-200 max-w-2xl mx-auto italic">
-            "Gerçek aşk, iki ruhun birbiriyle dans ettiği ve iki kalbin aynı ritimde attığı andır."
+            Gerçek aşk, iki ruhun birbiriyle dans ettiği ve iki kalbin aynı ritimde attığı andır.
           </p>
         </div>
       </div>

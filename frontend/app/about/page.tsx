@@ -25,17 +25,17 @@ const AboutPage = () => {
   ]);
 
   useEffect(() => {
-        document.title = metadata.title as string;
-        const metaDescription = document.querySelector('meta[name="description"]');
-        if (metaDescription) {
-          metaDescription.setAttribute("content", metadata.description as string);
-        } else {
-          const meta = document.createElement("meta");
-          meta.name = "description";
-          meta.content = metadata.description as string;
-          document.head.appendChild(meta);
-        }
-      }, [metadata]);
+    document.title = metadata.title as string;
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute("content", metadata.description as string);
+    } else {
+      const meta = document.createElement("meta");
+      meta.name = "description";
+      meta.content = metadata.description as string;
+      document.head.appendChild(meta);
+    }
+  }, []);
   
       const [isLoading, setIsLoading] = useState(true);
 

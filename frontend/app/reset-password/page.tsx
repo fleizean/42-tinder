@@ -1,14 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast, Toaster } from "react-hot-toast";
+import { Metadata } from 'next'
+
+
+
+const metadata: Metadata = {
+  title: "Şifre Sıfırlama - CrushIt",
+  description: "Yeni şifrenizi belirleyin ve hesabınıza tekrar giriş yapın.",
+}
 
 const ResetPasswordPage = () => {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    document.title = metadata.title as string;
+  }
+  , []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -97,7 +97,7 @@ async def login_json(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Şifre veya kullanıcı adı hatalı",
+            detail="Kullanıcı adı veya şifre hatalı",
         )
     
     if not user.is_verified:
@@ -126,11 +126,11 @@ async def verify_email(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired verification token"
+            detail="Geçersiz veya süresi dolmuş onay kodu"
         )
     
     return {
-        "message": "Email verified successfully. You can now log in."
+        "message": "Başarıyla onaylandı. Artık giriş yapabilirsiniz."
     }
 
 

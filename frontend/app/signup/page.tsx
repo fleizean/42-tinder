@@ -46,23 +46,24 @@ const SignupPage = () => {
     }
   }, [metadata]);
 
-  const handleSignup = async (e: React.FormEvent) => {
+    const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Form validation stays the same
     if (!name || !surname || !username || !email || !password || !passwordConfirm) {
       toast.error("Lütfen tüm alanları doldurunuz.");
       return;
     }
-
+  
     if (password !== passwordConfirm) {
       toast.error("Şifreler uyuşmuyor.");
       return;
     }
-
+  
     if (!hasAcceptedPolicy) {
       toast.error("Şartlar ve koşulları kabul etmelisiniz.");
       return;
     }
-
+  
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/auth/register`, {
         method: "POST",
@@ -77,15 +78,41 @@ const SignupPage = () => {
           is_active: true,
         }),
       });
-      if (!response.ok) {
-        throw new Error("Kayıt olurken bir hata oluştu.");
+  
+      // API yanıtını JSON olarak parse et (başarılı veya başarısız olsun)
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error("Error parsing JSON response:", jsonError);
+        data = {}; // Parse edilemezse boş bir nesne kullan
       }
-      // Kaydolma başarılı, yönlendirme veya işlem yapılabilir
+  
+      if (!response.ok) {
+        // API'den gelen hata mesajını gösterelim
+        if (data.detail) {
+          setError(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail));
+          toast.error(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail));
+        } else {
+          const errorMsg = `Kayıt olurken bir hata oluştu. (${response.status}: ${response.statusText})`;
+          setError(errorMsg);
+          toast.error(errorMsg);
+        }
+        return;
+      }
+        
+      // Kaydolma başarılı
       toast.success("Kayıt başarılı! Giriş sayfasına yönlendiriliyorsunuz...");
       router.push("/signin");
     } catch (error) {
-      console.error("Signup error:", error);
-      toast.error("Kayıt sırasında bir hata oluştu.");
+      // Bu catch bloğu sadece ağ hataları (network errors) içindir
+      console.error("Network error during signup:", error);
+      const errorMessage = error instanceof Error ? 
+        `Bağlantı hatası: ${error.message}` : 
+        "Sunucuyla bağlantı kurulamadı. Lütfen internet bağlantınızı kontrol edin.";
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 

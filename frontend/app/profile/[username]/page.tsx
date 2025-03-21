@@ -665,6 +665,7 @@ const ProfilePage = () => {
                 fill
                 priority
                 className="object-cover w-full h-full"
+                unoptimized
               />
             </div>
             <div className="absolute -bottom-16 left-8">
@@ -675,6 +676,7 @@ const ProfilePage = () => {
                   fill
                   sizes="100%"
                   className="object-cover"
+                  unoptimized
                 />
                 <div className={`absolute bottom-4 right-4 w-6 h-6 rounded-full border-2 border-[#2C2C2E] ${profile.is_online ? 'bg-green-500' : 'bg-gray-500'}`} />
               </div>
@@ -884,6 +886,7 @@ const ProfilePage = () => {
                         onError={(e) => {
                           e.currentTarget.src = '/images/defaults/man-default.png';
                         }}
+                        unoptimized
                       />
                       {profile.pictures[0].is_primary && (
                         <div className="absolute top-2 right-2 bg-[#D63384] text-white text-xs px-2 py-1 rounded-full">
@@ -912,6 +915,7 @@ const ProfilePage = () => {
                             onError={(e) => {
                               e.currentTarget.src = '/images/defaults/man-default.png';
                             }}
+                            unoptimized
                           />
                           {picture.is_primary && (
                             <div className="absolute top-2 right-2 bg-[#D63384] text-white text-xs px-2 py-1 rounded-full">
@@ -956,6 +960,7 @@ const ProfilePage = () => {
                 style={{ width: "100%", height: "auto" }}
                 className="max-w-full max-h-[90vh] object-contain"
                 priority
+                unoptimized
               />
             </div>
           )}
@@ -997,6 +1002,7 @@ const ProfilePage = () => {
                               onError={(e) => {
                                 e.currentTarget.src = '/images/defaults/man-default.png';
                               }}
+                              unoptimized
                             />
                             {visitor.is_online && (
                               <div className="absolute bottom-2 right-2 w-3 h-3 bg-green-500 rounded-full border-2 border-[#2C2C2E]" />
@@ -1050,6 +1056,7 @@ const ProfilePage = () => {
                               onError={(e) => {
                                 e.currentTarget.src = '/images/defaults/man-default.png';
                               }}
+                              unoptimized
                             />
                             {liker.is_online && (
                               <div className="absolute bottom-2 right-2 w-3 h-3 bg-green-500 rounded-full border-2 border-[#2C2C2E]" />
@@ -1103,6 +1110,7 @@ const ProfilePage = () => {
                               onError={(e) => {
                                 e.currentTarget.src = '/images/defaults/man-default.png';
                               }}
+                              unoptimized
                             />
                             {match.is_online && (
                               <div className="absolute bottom-2 right-2 w-3 h-3 bg-green-500 rounded-full border-2 border-[#2C2C2E]" />

@@ -897,6 +897,7 @@ const SettingsPage = () => {
                                   priority
                                   sizes="%100"
                                   className="object-cover"
+                                  unoptimized
                                 />
                                 <div className="absolute top-2 left-2 flex space-x-2">
                                   {profileInfo.photos[index].is_primary ? (
@@ -1315,6 +1316,7 @@ const SettingsPage = () => {
                                 fill
                                 sizes="%100"
                                 className="object-cover"
+                                unoptimized
                               />
                             </div>
                             <span className="text-white">{user.first_name} {user.last_name}</span>

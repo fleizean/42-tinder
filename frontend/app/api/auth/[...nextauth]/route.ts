@@ -21,7 +21,7 @@ const handler = NextAuth({
         try {          
 
           // Regular Login
-          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/auth/login/json`, {
+          const res = await fetch(`${process.env.NEXT_AUTH_BACKEND_URL}/api/auth/login/json`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

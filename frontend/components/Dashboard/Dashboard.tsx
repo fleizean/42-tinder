@@ -8,6 +8,7 @@ import "rc-slider/assets/index.css";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Profile {
   id: string;
@@ -65,6 +66,7 @@ enum SortOption {
 }
 
 const Dashboard = () => {
+  const router = useRouter();
   const DEFAULT_MIN_AGE = 18;
   const DEFAULT_MAX_AGE = 99;
   const DEFAULT_MIN_FAME = 0;
@@ -273,19 +275,9 @@ const Dashboard = () => {
   }, [profiles, session]);
 
   // Sayfa yüklendiğinde kullanıcı profilini getir
-  useEffect(() => {
-    if (session?.user?.accessToken) {
-      setPage(0);
-      setLoadedProfileIds(new Set()); // Yüklenen profiller listesini sıfırla
-      fetchProfiles();
-    }
-  }, [session, filters]);
 
-  const checkForDuplicates = (currentProfiles: SuggestedProfile[], newProfiles: SuggestedProfile[]): SuggestedProfile[] => {
-    const currentIds = new Set(currentProfiles.map(p => p.id));
-    return newProfiles.filter(profile => !currentIds.has(profile.id));
-  };
 
+  
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371; // Dünya'nın yarıçapı (km)
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -315,7 +307,7 @@ const Dashboard = () => {
         limit: '10',
         offset: (page * 10).toString(),
       });
-
+  
       // Filtre parametrelerini ekle
       if (page > 0 || filtersApplied) {
         queryParams.append('min_age', filters.min_age.toString());
@@ -323,16 +315,14 @@ const Dashboard = () => {
         queryParams.append('min_fame', filters.min_fame.toString());
         queryParams.append('max_fame', filters.max_fame.toString());
         queryParams.append('max_distance', filters.max_distance.toString());
-
+  
         if (filters.tags.length > 0) {
           filters.tags.forEach(tag => {
             queryParams.append('tags', tag);
           });
         }
       }
-
-      console.log(`Profiller yükleniyor... sayfa: ${page + 1}`);
-
+  
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/suggested?${queryParams}`,
         {
@@ -342,67 +332,120 @@ const Dashboard = () => {
           }
         }
       );
-
-      if (!response.ok) throw new Error('Failed to fetch profiles');
-
+  
+      // Hata kontrolü - daha detaylı debug logları
+      if (!response.ok) {
+        const responseText = await response.text(); // Önce text olarak yanıtı al
+        console.log("API Hata yanıtı:", responseText);
+        
+        // Ardından JSON olarak parse etmeyi dene
+        let errorMessage;
+        try {
+          const errorData = JSON.parse(responseText);
+          console.log("Parse edilen hata:", errorData);
+          
+          // API'den dönen detail bilgisine göre hata mesajını oluştur
+          if (typeof errorData.detail === 'string') {
+            errorMessage = errorData.detail;
+          } else if (Array.isArray(errorData.detail)) {
+            errorMessage = errorData.detail.map(err => err.msg || JSON.stringify(err)).join(', ');
+          } else if (errorData.detail && typeof errorData.detail === 'object') {
+            errorMessage = JSON.stringify(errorData.detail);
+          } else {
+            errorMessage = `Profiller yüklenirken bir hata oluştu: ${response.status}`;
+          }
+        } catch (parseError) {
+          console.error("JSON parse hatası:", parseError);
+          errorMessage = `Profiller yüklenirken bir hata oluştu: ${response.status} - ${response.statusText}`;
+        }
+        
+        // Özel durumları kontrol et
+        if (errorMessage.includes("profilinizi tamamlayın")) {
+          // Benzersiz ID ile toast göster
+          toast.dismiss('profile-incomplete-toast');
+          toast.error("Lütfen profilinizi tamamlayın", { 
+            id: 'profile-incomplete-toast',
+            duration: 5000,
+            position: 'top-center'
+          });
+          
+          // Yönlendirme işlemi
+          setTimeout(() => {
+            router.push('/settings');
+          }, 500);
+          
+          return; // Fonksiyondan çık
+        }
+        
+        throw new Error(errorMessage);
+      }
+  
       const data = await response.json();
-
-      // Yeni ve daha önce yüklenmemiş profilleri filtrele
+  
+      // Geri kalan kod değişmeden kalabilir...
       const uniqueNewProfiles = data.filter((profile: SuggestedProfile) =>
         !loadedProfileIds.has(profile.id)
       );
-
-      // Yeni profil yoksa, daha fazla yüklemeyi durdur
+  
       if (uniqueNewProfiles.length === 0) {
         setHasMore(false);
         return;
       }
-
-      // Yeni profil ID'lerini ekle
+  
       const updatedProfileIds = new Set(loadedProfileIds);
       uniqueNewProfiles.forEach((profile: SuggestedProfile) => {
         updatedProfileIds.add(profile.id);
       });
       setLoadedProfileIds(updatedProfileIds);
-
-      // Profilleri güncelle
+  
       setProfiles(prev =>
         page === 0 ? uniqueNewProfiles : [...prev, ...uniqueNewProfiles]
       );
-
-      // Daha fazla veri var mı kontrolü
+  
       setHasMore(data.length === 10);
-
-      console.log(`Yüklenen benzersiz yeni profil sayısı: ${uniqueNewProfiles.length}`);
-
+  
     } catch (error) {
-      console.error('Error fetching profiles:', error);
-      toast.error('Profiller yüklenirken bir hata oluştu');
+      console.error("Profil yükleme hatası:", error);
+      
+      // Benzersiz ID ile toast göster
+      toast.dismiss('profile-loading-error');
+      try {
+        toast.error(error instanceof Error ? error.message : 'Profiller yüklenirken bir hata oluştu', {
+          id: 'profile-loading-error',
+          duration: 4000
+        });
+      } catch (toastError) {
+        console.error("Toast hatası:", toastError);
+      }
+      
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
+  if (!session?.user?.accessToken) return;
+  
+  const initializeData = async () => {
+    setIsLoading(true);
+    await fetchUserProfile();
+    setPage(0);
+    setLoadedProfileIds(new Set());
+    await fetchProfiles();
+  };
+  
+  // SESSION DEĞIŞTIĞINDE VE FILTERS DEĞİŞTİĞİNDE ÇALIŞIR
+  initializeData();
+
+  // Page değişikliği için bağımsız useEffect kullanacağız
+}, [session, filters]);
+
+  // Filtreler değiştiğinde ayrı bir useEffect kullanın
+  useEffect(() => {
     if (page > 0 && session?.user?.accessToken) {
       fetchProfiles();
     }
   }, [page]);
-
-  useEffect(() => {
-    if (session?.user?.accessToken) {
-      setPage(0);
-      fetchProfiles();
-    }
-  }, [session, filters]);
-
-  const handleFilterChange = (newFilters: Partial<FilterState>) => {
-    setFilters(prev => ({
-      ...prev,
-      ...newFilters
-    }));
-    setPage(0);
-  };
 
   const calculateAge = (birthDate: string): number => {
     if (!birthDate) return 0;
@@ -707,6 +750,7 @@ const Dashboard = () => {
                                 priority
                                 sizes="100%"
                                 className="object-cover"
+                                unoptimized
                               />
                               <button
                                 onClick={(e) => {

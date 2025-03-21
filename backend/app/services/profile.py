@@ -86,14 +86,17 @@ def is_profile_complete(profile: Profile) -> bool:
     # Check if all required fields are filled
     for field in required_fields:
         if not getattr(profile, field):
+            print(f"Profile is incomplete: missing field '{field}'")
             return False
     
     # Check if profile has at least one picture
     if not profile.pictures or len(profile.pictures) == 0:
+        print("Profile is incomplete: no pictures")
         return False
     
     # Check if profile has at least one tag
     if not profile.tags or len(profile.tags) == 0:
+        print("Profile is incomplete: no tags")
         return False
     
     return True

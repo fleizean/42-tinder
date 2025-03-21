@@ -22,7 +22,7 @@ export default withAuth(
         try {
           // Check if profile exists
           const profileCheckResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/check-real-profile/${username}`,
+            `${process.env.NEXT_AUTH_BACKEND_URL}/api/profiles/check-real-profile/${username}`,
             {
               headers: {
                 Authorization: `Bearer ${token.accessToken}`,

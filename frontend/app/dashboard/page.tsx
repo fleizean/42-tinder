@@ -2,6 +2,7 @@ import Dashboard from "@/components/Dashboard/Dashboard";
 import Breadcrumb from "@/components/Common/Breadcrumb";
 
 import { Metadata } from "next";
+import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
   title: "Ana Sayfa | CrushIt",
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 const DashboardPage = () => {
   return (
     <>
+       <Toaster position="top-right" />
       <Dashboard />
     </>
   );

@@ -38,3 +38,5 @@ geopy==2.4.1
 unidecode==1.2.0
 Faker==9.9.1
 requests==2.26.0
+
+greenlet

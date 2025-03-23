@@ -156,9 +156,14 @@ class Token(BaseModel):
     token_type: str
 
 
-# Token payload
-class TokenPayload(BaseModel):
-    sub: Optional[str] = None
+# Token pair schema with refresh token
+class TokenPair(Token):
+    refresh_token: str
+
+
+# Refresh token schema
+class RefreshToken(BaseModel):
+    refresh_token: str
 
 
 # Password reset

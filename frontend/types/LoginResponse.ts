@@ -3,7 +3,7 @@ export type LoginResponse = {
   message: string;
   data: {
     accessToken: string;
+    refreshToken: string;
     expiration: string;
-    //refreshToken: string;
   }
 }

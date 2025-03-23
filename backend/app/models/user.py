@@ -23,6 +23,10 @@ class User(Base):
     verification_token = Column(String, nullable=True)
     reset_password_token = Column(String, nullable=True)
     
+    # Refresh token fields
+    refresh_token = Column(String, nullable=True)
+    refresh_token_expires = Column(DateTime, nullable=True)
+    
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

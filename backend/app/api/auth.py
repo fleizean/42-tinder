@@ -5,12 +5,13 @@ from sqlalchemy.future import select
 from typing import Any
 
 from app.core.db import get_db
-from app.core.security import create_access_token, get_current_user
+from app.core.security import create_access_token, create_refresh_token, get_current_user
 from app.models.user import User
-from app.schemas.user import UserCreate, UserLogin, Token, PasswordReset, PasswordChange
+from app.schemas.user import UserCreate, UserLogin, Token, TokenPair, RefreshToken, PasswordReset, PasswordChange
 from app.services.auth import (
     authenticate_user, create_user, verify_user, request_password_reset,
-    reset_password, change_password, update_last_activity
+    reset_password, change_password, update_last_activity, update_refresh_token,
+    validate_refresh_token, invalidate_refresh_token
 )
 
 router = APIRouter()
@@ -55,7 +56,7 @@ async def register(
     }
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=TokenPair)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db)
@@ -77,15 +78,23 @@ async def login(
             detail="Email not verified. Please check your email for verification instructions.",
         )
     
+    # Generate access token
     access_token = create_access_token(user.id)
+    
+    # Generate refresh token
+    refresh_token = create_refresh_token(user.id)
+    
+    # Store refresh token in the database
+    await update_refresh_token(db, user.id, refresh_token)
     
     return {
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer"
     }
 
 
-@router.post("/login/json", response_model=Token)
+@router.post("/login/json", response_model=TokenPair)
 async def login_json(
     login_data: UserLogin,
     db: AsyncSession = Depends(get_db)
@@ -106,10 +115,50 @@ async def login_json(
             detail="Email onaylanmamış. Lütfen emailinizi kontrol edin.",
         )
     
+    # Generate access token
     access_token = create_access_token(user.id)
+    
+    # Generate refresh token
+    refresh_token = create_refresh_token(user.id)
+    
+    # Store refresh token in the database
+    await update_refresh_token(db, user.id, refresh_token)
     
     return {
         "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
+
+
+@router.post("/refresh", response_model=TokenPair)
+async def refresh_token_endpoint(
+    refresh_token_data: RefreshToken,
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Refresh access token using refresh token
+    """
+    # Validate refresh token
+    user = await validate_refresh_token(db, refresh_token_data.refresh_token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+    
+    # Generate new access token
+    access_token = create_access_token(user.id)
+    
+    # Generate new refresh token (rotating refresh tokens for better security)
+    new_refresh_token = create_refresh_token(user.id)
+    
+    # Update refresh token in database
+    await update_refresh_token(db, user.id, new_refresh_token)
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": new_refresh_token,
         "token_type": "bearer"
     }
 
@@ -201,34 +250,11 @@ async def logout(
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
-    Logout (update online status)
+    Logout (invalidate refresh token and update online status)
     """
     await update_last_activity(db, current_user.id, is_online=False)
+    await invalidate_refresh_token(db, current_user.id)
     
     return {
         "message": "Logged out successfully"
-    }
-
-
-@router.post("/refresh-token", response_model=Token)
-async def refresh_token(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
-    """
-    Refresh access token
-    """
-    # Since we're using get_current_user, this endpoint will only
-    # work if the token is still valid. To make this more effective,
-    # you should implement refresh tokens, but this is a simpler solution.
-    
-    # Create new access token
-    access_token = create_access_token(current_user.id)
-    
-    # Update last activity
-    await update_last_activity(db, current_user.id, is_online=True)
-    
-    return {
-        "access_token": access_token,
-        "token_type": "bearer"
     }

@@ -1,6 +1,35 @@
-
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+
+interface RefreshTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+}
+
+async function refreshToken(refreshToken: string): Promise<RefreshTokenResponse | null> {
+  try {
+    // Call the backend API to refresh the token
+    const response = await fetch(`${process.env.NEXT_AUTH_BACKEND_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        refresh_token: refreshToken,
+      }),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    return null;
+  }
+}
 
 export default withAuth(
   async function middleware(req) {
@@ -51,15 +80,45 @@ export default withAuth(
     }
 
     // Token expiration check
-    if ((token?.expiration && Date.now() >= new Date(token.expiration).getTime()) || 
-        (!token && !isAuthPage && req.nextUrl.pathname !== "/")) {
-      const response = NextResponse.redirect(new URL("/signin", req.url));
+    if (token?.expiration && Date.now() >= new Date(token.expiration).getTime()) {
+      // Don't try to refresh token for API routes or next internal routes
+      const isNextInternalRoute = req.nextUrl.pathname.startsWith('/_next/') || 
+                                  req.nextUrl.pathname.includes('/__nextjs_');
       
-      response.cookies.delete("next-auth.session-token");
-      response.cookies.delete("next-auth.callback-url");
-      response.cookies.delete("accessToken");
+      // Only attempt refresh for actual page navigations, not for internal Next.js requests
+      if (!isNextInternalRoute && token.refreshToken && !req.headers.get('x-middleware-refresh')) {
+        try {
+          const newTokens = await refreshToken(token.refreshToken);
+          
+          if (newTokens) {
+            // Continue with the request as the token was refreshed
+            // Add a custom header to prevent refresh loops
+            const headers = new Headers(req.headers);
+            headers.set('x-middleware-refresh', '1');
+            
+            const response = NextResponse.next({
+              request: {
+                headers
+              }
+            });
+            
+            return response;
+          }
+        } catch (error) {
+          console.error('Token refresh error in middleware:', error);
+        }
+      }
       
-      return response;
+      // If refresh failed, no refresh token, or already attempted refresh, redirect to login
+      if (!isAuthPage && req.nextUrl.pathname !== "/" && !isNextInternalRoute) {
+        const response = NextResponse.redirect(new URL("/signin", req.url));
+        
+        response.cookies.delete("next-auth.session-token");
+        response.cookies.delete("next-auth.callback-url");
+        response.cookies.delete("accessToken");
+        
+        return response;
+      }
     }
 
     if (token && req.nextUrl.pathname === "/") {
@@ -69,8 +128,6 @@ export default withAuth(
     if (token && isAuthPage) {
       return NextResponse.redirect(new URL("/match", req.url));
     }
-
-    
 
     return NextResponse.next();
   },

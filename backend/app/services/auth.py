@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.core.security import verify_password, get_password_hash, create_access_token
+from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token
 from app.models.user import User
 from app.models.profile import Profile
 from app.services.email import send_verification_email, send_password_reset_email
@@ -178,3 +178,57 @@ async def update_last_activity(db: AsyncSession, user_id: str, is_online: bool =
     await db.refresh(user)
     
     return user
+
+
+async def update_refresh_token(db: AsyncSession, user_id: str, refresh_token: str) -> Optional[User]:
+    """
+    Update user's refresh token
+    """
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user:
+        return None
+    
+    # Update refresh token and expiration
+    user.refresh_token = refresh_token
+    user.refresh_token_expires = datetime.utcnow() + timedelta(days=7)  # Set refresh token to expire after 7 days
+    
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    
+    return user
+
+
+async def validate_refresh_token(db: AsyncSession, refresh_token: str) -> Optional[User]:
+    """
+    Validate a refresh token and return the user if valid
+    """
+    result = await db.execute(select(User).filter(
+        User.refresh_token == refresh_token,
+        User.refresh_token_expires > datetime.utcnow()
+    ))
+    user = result.scalars().first()
+    
+    return user
+
+
+async def invalidate_refresh_token(db: AsyncSession, user_id: str) -> bool:
+    """
+    Invalidate a user's refresh token
+    """
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user:
+        return False
+    
+    # Clear refresh token and expiration
+    user.refresh_token = None
+    user.refresh_token_expires = None
+    
+    db.add(user)
+    await db.commit()
+    
+    return True

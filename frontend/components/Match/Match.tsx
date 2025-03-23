@@ -65,7 +65,7 @@ enum SortOption {
   TAGS_MATCH = 'tags_match'
 }
 
-const Dashboard = () => {
+const Match = () => {
   const router = useRouter();
   const DEFAULT_MIN_AGE = 18;
   const DEFAULT_MAX_AGE = 99;
@@ -886,4 +886,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default Match;

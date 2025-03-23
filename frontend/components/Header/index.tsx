@@ -346,11 +346,11 @@ const Header = () => {
         // Just indicate the unmatch but there's nowhere specific to navigate
         // Show toast notification with more info
         toast.custom(`${notification.message}`);
-        router.push('/dashboard'); // Redirect to dashboard to refresh the matching view
+        router.push('/match'); // Redirect to match to refresh the matching view
         break;
       default:
-        // For unknown notification types, navigate to dashboard
-        router.push('/dashboard');
+        // For unknown notification types, navigate to match
+        router.push('/match');
         break;
     }
   };
@@ -604,7 +604,7 @@ const getNotificationIcon = (type: string) => {
             <div className="relative -mx-4 flex items-center justify-between">
               <div className="w-60 max-w-full px-4 xl:mr-12">
                 <Link
-                  href={session ? "/dashboard" : "/"}
+                  href={session ? "/match" : "/"}
                   className={`header-logo block w-full ${sticky ? "py-5 lg:py-2" : "py-8"
                     } `}
                 >
@@ -713,11 +713,11 @@ const getNotificationIcon = (type: string) => {
                             className="flex items-center px-4 py-2 text-base text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
                           >
                             <FaComment className="mr-2" />
-                            Chat
+                            Sohbet
                           </Link>
 
                           <Link
-                            href="/dashboard"
+                            href="/match"
                             className="flex items-center px-4 py-2 text-base text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
                           >
                             <FaKissWinkHeart className="mr-2" />
@@ -823,11 +823,11 @@ const getNotificationIcon = (type: string) => {
                         className="flex items-center text-base font-medium text-white/90 hover:text-[#D63384] transition-colors duration-300"
                       >
                         <FaComment className="mr-2 text-pink-500 transition-all duration-300 group-hover:scale-110" />
-                        Chat
+                        Sohbet
                       </Link>
 
                       <Link
-                        href="/dashboard"
+                        href="/match"
                         className="flex items-center text-base font-medium text-white/90 hover:text-[#D63384] transition-colors duration-300"
                       >
                         <FaKissWinkHeart className="mr-2 text-pink-500 transition-all duration-300 group-hover:scale-110" />

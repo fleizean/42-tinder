@@ -1,4 +1,4 @@
-import Dashboard from "@/components/Dashboard/Dashboard";
+import Match from "@/components/Match/Match";
 import Breadcrumb from "@/components/Common/Breadcrumb";
 
 import { Metadata } from "next";
@@ -10,13 +10,13 @@ export const metadata: Metadata = {
   // other metadata
 };
 
-const DashboardPage = () => {
+const MatchPage = () => {
   return (
     <>
        <Toaster position="top-right" />
-      <Dashboard />
+      <Match />
     </>
   );
 };
 
-export default DashboardPage;
+export default MatchPage;

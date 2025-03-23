@@ -45,7 +45,7 @@ export default withAuth(
         }
       } else {
         return token 
-          ? NextResponse.redirect(new URL("/dashboard", req.url))
+          ? NextResponse.redirect(new URL("/match", req.url))
           : NextResponse.redirect(new URL("/signin", req.url));
       }
     }
@@ -63,11 +63,11 @@ export default withAuth(
     }
 
     if (token && req.nextUrl.pathname === "/") {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+      return NextResponse.redirect(new URL("/match", req.url));
     }
 
     if (token && isAuthPage) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+      return NextResponse.redirect(new URL("/match", req.url));
     }
 
     
@@ -86,7 +86,7 @@ export const config = {
     "/",
     "/signin",
     "/signup", 
-    "/dashboard",
+    "/match",
     "/first-time",
     "/forgot-password",
     "/profile/:path*",

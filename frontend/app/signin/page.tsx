@@ -55,7 +55,7 @@ const SigninPage = () => {
         usernameOrEmail,
         password,
         redirect: false,
-        callbackUrl: '/dashboard'
+        callbackUrl: '/match'
       });
     
       if (!result?.ok) {
@@ -64,7 +64,7 @@ const SigninPage = () => {
       }
     
       toast.success("Giriş başarılı! Yönlendiriliyorsunuz...");
-      router.push("/dashboard");
+      router.push("/match");
     
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Giriş sırasında bir hata oluştu.");

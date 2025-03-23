@@ -1,8 +1,8 @@
 """Initial migration
 
-Revision ID: 8b502687daa4
+Revision ID: 8a40d5e12eef
 Revises: 
-Create Date: 2025-03-07 18:35:11.045237
+Create Date: 2025-03-24 01:02:26.306267
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '8b502687daa4'
+revision = '8a40d5e12eef'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -37,6 +37,8 @@ def upgrade() -> None:
     sa.Column('is_verified', sa.Boolean(), nullable=True),
     sa.Column('verification_token', sa.String(), nullable=True),
     sa.Column('reset_password_token', sa.String(), nullable=True),
+    sa.Column('refresh_token', sa.String(), nullable=True),
+    sa.Column('refresh_token_expires', sa.DateTime(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('last_login', sa.DateTime(), nullable=True),
@@ -100,6 +102,7 @@ def upgrade() -> None:
     sa.Column('is_complete', sa.Boolean(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.Column('birth_date', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('user_id')
@@ -130,6 +133,7 @@ def upgrade() -> None:
     sa.Column('profile_id', sa.String(), nullable=True),
     sa.Column('file_path', sa.String(), nullable=False),
     sa.Column('is_primary', sa.Boolean(), nullable=True),
+    sa.Column('backend_url', sa.String(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['profile_id'], ['profiles.id'], ),
@@ -150,6 +154,7 @@ def upgrade() -> None:
     sa.Column('is_resolved', sa.Boolean(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('resolved_at', sa.DateTime(), nullable=True),
+    sa.Column('description', sa.Text(), nullable=True),
     sa.ForeignKeyConstraint(['reported_id'], ['profiles.id'], ),
     sa.ForeignKeyConstraint(['reporter_id'], ['profiles.id'], ),
     sa.PrimaryKeyConstraint('id')

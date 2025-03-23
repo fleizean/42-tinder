@@ -561,7 +561,7 @@ const Match = () => {
 
 
               <div className="mb-6">
-                <label className="text-gray-300 mb-2 block">Fame Rating</label>
+                <label className="text-gray-300 mb-2 block">Popülerlik</label>
                 <Slider
                   range
                   min={0}

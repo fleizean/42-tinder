@@ -1,463 +1,876 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Any, List
-from app.api.realtime import manager
-from app.core.db import get_db
-from app.core.security import  get_current_verified_user
-from app.models.user import User
-from app.models.interactions import Like
-from app.models.profile import Profile
-from app.schemas.interactions import LikeCreate,  BlockCreate, ReportCreate
-from app.schemas.profile import PublicProfile
-from app.services.profile import get_profile_by_user_id, get_profile_by_username
-from app.services.interactions import (
-    get_blocks_sent,
-    is_blocked,
-    like_profile,
-    unlike_profile,
-    block_profile,
-    unblock_profile,
-    report_profile,
-    get_likes_received,
-    get_visits_received,
-    get_matches,
-    visit_profile
-)
-from app.api.realtime import broadcast_notification
+from datetime import datetime, timedelta
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import JSONResponse
+from typing import List, Optional
+
+from app.core.db import get_connection
+from app.core.security import get_current_user, get_current_verified_user
+from app.api.realtime import manager, broadcast_notification
 
 router = APIRouter()
 
+async def update_fame_rating(conn, profile_id):
+    """Update a profile's fame rating based on likes, visits, etc."""
+    # Count likes
+    likes_count = await conn.fetchval("""
+    SELECT COUNT(*) FROM likes
+    WHERE liked_id = $1
+    """, profile_id)
+    
+    # Count visits
+    visits_count = await conn.fetchval("""
+    SELECT COUNT(*) FROM visits
+    WHERE visited_id = $1
+    """, profile_id)
+    
+    # Get total user count for normalization
+    total_users = await conn.fetchval("""
+    SELECT COUNT(*) FROM users
+    """)
+    
+    # Calculate fame rating
+    if total_users > 0:
+        # Formula: (likes * 2 + visits) / total_users * 5
+        fame_rating = (likes_count * 2 + visits_count) / total_users * 5
+        fame_rating = min(5.0, fame_rating)  # Cap at 5
+    else:
+        fame_rating = 0.0
+    
+    # Update profile
+    await conn.execute("""
+    UPDATE profiles
+    SET fame_rating = $2
+    WHERE id = $1
+    """, profile_id, fame_rating)
+    
+    return fame_rating
 
-@router.post("/like", response_model=dict)
+
+@router.post("/like")
 async def create_like(
-    like_data: LikeCreate,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
-    """
-    Like a profile
-    """
-    # Get user's profile
-    profile = await get_profile_by_user_id(db, current_user.id)
-    if not profile:
+    request: Request,
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """Like a profile"""
+    data = await request.json()
+    liked_id = data.get("liked_id")
+    
+    if not liked_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Liked profile ID is required"
+        )
+    
+    # Get current user's profile
+    liker_profile = await conn.fetchrow("""
+    SELECT id, is_complete FROM profiles 
+    WHERE user_id = $1
+    """, current_user["id"])
+    
+    if not liker_profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Your profile not found"
         )
     
     # Check if profile is complete
-    if not profile.is_complete:
+    if not liker_profile["is_complete"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Please complete your profile first"
         )
     
     # Check if user has profile pictures
-    if not profile.pictures or len(profile.pictures) == 0:
+    pic_count = await conn.fetchval("""
+    SELECT COUNT(*) FROM profile_pictures
+    WHERE profile_id = $1
+    """, liker_profile["id"])
+    
+    if pic_count == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You need to upload at least one profile picture to like other profiles"
         )
     
-    # Like profile
-    result = await like_profile(db, profile.id, like_data.liked_id)
-    if not result:
+    # Check if target profile exists
+    liked_profile = await conn.fetchrow("""
+    SELECT p.id, p.user_id, u.username, u.first_name
+    FROM profiles p
+    JOIN users u ON p.user_id = u.id
+    WHERE p.id = $1
+    """, liked_id)
+    
+    if not liked_profile:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Could not like profile. The profile may not exist or might be blocked."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile to like not found"
         )
     
-    # Get the target profile's user_id for WebSocket notification
-    liked_profile_result = await db.execute(
-        select(Profile).options(selectinload(Profile.user)).filter(Profile.id == like_data.liked_id)
-    )
-    liked_profile = liked_profile_result.scalars().first()
+    # Check if already liked
+    existing_like = await conn.fetchrow("""
+    SELECT id FROM likes
+    WHERE liker_id = $1 AND liked_id = $2
+    """, liker_profile["id"], liked_id)
     
-    if liked_profile:
-        # Use the broadcast_notification function for WebSocket notification
-        if result["is_match"]:
-            # It's a match! Send match notification to both users
-            await broadcast_notification(
-                manager, 
-                liked_profile.user_id, 
-                "match", 
-                current_user.id, 
-                f"{current_user.first_name} ile eşleştiniz!"
-            )
-            
-            await broadcast_notification(
-                manager, 
-                current_user.id, 
-                "match", 
-                liked_profile.user_id, 
-                f"{liked_profile.user.first_name} ile eşleştiniz!"
-            )
+    if existing_like:
+        return {
+            "message": "Profile already liked",
+            "is_match": False
+        }
+    
+    # Check if blocked
+    is_blocked = await conn.fetchrow("""
+    SELECT id FROM blocks
+    WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)
+    """, liker_profile["id"], liked_id)
+    
+    if is_blocked:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot like this profile due to block"
+        )
+    
+    # Create like
+    await conn.execute("""
+    INSERT INTO likes (liker_id, liked_id, created_at)
+    VALUES ($1, $2, $3)
+    """, liker_profile["id"], liked_id, datetime.utcnow())
+    
+    # Check if it's a match
+    mutual_like = await conn.fetchrow("""
+    SELECT id FROM likes
+    WHERE liker_id = $1 AND liked_id = $2
+    """, liked_id, liker_profile["id"])
+    
+    is_match = mutual_like is not None
+    
+    # If it's a match, create a connection
+    if is_match:
+        # Check if connection already exists
+        existing_conn = await conn.fetchrow("""
+        SELECT id, is_active FROM connections
+        WHERE (user1_id = $1 AND user2_id = $2) OR (user1_id = $2 AND user2_id = $1)
+        """, current_user["id"], liked_profile["user_id"])
+        
+        now = datetime.utcnow()
+        
+        if existing_conn:
+            # Reactivate if inactive
+            if not existing_conn["is_active"]:
+                await conn.execute("""
+                UPDATE connections
+                SET is_active = true, updated_at = $2
+                WHERE id = $1
+                """, existing_conn["id"], now)
         else:
-            # Just a like, notify the liked user
-            await broadcast_notification(
-                manager, 
-                liked_profile.user_id, 
-                "like", 
-                current_user.id, 
-                f"{current_user.first_name} profilinizi beğendi!"
-            )
+            # Create new connection
+            await conn.execute("""
+            INSERT INTO connections (user1_id, user2_id, is_active, created_at, updated_at)
+            VALUES ($1, $2, true, $3, $3)
+            """, current_user["id"], liked_profile["user_id"], now)
+        
+        # Create notifications for both users
+        # For the liked user
+        await conn.execute("""
+        INSERT INTO notifications (user_id, sender_id, type, content, created_at)
+        VALUES ($1, $2, 'match', $3, $4)
+        """, liked_profile["user_id"], current_user["id"], 
+        f"{current_user['first_name']} ile eşleştiniz!", now)
+        
+        # For the current user
+        await conn.execute("""
+        INSERT INTO notifications (user_id, sender_id, type, content, created_at)
+        VALUES ($1, $2, 'match', $3, $4)
+        """, current_user["id"], liked_profile["user_id"],
+        f"{liked_profile['first_name']} ile eşleştiniz!", now)
+        
+        # Send WebSocket notifications if users are online
+        await broadcast_notification(
+            manager,
+            liked_profile["user_id"],
+            "match",
+            current_user["id"],
+            f"{current_user['first_name']} ile eşleştiniz!"
+        )
+        
+        await broadcast_notification(
+            manager,
+            current_user["id"],
+            "match",
+            liked_profile["user_id"],
+            f"{liked_profile['first_name']} ile eşleştiniz!"
+        )
+    else:
+        # Just a like notification
+        await conn.execute("""
+        INSERT INTO notifications (user_id, sender_id, type, content, created_at)
+        VALUES ($1, $2, 'like', $3, $4)
+        """, liked_profile["user_id"], current_user["id"],
+        f"{current_user['first_name']} profilinizi beğendi!", datetime.utcnow())
+        
+        # Send WebSocket notification
+        await broadcast_notification(
+            manager,
+            liked_profile["user_id"],
+            "like",
+            current_user["id"],
+            f"{current_user['first_name']} profilinizi beğendi!"
+        )
+    
+    # Update fame rating of liked profile
+    await update_fame_rating(conn, liked_id)
     
     return {
         "message": "Profile liked successfully",
-        "is_match": result["is_match"]
+        "is_match": is_match
     }
 
-
-@router.delete("/like/{profile_id}", response_model=dict)
+@router.delete("/like/{profile_id}")
 async def delete_like(
     profile_id: str,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
-    """
-    Unlike a profile
-    """
-    # Get user's profile
-    profile = await get_profile_by_user_id(db, current_user.id)
-    if not profile:
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """Unlike a profile"""
+    # Get current user's profile
+    liker_profile = await conn.fetchrow("""
+    SELECT id FROM profiles 
+    WHERE user_id = $1
+    """, current_user["id"])
+    
+    if not liker_profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Your profile not found"
         )
     
     # Check if this was a match before unliking
-    result = await db.execute(
-        select(Like).filter(Like.liker_id == profile_id, Like.liked_id == profile.id)
-    )
-    mutual_like = result.scalars().first()
+    mutual_like = await conn.fetchrow("""
+    SELECT id FROM likes
+    WHERE liker_id = $1 AND liked_id = $2
+    """, profile_id, liker_profile["id"])
+    
     was_match = mutual_like is not None
     
-    # Unlike profile
-    result = await unlike_profile(db, profile.id, profile_id)
-    if not result:
+    # Delete the like
+    deleted = await conn.fetchval("""
+    DELETE FROM likes
+    WHERE liker_id = $1 AND liked_id = $2
+    RETURNING id
+    """, liker_profile["id"], profile_id)
+    
+    if not deleted:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Could not unlike profile. You might not have liked this profile."
+            detail="Like not found or already removed"
         )
     
-    # If it was a match, send unmatch notification via WebSocket
+    # If it was a match, deactivate the connection
     if was_match:
-        # Get the target profile's user_id for WebSocket notification
-        unliked_profile_result = await db.execute(select(Profile).filter(Profile.id == profile_id))
-        unliked_profile = unliked_profile_result.scalars().first()
+        # Get unliked user's info
+        unliked_user = await conn.fetchrow("""
+        SELECT u.id, u.first_name FROM profiles p
+        JOIN users u ON p.user_id = u.id
+        WHERE p.id = $1
+        """, profile_id)
         
-        if unliked_profile:
-            # Send unmatch notification
+        if unliked_user:
+            # Deactivate connection
+            await conn.execute("""
+            UPDATE connections
+            SET is_active = false, updated_at = $3
+            WHERE (user1_id = $1 AND user2_id = $2) OR (user1_id = $2 AND user2_id = $1)
+            """, current_user["id"], unliked_user["id"], datetime.utcnow())
+            
+            # Create unmatch notification
+            await conn.execute("""
+            INSERT INTO notifications (user_id, sender_id, type, content, created_at)
+            VALUES ($1, $2, 'unmatch', $3, $4)
+            """, unliked_user["id"], current_user["id"], 
+            f"{current_user['first_name']} artık eşleşmenizde değil.", datetime.utcnow())
+            
+            # Send WebSocket notification
             await broadcast_notification(
-                manager, 
-                unliked_profile.user_id, 
-                "unmatch", 
-                current_user.id, 
-                f"{current_user.first_name} artık eşleşmenizde değil."
+                manager,
+                unliked_user["id"],
+                "unmatch",
+                current_user["id"],
+                f"{current_user['first_name']} artık eşleşmenizde değil."
             )
+    
+    # Update fame rating
+    await update_fame_rating(conn, profile_id)
     
     return {
         "message": "Profile unliked successfully"
     }
 
 
-@router.post("/block", response_model=dict)
+@router.post("/block")
 async def create_block(
-    block_data: BlockCreate,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
-    """
-    Block a profile by either blocked_id (profile_id) or blocked_user_id (user_id)
-    """
-    # Get user's profile
-    profile = await get_profile_by_user_id(db, current_user.id)
-    if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profil bulunamadı"
-        )
+    request: Request,
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """Block a profile"""
+    data = await request.json()
     
-    # Determine blocked profile ID
-    blocked_profile_id = None
+    # Get blocked_id from either profile_id or user_id
+    blocked_id = data.get("blocked_id")
+    blocked_user_id = data.get("blocked_user_id")
     
-    # If blocked_id is provided (profile_id)
-    if block_data.blocked_id:
-        blocked_profile_id = block_data.blocked_id
-    # If blocked_user_id is provided, get the profile_id
-    elif block_data.blocked_user_id:
-        blocked_profile = await get_profile_by_user_id(db, block_data.blocked_user_id)
-        if not blocked_profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Profil bulunamadı"
-            )
-        blocked_profile_id = blocked_profile.id
-    else:
+    if not blocked_id and not blocked_user_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Profil ID veya kullanıcı ID'si sağlanmalıdır"
-        )
-    # Block profile
-    result = await block_profile(db, profile.id, blocked_profile_id)
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Profil engellenemedi. Profil mevcut olmayabilir."
+            detail="Either blocked_id or blocked_user_id is required"
         )
     
-    return {
-        "message": "Profil başarıyla engellendi"
-    }
-
-@router.delete("/block/{profile_id}", response_model=dict)
-async def delete_block(
-    profile_id: str,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
-    """
-    Unblock a profile
-    """
-    # Get user's profile
-    profile = await get_profile_by_user_id(db, current_user.id)
-    if not profile:
+    # Get blocker's profile
+    blocker_profile = await conn.fetchrow("""
+    SELECT id FROM profiles 
+    WHERE user_id = $1
+    """, current_user["id"])
+    
+    if not blocker_profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Your profile not found"
         )
     
-    # Unblock profile
-    result = await unblock_profile(db, profile.id, profile_id)
-    if not result:
+    # If blocked_user_id provided, get their profile_id
+    if not blocked_id and blocked_user_id:
+        blocked_profile = await conn.fetchrow("""
+        SELECT id FROM profiles 
+        WHERE user_id = $1
+        """, blocked_user_id)
+        
+        if not blocked_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Profile to block not found"
+            )
+        
+        blocked_id = blocked_profile["id"]
+    
+    # Check if blocked profile exists
+    blocked_profile_exists = await conn.fetchval("""
+    SELECT id FROM profiles 
+    WHERE id = $1
+    """, blocked_id)
+    
+    if not blocked_profile_exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile to block not found"
+        )
+    
+    # Can't block yourself
+    if blocked_id == blocker_profile["id"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Could not unblock profile. You might not have blocked this profile."
+            detail="Cannot block yourself"
+        )
+    
+    # Check if already blocked
+    existing_block = await conn.fetchrow("""
+    SELECT id FROM blocks
+    WHERE blocker_id = $1 AND blocked_id = $2
+    """, blocker_profile["id"], blocked_id)
+    
+    if existing_block:
+        return {
+            "message": "Profile already blocked"
+        }
+    
+    # Create block
+    await conn.execute("""
+    INSERT INTO blocks (blocker_id, blocked_id, created_at)
+    VALUES ($1, $2, $3)
+    """, blocker_profile["id"], blocked_id, datetime.utcnow())
+    
+    # Get blocked user's ID
+    blocked_user = await conn.fetchrow("""
+    SELECT user_id FROM profiles
+    WHERE id = $1
+    """, blocked_id)
+    
+    # Remove likes in both directions if any
+    await conn.execute("""
+    DELETE FROM likes
+    WHERE (liker_id = $1 AND liked_id = $2) OR (liker_id = $2 AND liked_id = $1)
+    """, blocker_profile["id"], blocked_id)
+    
+    # Deactivate any connections
+    if blocked_user:
+        await conn.execute("""
+        UPDATE connections
+        SET is_active = false, updated_at = $3
+        WHERE (user1_id = $1 AND user2_id = $2) OR (user1_id = $2 AND user2_id = $1)
+        """, current_user["id"], blocked_user["user_id"], datetime.utcnow())
+    
+    return {
+        "message": "Profile blocked successfully"
+    }
+
+@router.delete("/block/{profile_id}")
+async def delete_block(
+    profile_id: str,
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """Unblock a profile"""
+    # Get blocker's profile
+    blocker_profile = await conn.fetchrow("""
+    SELECT id FROM profiles 
+    WHERE user_id = $1
+    """, current_user["id"])
+    
+    if not blocker_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Your profile not found"
+        )
+    
+    # Delete the block
+    deleted = await conn.fetchval("""
+    DELETE FROM blocks
+    WHERE blocker_id = $1 AND blocked_id = $2
+    RETURNING id
+    """, blocker_profile["id"], profile_id)
+    
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Block not found or already removed"
         )
     
     return {
         "message": "Profile unblocked successfully"
     }
 
-@router.get("/block", response_model=List[PublicProfile])
+@router.get("/blocks")
 async def get_blocks(
     limit: int = 10,
     offset: int = 0,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
-    """
-    Get profiles that current user blocked
-    """
-    profile = await get_profile_by_user_id(db, current_user.id)
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """Get profiles that the current user has blocked"""
+    # Get user's profile
+    profile = await conn.fetchrow("""
+    SELECT id FROM profiles 
+    WHERE user_id = $1
+    """, current_user["id"])
+    
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Your profile not found"
         )
     
-    blocks = await get_blocks_sent(db, profile.id, limit, offset)
+    # Get blocked profiles with their details
+    blocked_profiles = await conn.fetch("""
+    SELECT p.id, p.user_id, p.gender, p.sexual_preference, p.biography,
+           p.latitude, p.longitude, p.fame_rating, p.birth_date,
+           u.username, u.first_name, u.last_name, u.is_online, u.last_online
+    FROM blocks b
+    JOIN profiles p ON b.blocked_id = p.id
+    JOIN users u ON p.user_id = u.id
+    WHERE b.blocker_id = $1
+    ORDER BY b.created_at DESC
+    LIMIT $2 OFFSET $3
+    """, profile["id"], limit, offset)
     
-    profiles = []
-    for block_data in blocks:
-        blocked_profile = block_data["profile"]
-        blocked_user = block_data["user"]
+    # Get profile pictures for each blocked profile
+    result = []
+    for blocked in blocked_profiles:
+        # Format the profile data
+        profile_data = dict(blocked)
         
-        profiles.append(PublicProfile(
-            id=blocked_profile.id,
-            username=blocked_user.username,
-            first_name=blocked_user.first_name,
-            last_name=blocked_user.last_name,
-            is_online=blocked_user.is_online,
-            pictures=blocked_profile.pictures,
-            fame_rating=blocked_profile.fame_rating
-        ))
+        # Get profile pictures
+        pictures = await conn.fetch("""
+        SELECT id, profile_id, file_path, backend_url, is_primary
+        FROM profile_pictures
+        WHERE profile_id = $1
+        ORDER BY is_primary DESC, created_at ASC
+        """, blocked["id"])
+        
+        # Get profile tags
+        tags = await conn.fetch("""
+        SELECT t.id, t.name
+        FROM tags t
+        JOIN profile_tags pt ON t.id = pt.tag_id
+        WHERE pt.profile_id = $1
+        """, blocked["id"])
+        
+        # Add pictures and tags to the profile data
+        profile_data["pictures"] = [dict(pic) for pic in pictures]
+        profile_data["tags"] = [dict(tag) for tag in tags]
+        
+        result.append(profile_data)
     
-    return profiles
+    return result
 
-@router.post("/is_blocked", response_model=dict)
+@router.post("/is_blocked")
 async def check_if_blocked(
-    blocked_username: str,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
-    """
-    Check if a user is blocked and who initiated the block
-    """
-    # Get user's profile
-    profile = await get_profile_by_user_id(db, current_user.id)
-    if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Your profile not found"
-        )
+    request: Request,
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """Check if a user is blocked and who initiated the block"""
+    data = await request.json()
+    username = data.get("username")
     
-    # Get blocked user
-    blocked_user = await get_profile_by_username(db, blocked_username)
-    if not blocked_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    # Check if blocked in both directions
-    is_blocked_by_me = await is_blocked(db, profile.id, blocked_user.id)
-    is_blocked_by_them = await is_blocked(db, blocked_user.id, profile.id)
-    
-    return {
-        "is_blocked": is_blocked_by_me or is_blocked_by_them,
-        "blocked_by_me": is_blocked_by_me,
-        "blocked_by_them": is_blocked_by_them,
-        "blocker_id": blocked_user.id if is_blocked_by_them else (profile.id if is_blocked_by_me else None)
-    }
-
-
-@router.post("/report", response_model=dict)
-async def create_report(
-    report_data: ReportCreate,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
-    """
-    Report a profile
-    """
-    # Get user's profile
-    profile = await get_profile_by_user_id(db, current_user.id)
-    if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profiliniz bulunamadı"
-        )
-    
-    # Report profile
-    result = await report_profile(db, profile.id, report_data.reported_id, report_data.reason, report_data.description)
-    if not result:
+    if not username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Profil raporlanamadı. Profil mevcut olmayabilir."
+            detail="Username is required"
         )
     
+    # Get current user's profile
+    user_profile = await conn.fetchrow("""
+    SELECT id FROM profiles 
+    WHERE user_id = $1
+    """, current_user["id"])
+    
+    if not user_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Your profile not found"
+        )
+    
+    # Get the profile by username
+    other_profile = await conn.fetchrow("""
+    SELECT p.id 
+    FROM profiles p
+    JOIN users u ON p.user_id = u.id
+    WHERE u.username = $1
+    """, username)
+    
+    if not other_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
+        )
+    
+    # Check both directions of blocking
+    blocked_by_me = await conn.fetchval("""
+    SELECT id FROM blocks
+    WHERE blocker_id = $1 AND blocked_id = $2
+    """, user_profile["id"], other_profile["id"])
+    
+    blocked_by_them = await conn.fetchval("""
+    SELECT id FROM blocks
+    WHERE blocker_id = $1 AND blocked_id = $2
+    """, other_profile["id"], user_profile["id"])
+    
     return {
-        "message": "Profil başarıyla raporlandı"
+        "is_blocked": blocked_by_me is not None or blocked_by_them is not None,
+        "blocked_by_me": blocked_by_me is not None,
+        "blocked_by_them": blocked_by_them is not None,
+        "blocker_id": other_profile["id"] if blocked_by_them else (user_profile["id"] if blocked_by_me else None)
     }
 
 
-@router.get("/likes", response_model=List[PublicProfile])
+@router.post("/report")
+async def create_report(
+    request: Request,
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """Report a profile"""
+    data = await request.json()
+    reported_id = data.get("reported_id")
+    reason = data.get("reason")
+    description = data.get("description")
+    
+    if not reported_id or not reason:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reported profile ID and reason are required"
+        )
+    
+    # Get reporter's profile
+    reporter_profile = await conn.fetchrow("""
+    SELECT id FROM profiles 
+    WHERE user_id = $1
+    """, current_user["id"])
+    
+    if not reporter_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Your profile not found"
+        )
+    
+    # Check if reported profile exists
+    reported_profile = await conn.fetchval("""
+    SELECT id FROM profiles 
+    WHERE id = $1
+    """, reported_id)
+    
+    if not reported_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile to report not found"
+        )
+    
+    # Can't report yourself
+    if reported_id == reporter_profile["id"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot report yourself"
+        )
+    
+    # Create report
+    report_id = await conn.fetchval("""
+    INSERT INTO reports (reporter_id, reported_id, reason, description, created_at)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING id
+    """, reporter_profile["id"], reported_id, reason, description, datetime.utcnow())
+    
+    return {
+        "message": "Profile reported successfully",
+        "report_id": report_id
+    }
+
+@router.get("/likes")
 async def get_likes(
     limit: int = 10,
     offset: int = 0,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
-    """
-    Get profiles that liked current user
-    """
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """Get profiles that liked the current user"""
     # Get user's profile
-    profile = await get_profile_by_user_id(db, current_user.id)
+    profile = await conn.fetchrow("""
+    SELECT id FROM profiles 
+    WHERE user_id = $1
+    """, current_user["id"])
+    
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Your profile not found"
         )
     
-    # Get likes
-    likes = await get_likes_received(db, profile.id, limit, offset)
+    # Get profiles that liked the user with eager loading
+    likes_received = await conn.fetch("""
+    SELECT p.id, p.user_id, p.gender, p.sexual_preference, p.biography,
+           p.latitude, p.longitude, p.fame_rating, p.birth_date,
+           u.username, u.first_name, u.last_name, u.is_online, u.last_online
+    FROM likes l
+    JOIN profiles p ON l.liker_id = p.id
+    JOIN users u ON p.user_id = u.id
+    WHERE l.liked_id = $1
+    ORDER BY l.created_at DESC
+    LIMIT $2 OFFSET $3
+    """, profile["id"], limit, offset)
     
-    # Convert to public profiles
-    profiles = []
-    for like_data in likes:
-        #like = like_data["like"]
-        liker_profile = like_data["profile"]
-        liker_user = like_data["user"]
-        liker_pictures = like_data.get("pictures", [])  # Eagerly loaded pictures
-        liker_tags = like_data.get("tags", [])          # Eagerly loaded tags
+    # Get profile pictures and tags for each profile
+    result = []
+    for like in likes_received:
+        # Format the profile data
+        profile_data = dict(like)
         
-        profiles.append(PublicProfile(
-            id=liker_profile.id,
-            username=liker_user.username,
-            first_name=liker_user.first_name,
-            last_name=liker_user.last_name,
-            gender=liker_profile.gender,
-            sexual_preference=liker_profile.sexual_preference,
-            biography=liker_profile.biography,
-            latitude=liker_profile.latitude,
-            longitude=liker_profile.longitude,
-            fame_rating=liker_profile.fame_rating,
-            is_online=liker_user.is_online,
-            last_online=liker_user.last_online,
-            pictures=liker_pictures,  # Eagerly loaded pictures
-            tags=liker_tags,          # Eagerly loaded tags
-            birth_date=liker_profile.birth_date if hasattr(liker_profile, 'birth_date') else None
-        ))
+        # Get profile pictures
+        pictures = await conn.fetch("""
+        SELECT id, profile_id, file_path, backend_url, is_primary
+        FROM profile_pictures
+        WHERE profile_id = $1
+        ORDER BY is_primary DESC, created_at ASC
+        """, like["id"])
+        
+        # Get profile tags
+        tags = await conn.fetch("""
+        SELECT t.id, t.name
+        FROM tags t
+        JOIN profile_tags pt ON t.id = pt.tag_id
+        WHERE pt.profile_id = $1
+        """, like["id"])
+        
+        # Add pictures and tags to the profile data
+        profile_data["pictures"] = [dict(pic) for pic in pictures]
+        profile_data["tags"] = [dict(tag) for tag in tags]
+        
+        result.append(profile_data)
     
-    return profiles
+    return result
 
-@router.post("/visit/{profile_id}", response_model=dict)
+@router.get("/matches")
+async def get_matches(
+    limit: int = 10,
+    offset: int = 0,
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """Get current user's matches (mutual likes)"""
+    # Get user's profile
+    profile = await conn.fetchrow("""
+    SELECT id FROM profiles 
+    WHERE user_id = $1
+    """, current_user["id"])
+    
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Your profile not found"
+        )
+    
+    # Get active connections with matched users
+    matches = await conn.fetch("""
+    SELECT p.id, p.user_id, p.gender, p.sexual_preference, p.biography,
+           p.latitude, p.longitude, p.fame_rating, p.birth_date,
+           u.username, u.first_name, u.last_name, u.is_online, u.last_online
+    FROM connections c
+    JOIN users u ON (c.user1_id = $1 AND c.user2_id = u.id) OR (c.user2_id = $1 AND c.user1_id = u.id)
+    JOIN profiles p ON u.id = p.user_id
+    WHERE c.is_active = true
+    ORDER BY c.updated_at DESC
+    LIMIT $2 OFFSET $3
+    """, current_user["id"], limit, offset)
+    
+    # Get profile pictures and tags for each match
+    result = []
+    for match in matches:
+        # Format the profile data
+        profile_data = dict(match)
+        
+        # Get profile pictures
+        pictures = await conn.fetch("""
+        SELECT id, profile_id, file_path, backend_url, is_primary
+        FROM profile_pictures
+        WHERE profile_id = $1
+        ORDER BY is_primary DESC, created_at ASC
+        """, match["id"])
+        
+        # Get profile tags
+        tags = await conn.fetch("""
+        SELECT t.id, t.name
+        FROM tags t
+        JOIN profile_tags pt ON t.id = pt.tag_id
+        WHERE pt.profile_id = $1
+        """, match["id"])
+        
+        # Add pictures and tags to the profile data
+        profile_data["pictures"] = [dict(pic) for pic in pictures]
+        profile_data["tags"] = [dict(tag) for tag in tags]
+        
+        result.append(profile_data)
+    
+    return result
+
+@router.post("/visit/{profile_id}")
 async def create_visit(
     profile_id: str,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
-    """
-    Visit a profile
-    """
-    # Get user's profile
-    profile = await get_profile_by_user_id(db, current_user.id)
-    if not profile:
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """Visit a profile"""
+    # Get visitor's profile
+    visitor_profile = await conn.fetchrow("""
+    SELECT id FROM profiles 
+    WHERE user_id = $1
+    """, current_user["id"])
+    
+    if not visitor_profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Your profile not found"
         )
     
-    # Visit profile
-    result = await visit_profile(db, profile.id, profile_id)
-    if not result:
+    # Check if visited profile exists
+    visited_profile = await conn.fetchrow("""
+    SELECT p.id, p.user_id, u.first_name
+    FROM profiles p
+    JOIN users u ON p.user_id = u.id
+    WHERE p.id = $1
+    """, profile_id)
+    
+    if not visited_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile to visit not found"
+        )
+    
+    # Can't visit yourself
+    if profile_id == visitor_profile["id"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Could not visit profile. The profile may not exist or might be blocked."
+            detail="Cannot visit your own profile"
         )
     
-    # Get the target profile's user_id for WebSocket notification
-    visited_profile_result = await db.execute(select(Profile).filter(Profile.id == profile_id))
-    visited_profile = visited_profile_result.scalars().first()
+    # Check if blocked
+    is_blocked = await conn.fetchrow("""
+    SELECT id FROM blocks
+    WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)
+    """, visitor_profile["id"], profile_id)
     
-    if visited_profile:
-        # Send visit notification via WebSocket
-        await broadcast_notification(
-            manager, 
-            visited_profile.user_id, 
-            "visit", 
-            current_user.id, 
-            f"{current_user.first_name} profilinizi ziyaret etti!"
+    if is_blocked:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot visit this profile due to block"
         )
+    
+    # Record the visit
+    now = datetime.utcnow()
+    await conn.execute("""
+    INSERT INTO visits (visitor_id, visited_id, created_at)
+    VALUES ($1, $2, $3)
+    """, visitor_profile["id"], profile_id, now)
+    
+    # Create notification
+    await conn.execute("""
+    INSERT INTO notifications (user_id, sender_id, type, content, created_at)
+    VALUES ($1, $2, 'visit', $3, $4)
+    """, visited_profile["user_id"], current_user["id"],
+    f"{current_user['first_name']} profilinizi ziyaret etti!", now)
+    
+    # Send WebSocket notification
+    await broadcast_notification(
+        manager,
+        visited_profile["user_id"],
+        "visit",
+        current_user["id"],
+        f"{current_user['first_name']} profilinizi ziyaret etti!"
+    )
+    
+    # Update fame rating
+    await update_fame_rating(conn, profile_id)
     
     return {
         "message": "Profile visited successfully"
     }
 
-@router.get("/visits", response_model=List[PublicProfile])
+@router.get("/visits")
 async def get_visits(
     username: str,
     limit: int = 10,
     offset: int = 0,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
-    """
-    Get profiles that visited current user
-    """
-    # Get user's profile
-    profile = await get_profile_by_user_id(db, current_user.id)
-    if not profile:
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """Get profiles that visited the specified user's profile"""
+    # Get current user's profile
+    user_profile = await conn.fetchrow("""
+    SELECT id FROM profiles 
+    WHERE user_id = $1
+    """, current_user["id"])
+    
+    if not user_profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Your profile not found"
         )
     
     # Get the target profile by username
-    username_profile = await get_profile_by_username(db, username)
+    username_profile = await conn.fetchrow("""
+    SELECT p.id, p.user_id
+    FROM profiles p
+    JOIN users u ON p.user_id = u.id
+    WHERE u.username = $1
+    """, username)
+    
     if not username_profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -465,78 +878,117 @@ async def get_visits(
         )
     
     # Check permission - only allow current user to see their own visits
-    if username_profile.user_id != current_user.id:
+    if username_profile["user_id"] != current_user["id"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only view your own visits"
         )
     
-    # Get visits - burada kullanıcının profilini ziyaret edenler alınıyor
-    visits = await get_visits_received(db, username_profile.id, limit, offset)
+    # Get profiles that visited the user
+    visits_received = await conn.fetch("""
+    SELECT p.id, p.user_id, p.gender, p.sexual_preference, p.biography,
+           p.latitude, p.longitude, p.fame_rating, p.birth_date,
+           u.username, u.first_name, u.last_name, u.is_online, u.last_online
+    FROM visits v
+    JOIN profiles p ON v.visitor_id = p.id
+    JOIN users u ON p.user_id = u.id
+    WHERE v.visited_id = $1
+    ORDER BY v.created_at DESC
+    LIMIT $2 OFFSET $3
+    """, username_profile["id"], limit, offset)
     
-    # Ziyaretçilerin profillerini oluştur
-    profiles = []
-    for visit_data in visits:
-        #visit = visit_data["visit"]
-        visitor_profile = visit_data["profile"] 
-        visitor_user = visit_data["user"]
-        visitor_pictures = visit_data.get("pictures", [])  # Eagerly loaded pictures
-        visitor_tags = visit_data.get("tags", [])          # Eagerly loaded tags
+    # Get profile pictures and tags for each visitor
+    result = []
+    for visit in visits_received:
+        # Format the profile data
+        profile_data = dict(visit)
         
-        profiles.append(PublicProfile(
-            id=visitor_profile.id,
-            username=visitor_user.username,
-            first_name=visitor_user.first_name,
-            last_name=visitor_user.last_name,
-            gender=visitor_profile.gender,
-            sexual_preference=visitor_profile.sexual_preference,
-            biography=visitor_profile.biography,
-            latitude=visitor_profile.latitude,
-            longitude=visitor_profile.longitude,
-            fame_rating=visitor_profile.fame_rating,
-            is_online=visitor_user.is_online,
-            last_online=visitor_user.last_online,
-            pictures=visitor_pictures,  # Eagerly loaded pictures kullan
-            tags=visitor_tags,          # Eagerly loaded tags kullan
-            birth_date=visitor_profile.birth_date
-        ))
+        # Get profile pictures
+        pictures = await conn.fetch("""
+        SELECT id, profile_id, file_path, backend_url, is_primary
+        FROM profile_pictures
+        WHERE profile_id = $1
+        ORDER BY is_primary DESC, created_at ASC
+        """, visit["id"])
+        
+        # Get profile tags
+        tags = await conn.fetch("""
+        SELECT t.id, t.name
+        FROM tags t
+        JOIN profile_tags pt ON t.id = pt.tag_id
+        WHERE pt.profile_id = $1
+        """, visit["id"])
+        
+        # Add pictures and tags to the profile data
+        profile_data["pictures"] = [dict(pic) for pic in pictures]
+        profile_data["tags"] = [dict(tag) for tag in tags]
+        
+        result.append(profile_data)
     
-    return profiles
+    return result
 
-@router.get("/matches", response_model=List[PublicProfile])
+@router.get("/matches")
 async def get_user_matches(
     limit: int = 10,
     offset: int = 0,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
-) -> Any:
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
     """
     Get current user's matches (mutual likes)
     """
-    # Get matches
-    matches = await get_matches(db, current_user.id, limit, offset)
+    # Get user's profile
+    profile = await conn.fetchrow("""
+    SELECT id FROM profiles 
+    WHERE user_id = $1
+    """, current_user["id"])
     
-    # Convert to public profiles
-    profiles = []
-    for match_data in matches:
-        matched_profile = match_data["profile"]
-        matched_user = match_data["user"]
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Your profile not found"
+        )
+    
+    # Get matches (mutual likes) with their profile details
+    # A match is when both users have liked each other and have an active connection
+    matches = await conn.fetch("""
+    SELECT p.id, p.user_id, p.gender, p.sexual_preference, p.biography,
+           p.latitude, p.longitude, p.fame_rating, p.birth_date,
+           u.username, u.first_name, u.last_name, u.is_online, u.last_online
+    FROM connections c
+    JOIN users u ON (c.user1_id = $1 AND c.user2_id = u.id) OR (c.user2_id = $1 AND c.user1_id = u.id)
+    JOIN profiles p ON u.id = p.user_id
+    WHERE c.is_active = true
+    ORDER BY c.updated_at DESC
+    LIMIT $2 OFFSET $3
+    """, current_user["id"], limit, offset)
+    
+    # Get profile pictures and tags for each match
+    result = []
+    for match in matches:
+        # Format the profile data
+        profile_data = dict(match)
         
-        profiles.append(PublicProfile(
-            id=matched_profile.id,
-            username=matched_user.username,
-            first_name=matched_user.first_name,
-            last_name=matched_user.last_name,
-            gender=matched_profile.gender,
-            sexual_preference=matched_profile.sexual_preference,
-            biography=matched_profile.biography,
-            latitude=matched_profile.latitude,
-            longitude=matched_profile.longitude,
-            fame_rating=matched_profile.fame_rating,
-            is_online=matched_user.is_online,
-            last_online=matched_user.last_online,
-            pictures=matched_profile.pictures,
-            tags=matched_profile.tags
-        ))
+        # Get profile pictures
+        pictures = await conn.fetch("""
+        SELECT id, profile_id, file_path, backend_url, is_primary
+        FROM profile_pictures
+        WHERE profile_id = $1
+        ORDER BY is_primary DESC, created_at ASC
+        """, match["id"])
+        
+        # Get profile tags
+        tags = await conn.fetch("""
+        SELECT t.id, t.name
+        FROM tags t
+        JOIN profile_tags pt ON t.id = pt.tag_id
+        WHERE pt.profile_id = $1
+        """, match["id"])
+        
+        # Add pictures and tags to the profile data
+        profile_data["pictures"] = [dict(pic) for pic in pictures]
+        profile_data["tags"] = [dict(tag) for tag in tags]
+        
+        result.append(profile_data)
     
-    return profiles
+    return result

@@ -25,7 +25,7 @@ const refreshAccessToken = async (token: any) => {
     token.refreshing = true;
     
     // Make a request to the token endpoint with the refresh token
-    const response = await fetch(`${process.env.NEXT_AUTH_BACKEND_URL}/api/auth/refresh`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -96,7 +96,7 @@ const handler = NextAuth({
       async authorize(credentials) {
         try {          
           // Regular Login
-          const res = await fetch(`${process.env.NEXT_AUTH_BACKEND_URL}/api/auth/login/json`, {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/auth/login/json`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

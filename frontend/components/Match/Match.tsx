@@ -34,14 +34,14 @@ interface SuggestedProfile {
   is_online: boolean;
   last_online: string;
   pictures: {
-    id: number;  // Changed from string to number based on your response
+    id: number;
     profile_id: string;
     file_path: string;
     backend_url: string;
     is_primary: boolean;
     created_at: string;
   }[];
-  tags: {  // Update to match the actual structure
+  tags: {
     id: number;
     name: string;
   }[];
@@ -78,6 +78,7 @@ const Match = () => {
   const { data: session } = useSession();
   const [profiles, setProfiles] = useState<SuggestedProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [filters, setFilters] = useState<FilterState>({
@@ -97,6 +98,7 @@ const Match = () => {
     longitude: number;
   } | null>(null);
   const [loadedProfileIds, setLoadedProfileIds] = useState<Set<string>>(new Set());
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
 
   const distanceOptions = [
     { label: "5 km (Aynı mahalle)", value: 5 },
@@ -112,9 +114,9 @@ const Match = () => {
     { label: "10000 km (Global)", value: 10000 },
     { label: "20000 km (Dünya geneli)", value: 20000 }
   ];
-  const [distance, setDistance] = useState(DEFAULT_MAX_DISTANCE); // Başlangıç değeri olarak 50km
+  const [distance, setDistance] = useState(DEFAULT_MAX_DISTANCE);
 
-  // handleFilterSubmit fonksiyonunu güncelle
+  // Handle filter submit function
   const handleFilterSubmit = () => {
     setFilters({
       min_age: ageRange[0],
@@ -126,7 +128,14 @@ const Match = () => {
     });
     setFiltersApplied(true);
     setPage(0);
-    setLoadedProfileIds(new Set()); // Yüklenen profiller listesini sıfırla
+    setLoadedProfileIds(new Set()); // Reset loaded profiles
+    setProfiles([]); // Clear existing profiles when applying new filters
+    setIsLoading(true);
+    
+    // Immediately fetch profiles with new filters
+    setTimeout(() => {
+      fetchProfiles();
+    }, 0);
   };
 
   useEffect(() => {
@@ -134,39 +143,178 @@ const Match = () => {
   }, []);
 
   const observer = useRef<IntersectionObserver>();
-  // Bu ref son eleman görünür olduğunda tetiklenir
+  // Reference for the last profile element to trigger loading more
   const lastProfileRef = useCallback((node: HTMLDivElement) => {
-    if (isLoading) return;
+    if (isLoading || isFetchingMore) return;
     if (observer.current) observer.current.disconnect();
 
     observer.current = new IntersectionObserver(entries => {
-      // Kullanıcı sayfanın sonuna geldiğinde ve daha fazla veri varsa
+      // Load more when user reaches the bottom
       if (entries[0].isIntersecting && hasMore) {
-        setPage(prev => prev + 1);  // Sayfa numarasını artır
+        setPage(prev => prev + 1);
       }
     });
 
     if (node) observer.current.observe(node);
-  }, [isLoading, hasMore]);
+  }, [isLoading, hasMore, isFetchingMore]);
 
+  // Initialize data on first load - immediately fetch profiles
   useEffect(() => {
     const initializeData = async () => {
       if (session?.user?.accessToken) {
         setIsLoading(true);
-        // Önce kullanıcı profilini getir
+        // Fetch user profile first
         await fetchUserProfile();
 
-        // Sonra diğer işlemleri yap
+        // Reset state for a clean start
         setPage(0);
         setLoadedProfileIds(new Set());
+        setProfiles([]);
         await fetchProfiles();
+        setIsInitialLoad(false);
       }
     };
 
+    // Always initialize on component mount
     initializeData();
-  }, [session, filters]);
+  }, [session]);
 
-  // fetchUserProfile fonksiyonunu Promise döndürecek şekilde güncelleyelim
+  // Handle filter changes
+  useEffect(() => {
+    // Only respond to filter changes after initial load and when filters change
+    if (!isInitialLoad && session?.user?.accessToken && filtersApplied) {
+      setIsLoading(true);
+      setPage(0);
+      setLoadedProfileIds(new Set());
+      setProfiles([]);
+      fetchProfiles();
+    }
+  }, [filters, session, isInitialLoad, filtersApplied]);
+
+  // Handle pagination (fetching more profiles)
+  useEffect(() => {
+    if (page > 0 && session?.user?.accessToken && !isInitialLoad) {
+      setIsFetchingMore(true);
+      fetchProfiles();
+    }
+  }, [page, session, isInitialLoad]);
+
+  // Batch fetch liked status for all profiles
+  const fetchLikedStatus = async (profileIds: string[]) => {
+    if (!session?.user?.accessToken || profileIds.length === 0) return;
+
+    try {
+      // This endpoint would return the liked status for multiple profiles in one request
+      // You might need to implement this endpoint on your backend
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/liked-status`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.user.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ profileIds })
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const newLikedProfiles = new Set<string>();
+        
+        // Process the response and update likedProfiles set
+        data.likedProfiles.forEach((profileId: string) => {
+          newLikedProfiles.add(profileId);
+        });
+        
+        setLikedProfiles(newLikedProfiles);
+      }
+    } catch (error) {
+      console.error('Error fetching liked profiles status:', error);
+    }
+  };
+
+  // Fallback to individual requests if batch endpoint is not available
+  const checkLikedProfilesIndividually = async () => {
+    if (!session?.user?.accessToken || profiles.length === 0) return;
+
+    try {
+      // Create a map of profile ID to username for easier lookup
+      const profileIdToUsername = new Map();
+      profiles.forEach(profile => {
+        profileIdToUsername.set(profile.id, profile.username);
+      });
+
+      // Get unique profile IDs to check
+      const uniqueProfileIds = [...new Set(profiles.map(profile => profile.id))];
+      const newLikedProfiles = new Set<string>();
+
+      // Make requests in parallel
+      const likedStatusPromises = uniqueProfileIds.map(async (profileId) => {
+        const username = profileIdToUsername.get(profileId);
+        if (!username) return { profileId, isLiked: false };
+
+        try {
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me/is-liked/${username}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${session.user.accessToken}`,
+                'Content-Type': 'application/json',
+              }
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            return { profileId, isLiked: data.is_liked };
+          }
+          return { profileId, isLiked: false };
+        } catch (error) {
+          console.error(`Error checking like status for ${username}:`, error);
+          return { profileId, isLiked: false };
+        }
+      });
+
+      const results = await Promise.all(likedStatusPromises);
+
+      // Update the likedProfiles set
+      results.forEach(result => {
+        if (result.isLiked) {
+          newLikedProfiles.add(result.profileId);
+        }
+      });
+
+      setLikedProfiles(newLikedProfiles);
+    } catch (error) {
+      console.error('Error checking liked profiles:', error);
+    }
+  };
+
+  // Check liked status when profiles change
+  useEffect(() => {
+    if (profiles.length === 0 || !session?.user?.accessToken) return;
+    
+    // For now, use the individual checks directly since the batch endpoint might not exist yet
+    checkLikedProfilesIndividually();
+    
+    // When you implement the batch endpoint, you can use this code instead:
+    /*
+    const newProfileIds = profiles
+      .filter(profile => !loadedProfileIds.has(profile.id))
+      .map(profile => profile.id);
+      
+    if (newProfileIds.length > 0) {
+      // Try batch API first
+      fetchLikedStatus(newProfileIds).catch(() => {
+        // Fall back to individual requests if batch fails
+        checkLikedProfilesIndividually();
+      });
+    }
+    */
+  }, [profiles, session]);
+
+  // Fetch user profile information
   const fetchUserProfile = async () => {
     if (!session?.user?.accessToken) return;
 
@@ -189,97 +337,16 @@ const Match = () => {
         longitude: data.longitude
       });
 
-      return data; // Veriyi döndür
+      return data;
     } catch (error) {
       console.error('Error fetching user profile:', error);
       toast.error('Kullanıcı konumu alınamadı');
     }
   };
 
-  const sortProfiles = (profiles: SuggestedProfile[]): SuggestedProfile[] => {
-    // Profillerin bir kopyasını oluştur
-    const sortedProfiles = [...profiles];
-
-    switch (sortBy) {
-      case SortOption.AGE_ASC:
-        return sortedProfiles.sort((a, b) =>
-          calculateAge(a.birth_date) - calculateAge(b.birth_date)
-        );
-      case SortOption.AGE_DESC:
-        return sortedProfiles.sort((a, b) =>
-          calculateAge(b.birth_date) - calculateAge(a.birth_date)
-        );
-      case SortOption.DISTANCE:
-        if (userProfile) {
-          return sortedProfiles.sort((a, b) =>
-            calculateDistance(userProfile.latitude, userProfile.longitude, a.latitude, a.longitude) -
-            calculateDistance(userProfile.latitude, userProfile.longitude, b.latitude, b.longitude)
-          );
-        }
-        return sortedProfiles;
-      case SortOption.FAME_RATING:
-        return sortedProfiles.sort((a, b) => b.fame_rating - a.fame_rating);
-      case SortOption.TAGS_MATCH:
-        // Kullanıcının etiketleriyle eşleşme sayısına göre sırala
-        return sortedProfiles.sort((a, b) => {
-          const aMatches = a.tags.filter(tag => tags.includes(tag.name)).length;
-          const bMatches = b.tags.filter(tag => tags.includes(tag.name)).length;
-          return bMatches - aMatches;
-        });
-      default:
-        return sortedProfiles;
-    }
-  };
-
-  useEffect(() => {
-    const checkLikedProfiles = async () => {
-      if (!session?.user?.accessToken || profiles.length === 0) return;
-
-      try {
-        // Her profil için beğeni durumunu kontrol et
-        const likedStatusPromises = profiles.map(async (profile) => {
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/me/is-liked/${profile.username}`,
-            {
-              headers: {
-                'Authorization': `Bearer ${session.user.accessToken}`,
-                'Content-Type': 'application/json',
-              }
-            }
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-            return { profileId: profile.id, isLiked: data.is_liked };
-          }
-          return { profileId: profile.id, isLiked: false };
-        });
-
-        const likedStatuses = await Promise.all(likedStatusPromises);
-
-        // Beğenilen profilleri Set'e ekle
-        const newLikedProfiles = new Set<string>();
-        likedStatuses.forEach(status => {
-          if (status.isLiked) {
-            newLikedProfiles.add(status.profileId);
-          }
-        });
-
-        setLikedProfiles(newLikedProfiles);
-      } catch (error) {
-        console.error('Error checking liked profiles:', error);
-      }
-    };
-
-    checkLikedProfiles();
-  }, [profiles, session]);
-
-  // Sayfa yüklendiğinde kullanıcı profilini getir
-
-
-  
+  // Calculate distance between two points
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Dünya'nın yarıçapı (km)
+    const R = 6371; // Earth's radius (km)
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a =
@@ -287,28 +354,36 @@ const Match = () => {
       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c; // Kilometre cinsinden mesafe
-    return Math.round(distance); // En yakın tam sayıya yuvarla
+    const distance = R * c; // Distance in km
+    return Math.round(distance);
   };
 
-  // formatDistance fonksiyonu mesafeyi daha okunabilir hale getirir
+  // Format distance for display
   const formatDistance = (distance: number): string => {
     if (distance < 1) {
-      return `${Math.round(distance * 1000)} m uzaklıkta`; // 1 km'den azsa metre cinsinden göster
+      return `${Math.round(distance * 1000)} m uzaklıkta`;
     } else {
       return `${distance} km uzaklıkta`;
     }
   };
 
+  // Fetch profiles from API
   const fetchProfiles = async () => {
+    if (!session?.user?.accessToken) return;
+    
     try {
-      setIsLoading(true);
+      if (page === 0) {
+        setIsLoading(true);
+      } else {
+        setIsFetchingMore(true);
+      }
+
       const queryParams = new URLSearchParams({
         limit: '10',
         offset: (page * 10).toString(),
       });
   
-      // Filtre parametrelerini ekle
+      // Add filter parameters
       if (page > 0 || filtersApplied) {
         queryParams.append('min_age', filters.min_age.toString());
         queryParams.append('max_age', filters.max_age.toString());
@@ -327,24 +402,20 @@ const Match = () => {
         `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/profiles/suggested?${queryParams}`,
         {
           headers: {
-            'Authorization': `Bearer ${session?.user?.accessToken}`,
+            'Authorization': `Bearer ${session.user.accessToken}`,
             'Content-Type': 'application/json',
           }
         }
       );
   
-      // Hata kontrolü - daha detaylı debug logları
       if (!response.ok) {
-        const responseText = await response.text(); // Önce text olarak yanıtı al
-        console.log("API Hata yanıtı:", responseText);
+        const responseText = await response.text();
+        console.log("API Error response:", responseText);
         
-        // Ardından JSON olarak parse etmeyi dene
         let errorMessage;
         try {
           const errorData = JSON.parse(responseText);
-          console.log("Parse edilen hata:", errorData);
           
-          // API'den dönen detail bilgisine göre hata mesajını oluştur
           if (typeof errorData.detail === 'string') {
             errorMessage = errorData.detail;
           } else if (Array.isArray(errorData.detail)) {
@@ -355,13 +426,12 @@ const Match = () => {
             errorMessage = `Profiller yüklenirken bir hata oluştu: ${response.status}`;
           }
         } catch (parseError) {
-          console.error("JSON parse hatası:", parseError);
+          console.error("JSON parse error:", parseError);
           errorMessage = `Profiller yüklenirken bir hata oluştu: ${response.status} - ${response.statusText}`;
         }
         
-        // Özel durumları kontrol et
+        // Check for specific error cases
         if (errorMessage.includes("profilinizi tamamlayın")) {
-          // Benzersiz ID ile toast göster
           toast.dismiss('profile-incomplete-toast');
           toast.error("Lütfen profilinizi tamamlayın", { 
             id: 'profile-incomplete-toast',
@@ -369,12 +439,12 @@ const Match = () => {
             position: 'top-center'
           });
           
-          // Yönlendirme işlemi
+          // Redirect to settings
           setTimeout(() => {
             router.push('/settings');
           }, 500);
           
-          return; // Fonksiyondan çık
+          return;
         }
         
         throw new Error(errorMessage);
@@ -382,7 +452,7 @@ const Match = () => {
   
       const data = await response.json();
   
-      // Geri kalan kod değişmeden kalabilir...
+      // Filter out profiles we've already loaded
       const uniqueNewProfiles = data.filter((profile: SuggestedProfile) =>
         !loadedProfileIds.has(profile.id)
       );
@@ -392,22 +462,20 @@ const Match = () => {
         return;
       }
   
+      // Update the set of profile IDs we've loaded
       const updatedProfileIds = new Set(loadedProfileIds);
       uniqueNewProfiles.forEach((profile: SuggestedProfile) => {
         updatedProfileIds.add(profile.id);
       });
       setLoadedProfileIds(updatedProfileIds);
   
-      setProfiles(prev =>
-        page === 0 ? uniqueNewProfiles : [...prev, ...uniqueNewProfiles]
-      );
-  
+      // Update the profiles state, adding new profiles to existing ones
+      setProfiles(prev => page === 0 ? uniqueNewProfiles : [...prev, ...uniqueNewProfiles]);
       setHasMore(data.length === 10);
   
     } catch (error) {
-      console.error("Profil yükleme hatası:", error);
+      console.error("Profile loading error:", error);
       
-      // Benzersiz ID ile toast göster
       toast.dismiss('profile-loading-error');
       try {
         toast.error(error instanceof Error ? error.message : 'Profiller yüklenirken bir hata oluştu', {
@@ -415,38 +483,15 @@ const Match = () => {
           duration: 4000
         });
       } catch (toastError) {
-        console.error("Toast hatası:", toastError);
+        console.error("Toast error:", toastError);
       }
-      
     } finally {
       setIsLoading(false);
+      setIsFetchingMore(false);
     }
   };
 
-  useEffect(() => {
-  if (!session?.user?.accessToken) return;
-  
-  const initializeData = async () => {
-    setIsLoading(true);
-    await fetchUserProfile();
-    setPage(0);
-    setLoadedProfileIds(new Set());
-    await fetchProfiles();
-  };
-  
-  // SESSION DEĞIŞTIĞINDE VE FILTERS DEĞİŞTİĞİNDE ÇALIŞIR
-  initializeData();
-
-  // Page değişikliği için bağımsız useEffect kullanacağız
-}, [session, filters]);
-
-  // Filtreler değiştiğinde ayrı bir useEffect kullanın
-  useEffect(() => {
-    if (page > 0 && session?.user?.accessToken) {
-      fetchProfiles();
-    }
-  }, [page]);
-
+  // Calculate age from birth date
   const calculateAge = (birthDate: string): number => {
     if (!birthDate) return 0;
 
@@ -464,6 +509,7 @@ const Match = () => {
     return age;
   };
 
+  // Reset filters to defaults
   const resetFilters = () => {
     setFilters({
       min_age: DEFAULT_MIN_AGE,
@@ -480,9 +526,16 @@ const Match = () => {
     setFiltersApplied(false);
     setPage(0);
     setLoadedProfileIds(new Set());
+    setProfiles([]);
+    setIsLoading(true);
+    
+    // Immediately fetch profiles with default filters
+    setTimeout(() => {
+      fetchProfiles();
+    }, 0);
   };
 
-
+  // Handle liking/unliking a profile
   const handleLike = async (profileId: string) => {
     if (isLikeLoading === profileId) return;
     setIsLikeLoading(profileId);
@@ -517,15 +570,48 @@ const Match = () => {
     }
   };
 
+  // Sort profiles based on selected sort option
+  const sortProfiles = (profiles: SuggestedProfile[]): SuggestedProfile[] => {
+    const sortedProfiles = [...profiles];
+
+    switch (sortBy) {
+      case SortOption.AGE_ASC:
+        return sortedProfiles.sort((a, b) =>
+          calculateAge(a.birth_date) - calculateAge(b.birth_date)
+        );
+      case SortOption.AGE_DESC:
+        return sortedProfiles.sort((a, b) =>
+          calculateAge(b.birth_date) - calculateAge(a.birth_date)
+        );
+      case SortOption.DISTANCE:
+        if (userProfile) {
+          return sortedProfiles.sort((a, b) =>
+            calculateDistance(userProfile.latitude, userProfile.longitude, a.latitude, a.longitude) -
+            calculateDistance(userProfile.latitude, userProfile.longitude, b.latitude, b.longitude)
+          );
+        }
+        return sortedProfiles;
+      case SortOption.FAME_RATING:
+        return sortedProfiles.sort((a, b) => b.fame_rating - a.fame_rating);
+      case SortOption.TAGS_MATCH:
+        return sortedProfiles.sort((a, b) => {
+          const aMatches = a.tags.filter(tag => tags.includes(tag.name)).length;
+          const bMatches = b.tags.filter(tag => tags.includes(tag.name)).length;
+          return bMatches - aMatches;
+        });
+      default:
+        return sortedProfiles;
+    }
+  };
+
   return (
     <section className="pt-16 md:pt-20 lg:pt-28 bg-[#1E1E1E]">
       <div className="container mx-auto px-4">
         <div className="flex flex-wrap">
-          {/* Filter Sidebar */}
+          {/* Filter Sidebar - Fixed position on scroll */}
           <div className="w-full lg:w-1/4 mb-8 lg:mb-0">
-            <div className="bg-[#2C2C2E] rounded-xl p-6">
+            <div className="lg:sticky lg:top-28 bg-[#2C2C2E] rounded-xl p-6 max-h-[calc(100vh-120px)] overflow-y-auto">
               <h3 className="text-xl font-semibold text-white mb-6">Filtreler</h3>
-
 
               <div className="mb-6">
                 <label className="text-gray-300 mb-2 block">Yaş Aralığı</label>
@@ -533,19 +619,8 @@ const Match = () => {
                   range
                   min={18}
                   max={99}
-                  value={ageRange}  // Use ageRange state
-                  onChange={(value: number[]) => {
-                    setAgeRange(value);  // Update ageRange state
-                    setFilters(prev => ({
-                      ...prev,
-                      min_age: value[0],
-                      max_age: value[1]
-                    }));
-                  }}
-                  onChangeComplete={(value: number[]) => {
-                    setPage(0);
-                    fetchProfiles();
-                  }}
+                  value={ageRange}
+                  onChange={(value: number[]) => setAgeRange(value)}
                   className="mb-2"
                   railStyle={{ backgroundColor: '#3C3C3E' }}
                   trackStyle={[{ backgroundColor: '#D63384' }]}
@@ -558,7 +633,6 @@ const Match = () => {
                   {ageRange[0]} - {ageRange[1]} yaş
                 </div>
               </div>
-
 
               <div className="mb-6">
                 <label className="text-gray-300 mb-2 block">Popülerlik</label>
@@ -614,14 +688,8 @@ const Match = () => {
                   {distanceOptions.map((option, index) => (
                     <button
                       key={index}
-                      onClick={() => {
-                        setDistance(option.value);
-                        setFilters(prev => ({
-                          ...prev,
-                          max_distance: option.value
-                        }));
-                      }}
-                      title={option.label} // Tooltip olarak tüm açıklamayı göster
+                      onClick={() => setDistance(option.value)}
+                      title={option.label}
                       className={`text-xs py-1 px-2 rounded ${distance === option.value
                         ? 'bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white'
                         : 'bg-[#3C3C3E] text-gray-300'
@@ -678,11 +746,11 @@ const Match = () => {
                     </span>
                   ))}
                 </div>
-              </div>{/* Biography with character limit and visual treatment */}
+              </div>
 
               <button
                 onClick={handleFilterSubmit}
-                className="w-full bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+                className="w-full bg-gradient-to-r from-[#8A2BE2] to-[#D63384] text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-300 hover:scale-[1.02] sticky bottom-4"
               >
                 Eşleştir
               </button>
@@ -691,7 +759,7 @@ const Match = () => {
 
           {/* Profile Cards Section */}
           <div className="w-full lg:w-3/4 lg:pl-12">
-            {/* Sıralama seçimi */}
+            {/* Sort dropdown */}
             <div className="flex justify-end mb-4">
               <div className="relative">
                 <select
@@ -712,6 +780,8 @@ const Match = () => {
                 </div>
               </div>
             </div>
+
+            {/* Loading state */}
             {isLoading ? (
               <div className="flex justify-center items-center h-60">
                 <div className="animate-pulse flex flex-col items-center">
@@ -737,7 +807,7 @@ const Match = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {sortProfiles(profiles).map((profile, index) => (
                         <div
-                          key={profile.id}
+                          key={`${profile.id}-${index}`}
                           ref={index === profiles.length - 1 ? lastProfileRef : null}
                           className="bg-[#2C2C2E] rounded-xl overflow-hidden"
                         >
@@ -760,14 +830,16 @@ const Match = () => {
                                 }}
                                 disabled={isLikeLoading === profile.id}
                                 className={`absolute top-2 right-2 p-2 rounded-full transition-all
-            ${likedProfiles.has(profile.id)
+                                  ${likedProfiles.has(profile.id)
                                     ? 'bg-[#D63384] text-white'
-                                    : 'bg-white/80 hover:bg-white text-gray-600'}
-            ${isLikeLoading === profile.id ? 'opacity-50' : ''}
-          `}
+                                    : 'bg-white/80 hover:bg-white text-gray-600'
+                                  }
+                                  ${isLikeLoading === profile.id ? 'opacity-50' : ''}
+                                `}
                               >
                                 <FiHeart
-                                  className={`w-5 h-5 ${likedProfiles.has(profile.id) ? 'fill-current' : ''}`}
+                                  className={`w-5 h-5 ${likedProfiles.has(profile.id) ? 'fill-white' : ''}`}
+                                  style={{ fill: likedProfiles.has(profile.id) ? 'currentColor' : 'none' }}
                                 />
                               </button>
                             </div>
@@ -819,7 +891,7 @@ const Match = () => {
 
                             {/* Tags */}
                             <div className="flex flex-wrap gap-2 mb-4">
-                              {profile.tags.map((tag, i) => (
+                              {profile.tags.slice(0, 3).map((tag, i) => (
                                 <span
                                   key={i}
                                   className="text-xs bg-[#3C3C3E] text-gray-300 px-2 py-1 rounded-full cursor-pointer hover:bg-[#4C4C4E] transition-colors"
@@ -838,28 +910,27 @@ const Match = () => {
                                 >
                                   #{tag.name}
                                 </span>
-                              )).slice(0, 3)}
+                              ))}
                               {profile.tags.length > 3 && (
                                 <span className="text-xs text-gray-400">
                                   +{profile.tags.length - 3}
                                 </span>
                               )}
                             </div>
-
-
                           </div>
-
                         </div>
                       ))}
                     </div>
-                    {isLoading && (
+                    
+                    {/* Loading more indicator */}
+                    {isFetchingMore && (
                       <div className="flex justify-center mt-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D63384]"></div>
                       </div>
                     )}
 
-                    {/* Buraya da "loadMore" spinner'ı ve "Tüm profiller yüklendi" mesajları */}
-                    {hasMore && (
+                    {/* Sentinel element for infinite scrolling */}
+                    {hasMore && !isFetchingMore && (
                       <div className="flex justify-center items-center py-8" ref={lastProfileRef}>
                         <div className="animate-pulse flex flex-col items-center">
                           <div className="h-8 w-8 border-t-2 border-b-2 border-[#D63384] rounded-full animate-spin mb-2"></div>
@@ -868,7 +939,8 @@ const Match = () => {
                       </div>
                     )}
 
-                    {!hasMore && !isLoading && (
+                    {/* No more profiles message */}
+                    {!hasMore && !isLoading && !isFetchingMore && (
                       <div className="text-center py-8 text-gray-400">
                         <p className="mb-1">Tüm profiller yüklendi ({profiles.length})</p>
                         <p className="text-sm">Filtreleri değiştirerek daha fazla profil bulabilirsiniz</p>
@@ -878,7 +950,6 @@ const Match = () => {
                 )}
               </>
             )}
-
           </div>
         </div>
       </div>

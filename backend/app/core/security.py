@@ -1,35 +1,26 @@
 from datetime import datetime, timedelta
-from typing import Optional, Union, Any
-
+from typing import Optional, Any
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 
 from app.core.config import settings
-from app.models.user import User
-from app.core.db import get_db
+from app.core.db import get_connection
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
-
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify plain password against hashed password"""
     return pwd_context.verify(plain_password, hashed_password)
 
-
 def get_password_hash(password: str) -> str:
     """Hash a password"""
     return pwd_context.hash(password)
 
-
-def create_access_token(subject: Union[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-    """
-    Create a JWT access token
-    """
+def create_access_token(subject: Any, expires_delta: Optional[timedelta] = None) -> str:
+    """Create a JWT access token"""
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
@@ -39,11 +30,8 @@ def create_access_token(subject: Union[str, Any], expires_delta: Optional[timede
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-
-def create_refresh_token(subject: Union[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-    """
-    Create a JWT refresh token
-    """
+def create_refresh_token(subject: Any, expires_delta: Optional[timedelta] = None) -> str:
+    """Create a JWT refresh token"""
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
@@ -53,14 +41,11 @@ def create_refresh_token(subject: Union[str, Any], expires_delta: Optional[timed
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db)
-) -> User:
-    """
-    Get current user from JWT token
-    """
+    conn = Depends(get_connection)
+):
+    """Get current user from JWT token"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -85,47 +70,50 @@ async def get_current_user(
         raise credentials_exception
     
     # Get user from database
-    result = await db.execute(select(User).filter(User.id == user_id))
-    user = result.scalars().first()
+    query = """
+    SELECT id, username, email, first_name, last_name, 
+           is_active, is_verified, is_online, last_online,
+           created_at, updated_at, last_login
+    FROM users
+    WHERE id = $1
+    """
+    user = await conn.fetchrow(query, user_id)
     
     if user is None:
         raise credentials_exception
     
-    if not user.is_active:
+    if not user["is_active"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user"
         )
     
     # Update last login timestamp
-    user.last_login = datetime.utcnow()
-    db.add(user)
-    await db.commit()
+    query = """
+    UPDATE users
+    SET last_login = $2
+    WHERE id = $1
+    """
+    await conn.execute(query, user_id, datetime.utcnow())
     
-    return user
-
+    return dict(user)
 
 async def get_current_active_user(
-    current_user: User = Depends(get_current_user),
-) -> User:
-    """
-    Get current active user
-    """
-    if not current_user.is_active:
+    current_user = Depends(get_current_user),
+):
+    """Get current active user"""
+    if not current_user["is_active"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user"
         )
     return current_user
 
-
 async def get_current_verified_user(
-    current_user: User = Depends(get_current_active_user),
-) -> User:
-    """
-    Get current verified user
-    """
-    if not current_user.is_verified:
+    current_user = Depends(get_current_active_user),
+):
+    """Get current verified user"""
+    if not current_user["is_verified"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email not verified"

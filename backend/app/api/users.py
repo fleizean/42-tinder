@@ -1,75 +1,81 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+# app/api/users.py
 from typing import Any
+from fastapi import APIRouter, Depends, status, Request
+from fastapi.responses import JSONResponse
 
-from app.core.db import get_db
+from app.core.db import get_connection
 from app.core.security import get_current_user, get_current_verified_user
-from app.models.user import User
-from app.schemas.user import User as UserSchema, UserUpdate
-from app.services.auth import update_last_activity
+from app.validation.user import validate_user_update
+from app.db import users
 
 router = APIRouter()
 
-
-@router.get("/me", response_model=UserSchema)
+@router.get("/me", response_model=dict)
 async def read_user_me(
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
 ) -> Any:
     """
     Get current user
     """
     return current_user
 
-
-@router.put("/me", response_model=UserSchema)
+@router.put("/me", response_model=dict)
 async def update_user_me(
-    user_data: UserUpdate,
-    current_user: User = Depends(get_current_verified_user),
-    db: AsyncSession = Depends(get_db)
+    request: Request,
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
 ) -> Any:
     """
     Update current user
     """
+    data = await request.json()
+    
+    # Validate user data
+    is_valid, errors = validate_user_update(data)
+    if not is_valid:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": errors}
+        )
+    
     # Check if username is being changed and if it's already taken
-    if user_data.username and user_data.username != current_user.username:
-        result = await db.execute(select(User).filter(User.username == user_data.username))
-        if result.scalars().first():
-            raise HTTPException(
+    if data.get("username") and data["username"] != current_user["username"]:
+        existing_user = await users.get_user_by_username(conn, data["username"])
+        if existing_user:
+            return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already taken"
+                content={"detail": "Username already taken"}
             )
     
     # Check if email is being changed and if it's already taken
-    if user_data.email and user_data.email != current_user.email:
-        result = await db.execute(select(User).filter(User.email == user_data.email))
-        if result.scalars().first():
-            raise HTTPException(
+    if data.get("email") and data["email"] != current_user["email"]:
+        existing_email = await users.get_user_by_email(conn, data["email"])
+        if existing_email:
+            return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                content={"detail": "Email already registered"}
             )
     
-    # Update user attributes
-    for key, value in user_data.dict(exclude_unset=True).items():
-        if key != "password":  # Password handled separately
-            setattr(current_user, key, value)
+    # Update user
+    updated_user = await users.update_user(conn, current_user["id"], data)
     
-    db.add(current_user)
-    await db.commit()
-    await db.refresh(current_user)
+    if not updated_user:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Failed to update user"}
+        )
     
-    return current_user
-
+    return dict(updated_user)
 
 @router.post("/heartbeat", response_model=dict)
 async def user_heartbeat(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user = Depends(get_current_user),
+    conn = Depends(get_connection)
 ) -> Any:
     """
     Update user's last activity timestamp (for online status)
     """
-    await update_last_activity(db, current_user.id, is_online=True)
+    await users.update_last_activity(conn, current_user["id"], True)
     
     return {
         "status": "ok"

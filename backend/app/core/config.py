@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import Optional, List
+from typing import List
 from pydantic import EmailStr, AnyHttpUrl
 
 
@@ -30,10 +30,6 @@ class Settings(BaseSettings):
     MAIL_TLS: bool = True
     MAIL_SSL: bool = False
     
-    # Default admin user
-    FIRST_SUPERUSER: EmailStr
-    FIRST_SUPERUSER_PASSWORD: str
-
     # SQLAdmin credentials
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = "admin"

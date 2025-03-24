@@ -1,31 +1,18 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import DeclarativeBase
-
+import asyncpg
+import psycopg2
 from app.core.config import settings
 
-# Sync engine for migrations and utilities
-SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Async engine for main application
-ASYNC_SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
-async_engine = create_async_engine(ASYNC_SQLALCHEMY_DATABASE_URL, echo=True)
-AsyncSessionLocal = sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+async def get_connection():
+    """Get a database connection"""
+    conn = await asyncpg.connect(settings.DATABASE_URL)
+    try:
+        yield conn
+    finally:
+        await conn.close()
 
-
-# Base class for SQLAlchemy models
-class Base(DeclarativeBase):
-    pass
-
-
-# Dependency to get DB session
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+# Synchronous alternative using psycopg2 if needed
+def get_db_connection():
+    """Get a synchronous database connection"""
+    conn = psycopg2.connect(settings.DATABASE_URL)
+    return conn

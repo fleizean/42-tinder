@@ -1,5 +1,5 @@
 from math import radians, cos, sin, asin, sqrt
-from typing import Tuple, Optional
+from typing import Tuple
 
 def haversine_distance(
     lat1: float, 

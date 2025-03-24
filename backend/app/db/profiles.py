@@ -290,9 +290,9 @@ async def get_suggested_profiles(
     """
     
     where_parts = ["p.is_complete = true"]
-    where_parts.append(f"p.id NOT IN ({excluded_placeholders})")
-    
-    params = [user_profile['id']] + excluded_ids
+    where_parts.append(f"p.id NOT IN ({excluded_placeholders}::UUID[])")
+
+    params = [str(user_profile['id'])] + excluded_ids
     param_idx = len(params) + 1
     
     # Add gender and preference filters

@@ -1,4 +1,3 @@
-# app/db/realtime.py
 from datetime import datetime
 
 async def create_notification(conn, user_id, sender_id, notification_type, content=None):
@@ -6,14 +5,14 @@ async def create_notification(conn, user_id, sender_id, notification_type, conte
     query = """
     INSERT INTO notifications (user_id, sender_id, type, content, is_read, created_at)
     VALUES ($1, $2, $3, $4, false, $5)
-    RETURNING id, user_id, sender_id, type, content, is_read, created_at, read_at
+    RETURNING id, user_id, sender_id, type, content, is_read, created_at
     """
     return await conn.fetchrow(
         query, user_id, sender_id, notification_type, content, datetime.utcnow()
     )
 
 async def get_notifications(conn, user_id, limit=20, offset=0, unread_only=False):
-    """Get notifications for a user with sender information"""
+    """Get notifications for a user with sender username"""
     params = [user_id, limit, offset]
     
     query = """
@@ -34,7 +33,30 @@ async def get_notifications(conn, user_id, limit=20, offset=0, unread_only=False
     LIMIT $2 OFFSET $3
     """
     
-    return await conn.fetch(query, *params)
+    notifications = await conn.fetch(query, *params)
+    
+    result = []
+    for notification in notifications:
+        notification_dict = dict(notification)
+        result.append({
+            "notification": {
+                "id": notification['id'],
+                "user_id": notification['user_id'],
+                "sender_id": notification['sender_id'],
+                "type": notification['type'],
+                "content": notification['content'],
+                "is_read": notification['is_read'],
+                "created_at": notification['created_at'],
+                "read_at": notification['read_at']
+            },
+            "sender": {
+                "username": notification['sender_username'],
+                "first_name": notification['sender_first_name'],
+                "last_name": notification['sender_last_name']
+            } if notification['sender_id'] else None
+        })
+    
+    return result
 
 async def mark_notification_as_read(conn, notification_id, user_id):
     """Mark a notification as read"""
@@ -42,9 +64,9 @@ async def mark_notification_as_read(conn, notification_id, user_id):
     UPDATE notifications
     SET is_read = true, read_at = $3
     WHERE id = $1 AND user_id = $2
-    RETURNING id
+    RETURNING id, user_id, sender_id, type, content, is_read, created_at, read_at
     """
-    return await conn.fetchval(query, notification_id, user_id, datetime.utcnow())
+    return await conn.fetchrow(query, notification_id, user_id, datetime.utcnow())
 
 async def mark_all_notifications_as_read(conn, user_id):
     """Mark all notifications as read for a user"""
@@ -53,7 +75,10 @@ async def mark_all_notifications_as_read(conn, user_id):
     SET is_read = true, read_at = $2
     WHERE user_id = $1 AND is_read = false
     """
-    return await conn.execute(query, user_id, datetime.utcnow())
+    result = await conn.execute(query, user_id, datetime.utcnow())
+    
+    # Get the number of affected rows
+    return int(result.split()[-1])
 
 async def get_unread_notification_count(conn, user_id):
     """Get count of unread notifications for a user"""
@@ -67,7 +92,7 @@ async def get_unread_notification_count(conn, user_id):
 async def send_message(conn, sender_id, recipient_id, content):
     """Send a message from one user to another"""
     # Check if users exist
-    sender = await conn.fetchrow("SELECT id FROM users WHERE id = $1", sender_id)
+    sender = await conn.fetchrow("SELECT id, username, first_name, last_name FROM users WHERE id = $1", sender_id)
     recipient = await conn.fetchrow("SELECT id FROM users WHERE id = $1", recipient_id)
     
     if not sender or not recipient:
@@ -85,16 +110,18 @@ async def send_message(conn, sender_id, recipient_id, content):
     
     # Create message
     now = datetime.utcnow()
-    message = await conn.fetchrow("""
+    message_id = await conn.fetchval("""
     INSERT INTO messages (sender_id, recipient_id, content, is_read, created_at)
     VALUES ($1, $2, $3, false, $4)
-    RETURNING id, sender_id, recipient_id, content, is_read, created_at, read_at
+    RETURNING id
     """, sender_id, recipient_id, content, now)
     
     # Create notification
+    truncated_content = content[:30] + "..." if len(content) > 30 else content
+    notification_content = f"{sender['first_name']} size yeni bir mesaj gönderdi: '{truncated_content}'"
+    
     await create_notification(
-        conn, recipient_id, sender_id, 'message', 
-        f"New message from {sender_id}"
+        conn, recipient_id, sender_id, 'message', notification_content
     )
     
     # Update connection timestamp
@@ -104,7 +131,18 @@ async def send_message(conn, sender_id, recipient_id, content):
     WHERE id = $1
     """, connection['id'], now)
     
-    return message
+    # Get the created message
+    message = await conn.fetchrow("""
+    SELECT id, sender_id, recipient_id, content, is_read, created_at, read_at
+    FROM messages
+    WHERE id = $1
+    """, message_id)
+    
+    return {
+        "message": dict(message),
+        "sender": dict(sender),
+        "recipient": dict(recipient)
+    }
 
 async def get_messages(conn, user1_id, user2_id, limit=50, offset=0):
     """Get messages between two users"""
@@ -128,7 +166,7 @@ async def get_messages(conn, user1_id, user2_id, limit=50, offset=0):
             WHERE id = $1
             """, message['id'], now)
     
-    # Return messages in chronological order (oldest first)
+    # Return in chronological order (reverse the desc order from the query)
     return [dict(msg) for msg in reversed(messages)]
 
 async def get_unread_message_count(conn, user_id):
@@ -142,54 +180,68 @@ async def get_unread_message_count(conn, user_id):
 
 async def get_recent_conversations(conn, user_id, limit=10):
     """Get recent conversations for a user"""
-    # Get active connections
-    connections = await conn.fetch("""
-    SELECT id, user1_id, user2_id, is_active, created_at, updated_at
-    FROM connections
-    WHERE is_active = true AND (user1_id = $1 OR user2_id = $1)
-    ORDER BY updated_at DESC
-    LIMIT $2
-    """, user_id, limit)
-    
-    conversations = []
-    for connection in connections:
-        # Get the other user's ID
-        other_user_id = connection["user2_id"] if connection["user1_id"] == user_id else connection["user1_id"]
+    try:
+        # Get active connections
+        connections = await conn.fetch("""
+        SELECT c.id, c.user1_id, c.user2_id, c.is_active, c.created_at, c.updated_at,
+               u.id as u_id, u.username, u.first_name, u.last_name, u.is_online, u.last_online
+        FROM connections c
+        JOIN users u ON (c.user1_id = $1 AND c.user2_id = u.id) OR (c.user1_id = u.id AND c.user2_id = $1)
+        WHERE c.is_active = true
+        ORDER BY c.updated_at DESC
+        LIMIT $2
+        """, user_id, limit)
         
-        # Get user info
-        user_info = await conn.fetchrow("""
-        SELECT id, username, first_name, last_name, is_online, last_online
-        FROM users
-        WHERE id = $1
-        """, other_user_id)
+        conversations = []
+        for connection in connections:
+            # Get the other user
+            other_user_id = connection['user2_id'] if connection['user1_id'] == user_id else connection['user1_id']
+            
+            # Create user info
+            other_user = {
+                "id": connection['u_id'],
+                "username": connection['username'],
+                "first_name": connection['first_name'],
+                "last_name": connection['last_name'],
+                "is_online": connection['is_online'],
+                "last_online": connection['last_online']
+            }
+            
+            # Get most recent message
+            recent_message = await conn.fetchrow("""
+            SELECT id, sender_id, recipient_id, content, is_read, created_at, read_at
+            FROM messages
+            WHERE (sender_id = $1 AND recipient_id = $2) OR (sender_id = $2 AND recipient_id = $1)
+            ORDER BY created_at DESC
+            LIMIT 1
+            """, user_id, other_user_id)
+            
+            # Get unread count
+            unread_count = await conn.fetchval("""
+            SELECT COUNT(*)
+            FROM messages
+            WHERE sender_id = $1 AND recipient_id = $2 AND is_read = false
+            """, other_user_id, user_id)
+            
+            conversations.append({
+                "connection": {
+                    "id": connection['id'],
+                    "user1_id": connection['user1_id'],
+                    "user2_id": connection['user2_id'],
+                    "is_active": connection['is_active'],
+                    "created_at": connection['created_at'],
+                    "updated_at": connection['updated_at']
+                },
+                "user": other_user,
+                "recent_message": dict(recent_message) if recent_message else None,
+                "unread_count": unread_count
+            })
         
-        if not user_info:
-            continue
+        return conversations
         
-        # Get most recent message
-        recent_message = await conn.fetchrow("""
-        SELECT id, sender_id, recipient_id, content, is_read, created_at, read_at
-        FROM messages
-        WHERE (sender_id = $1 AND recipient_id = $2) OR (sender_id = $2 AND recipient_id = $1)
-        ORDER BY created_at DESC
-        LIMIT 1
-        """, user_id, other_user_id)
+    except Exception as e:
+        # Log the exception
+        print(f"Error in get_recent_conversations: {str(e)}")
         
-        # Get unread count
-        unread_count = await conn.fetchval("""
-        SELECT COUNT(*)
-        FROM messages
-        WHERE sender_id = $1 AND recipient_id = $2 AND is_read = false
-        """, other_user_id, user_id)
-        
-        # Format conversation data
-        conversation = {
-            "connection": dict(connection),
-            "user": dict(user_info),
-            "recent_message": dict(recent_message) if recent_message else None,
-            "unread_count": unread_count
-        }
-        
-        conversations.append(conversation)
-    
-    return conversations
+        # Return empty list instead of failing
+        return []

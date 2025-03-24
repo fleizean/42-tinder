@@ -6,45 +6,9 @@ from typing import List, Optional
 from app.core.db import get_connection
 from app.core.security import get_current_user, get_current_verified_user
 from app.api.realtime import manager, broadcast_notification
+from app.db.profiles import update_fame_rating
 
 router = APIRouter()
-
-async def update_fame_rating(conn, profile_id):
-    """Update a profile's fame rating based on likes, visits, etc."""
-    # Count likes
-    likes_count = await conn.fetchval("""
-    SELECT COUNT(*) FROM likes
-    WHERE liked_id = $1
-    """, profile_id)
-    
-    # Count visits
-    visits_count = await conn.fetchval("""
-    SELECT COUNT(*) FROM visits
-    WHERE visited_id = $1
-    """, profile_id)
-    
-    # Get total user count for normalization
-    total_users = await conn.fetchval("""
-    SELECT COUNT(*) FROM users
-    """)
-    
-    # Calculate fame rating
-    if total_users > 0:
-        # Formula: (likes * 2 + visits) / total_users * 5
-        fame_rating = (likes_count * 2 + visits_count) / total_users * 5
-        fame_rating = min(5.0, fame_rating)  # Cap at 5
-    else:
-        fame_rating = 0.0
-    
-    # Update profile
-    await conn.execute("""
-    UPDATE profiles
-    SET fame_rating = $2
-    WHERE id = $1
-    """, profile_id, fame_rating)
-    
-    return fame_rating
-
 
 @router.post("/like")
 async def create_like(

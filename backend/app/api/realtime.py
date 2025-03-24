@@ -17,7 +17,7 @@ from app.db.realtime import (
     get_messages,
     get_unread_message_count
 )
-from app.services.auth import update_last_activity
+
 from jose import jwt, JWTError
 from app.core.config import settings
 

@@ -9,7 +9,7 @@ from app.api.profiles import router as profiles_router
 from app.api.interactions import router as interactions_router
 from app.api.realtime import router as realtime_router
 from app.core.config import settings
-from backend.app.core.migrations import run_migrations
+from app.core.migrations import run_migrations
 from contextlib import asynccontextmanager
 
 # Create upload directories

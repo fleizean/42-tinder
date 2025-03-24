@@ -593,12 +593,27 @@ const Match = () => {
         return sortedProfiles;
       case SortOption.FAME_RATING:
         return sortedProfiles.sort((a, b) => b.fame_rating - a.fame_rating);
-      case SortOption.TAGS_MATCH:
-        return sortedProfiles.sort((a, b) => {
-          const aMatches = a.tags.filter(tag => tags.includes(tag.name)).length;
-          const bMatches = b.tags.filter(tag => tags.includes(tag.name)).length;
-          return bMatches - aMatches;
-        });
+        case SortOption.TAGS_MATCH:
+          return sortedProfiles.sort((a, b) => {
+            // Compare how many of the selected filter tags match each profile's tags
+            const aTagNames = a.tags.map(tag => tag.name.toLowerCase());
+            const bTagNames = b.tags.map(tag => tag.name.toLowerCase());
+            const aMatches = tags.filter(tag => aTagNames.includes(tag.toLowerCase())).length;
+            const bMatches = tags.filter(tag => bTagNames.includes(tag.toLowerCase())).length;
+            
+            // Sort by number of matching tags (descending)
+            if (bMatches !== aMatches) {
+              return bMatches - aMatches;
+            }
+            
+            // If same number of matches, sort by distance as secondary criteria
+            if (userProfile) {
+              return calculateDistance(userProfile.latitude, userProfile.longitude, a.latitude, a.longitude) -
+                    calculateDistance(userProfile.latitude, userProfile.longitude, b.latitude, b.longitude);
+            }
+            
+            return 0;
+          });
       default:
         return sortedProfiles;
     }

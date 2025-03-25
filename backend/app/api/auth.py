@@ -122,53 +122,6 @@ async def login(
         "token_type": "bearer"
     }
 
-@router.post("/refresh", response_model=dict)
-async def refresh_token_endpoint(
-    request: Request,
-    conn = Depends(get_connection)
-) -> Any:
-    """
-    Refresh access token using refresh token
-    """
-    data = await request.json()
-    refresh_token = data.get("refresh_token")
-    
-    if not refresh_token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Refresh token is required"
-        )
-    
-    # Get user by refresh token
-    query = """
-    SELECT id FROM users
-    WHERE refresh_token = $1 AND refresh_token_expires > $2
-    """
-    user_id = await conn.fetchval(query, refresh_token, datetime.utcnow())
-    
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token"
-        )
-    
-    # Generate new access token
-    access_token = create_access_token(user_id)
-    
-    # Generate new refresh token (rotating refresh tokens for better security)
-    new_refresh_token = create_refresh_token(user_id)
-    
-    # Update refresh token in database
-    token_expires = datetime.utcnow() + timedelta(days=7)
-    await users.update_refresh_token(conn, user_id, new_refresh_token, token_expires)
-    
-    return {
-        "access_token": access_token,
-        "refresh_token": new_refresh_token,
-        "token_type": "bearer"
-    }
-
-
 @router.post("/login/json", response_model=dict)
 async def login_json(
     request: Request,
@@ -234,6 +187,53 @@ async def login_json(
         "refresh_token": refresh_token,
         "token_type": "bearer"
     }
+
+@router.post("/refresh", response_model=dict)
+async def refresh_token_endpoint(
+    request: Request,
+    conn = Depends(get_connection)
+) -> Any:
+    """
+    Refresh access token using refresh token
+    """
+    data = await request.json()
+    refresh_token = data.get("refresh_token")
+    
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Refresh token is required"
+        )
+    
+    # Get user by refresh token
+    query = """
+    SELECT id FROM users
+    WHERE refresh_token = $1 AND refresh_token_expires > $2
+    """
+    user_id = await conn.fetchval(query, refresh_token, datetime.utcnow())
+    
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token"
+        )
+    
+    # Generate new access token
+    access_token = create_access_token(user_id)
+    
+    # Generate new refresh token (rotating refresh tokens for better security)
+    new_refresh_token = create_refresh_token(user_id)
+    
+    # Update refresh token in database
+    token_expires = datetime.utcnow() + timedelta(days=7)
+    await users.update_refresh_token(conn, user_id, new_refresh_token, token_expires)
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer"
+    }
+
 
 @router.get("/verify", response_model=dict)
 async def verify_email(

@@ -3,7 +3,8 @@ from typing import Optional, Dict, Any
 import uuid
 from app.core.security import verify_password, get_password_hash
 from app.services.email import send_verification_email, send_password_reset_email
-
+from jose import jwt, JWTError
+from app.core.config import settings
 
 async def authenticate_user(conn, username: str, password: str) -> Optional[Dict[str, Any]]:
     """
@@ -187,33 +188,6 @@ async def change_password(conn, user_id: str, current_password: str, new_passwor
     
     return dict(updated_user)
 
-async def update_last_activity(conn, user_id: str, is_online: bool = True) -> Optional[Dict[str, Any]]:
-    """
-    Update user's last activity and online status
-    """
-    now = datetime.utcnow()
-    
-    if is_online:
-        query = """
-        UPDATE users
-        SET is_online = $2, last_login = $3
-        WHERE id = $1
-        RETURNING id, username, email, first_name, last_name, is_online, last_login
-        """
-        user = await conn.fetchrow(query, user_id, True, now)
-    else:
-        query = """
-        UPDATE users
-        SET is_online = $2, last_online = $3
-        WHERE id = $1
-        RETURNING id, username, email, first_name, last_name, is_online, last_online
-        """
-        user = await conn.fetchrow(query, user_id, False, now)
-    
-    if not user:
-        return None
-    
-    return dict(user)
 
 async def update_refresh_token(conn, user_id: str, refresh_token: str) -> Optional[Dict[str, Any]]:
     """
@@ -266,3 +240,13 @@ async def invalidate_refresh_token(conn, user_id: str) -> bool:
     result = await conn.fetchval(query, user_id)
     
     return result is not None
+
+def verify_jwt_token(token):
+    """Verify JWT token and return payload"""
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        return payload
+    except JWTError:
+        return None

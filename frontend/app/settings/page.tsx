@@ -170,7 +170,7 @@ const SettingsPage = () => {
     setIsLoadingBlocked(true);
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/block?limit=10`,
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/interactions/blocks?limit=10`,
         {
           headers: {
             'Authorization': `Bearer ${session?.user?.accessToken}`,

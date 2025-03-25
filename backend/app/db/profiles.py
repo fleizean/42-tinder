@@ -277,8 +277,10 @@ async def get_suggested_profiles(
     SELECT blocker_id FROM blocks WHERE blocked_id = $1
     """, user_profile['id'])
     
-    excluded_ids = [row['blocked_id'] for row in blocked_ids] + [user_profile['id']]
-    excluded_placeholders = ','.join(f"${i+2}" for i in range(len(excluded_ids)))
+    # Build the exclusion list differently to handle types properly
+    excluded_ids = [user_profile['id']]
+    for row in blocked_ids:
+        excluded_ids.append(row['blocked_id'])
     
     # Base query parts
     select_part = """
@@ -290,33 +292,39 @@ async def get_suggested_profiles(
     """
     
     where_parts = ["p.is_complete = true"]
-    where_parts.append(f"p.id NOT IN ({excluded_placeholders}::UUID[])")
-
-    params = [str(user_profile['id'])] + excluded_ids
+    
+    # Handle excluded IDs without using array casting
+    if excluded_ids:
+        excluded_placeholders = []
+        for i, _ in enumerate(excluded_ids):
+            excluded_placeholders.append(f"${i+1}")
+        
+        where_parts.append(f"p.id NOT IN ({','.join(excluded_placeholders)})")
+    
+    # Start with excluded IDs as parameters
+    params = excluded_ids.copy()
     param_idx = len(params) + 1
     
     # Add gender and preference filters
-    gender_preference_conditions = []
-    
     if user_gender and user_preference:
         if user_preference == 'heterosexual':
             # Heterosexual: match with opposite gender
             opposite_gender = 'female' if user_gender == 'male' else 'male'
-            gender_preference_conditions.append(f"(p.gender = '${param_idx}')")
+            where_parts.append(f"p.gender = ${param_idx}")
             params.append(opposite_gender)
             param_idx += 1
             
             # And the other user should be interested in user's gender
-            gender_preference_conditions.append(f"(p.sexual_preference IN ('heterosexual', 'bisexual'))")
+            where_parts.append("(p.sexual_preference IN ('heterosexual', 'bisexual'))")
             
         elif user_preference == 'homosexual':
             # Homosexual: match with same gender
-            gender_preference_conditions.append(f"(p.gender = '${param_idx}')")
+            where_parts.append(f"p.gender = ${param_idx}")
             params.append(user_gender)
             param_idx += 1
             
             # And the other user should be interested in same gender
-            gender_preference_conditions.append(f"(p.sexual_preference IN ('homosexual', 'bisexual'))")
+            where_parts.append("(p.sexual_preference IN ('homosexual', 'bisexual'))")
             
         elif user_preference == 'bisexual':
             # Bisexual: match with compatible combinations
@@ -324,22 +332,19 @@ async def get_suggested_profiles(
             
             # If other is heterosexual, they should be opposite gender
             opposite_gender = 'female' if user_gender == 'male' else 'male'
-            bisexual_conditions.append(f"(p.sexual_preference = 'heterosexual' AND p.gender = '${param_idx}')")
+            bisexual_conditions.append(f"(p.sexual_preference = 'heterosexual' AND p.gender = ${param_idx})")
             params.append(opposite_gender)
             param_idx += 1
             
             # If other is homosexual, they should be same gender
-            bisexual_conditions.append(f"(p.sexual_preference = 'homosexual' AND p.gender = '${param_idx}')")
+            bisexual_conditions.append(f"(p.sexual_preference = 'homosexual' AND p.gender = ${param_idx})")
             params.append(user_gender)
             param_idx += 1
             
             # If other is bisexual, no gender restrictions
             bisexual_conditions.append("(p.sexual_preference = 'bisexual')")
             
-            gender_preference_conditions.append(f"({' OR '.join(bisexual_conditions)})")
-    
-    if gender_preference_conditions:
-        where_parts.append(f"({' AND '.join(gender_preference_conditions)})")
+            where_parts.append(f"({' OR '.join(bisexual_conditions)})")
     
     # Add age filters
     if min_age is not None:
@@ -407,77 +412,82 @@ async def get_suggested_profiles(
     
     query = f"{select_part} WHERE {where_clause} {order_clause} {limit_clause}"
     
-    # Execute query
-    profiles = await conn.fetch(query, *params)
-    
-    # Get additional data for each profile
-    results = []
-    for profile in profiles:
-        profile_dict = dict(profile)
+    try:
+        # Execute query
+        profiles = await conn.fetch(query, *params)
         
-        # Get profile pictures
-        pictures = await get_profile_pictures(conn, profile['id'])
-        profile_dict['pictures'] = [dict(pic) for pic in pictures]
+        # Get additional data for each profile
+        results = []
+        for profile in profiles:
+            profile_dict = dict(profile)
+            
+            # Get profile pictures
+            pictures = await get_profile_pictures(conn, profile['id'])
+            profile_dict['pictures'] = [dict(pic) for pic in pictures]
+            
+            # Get profile tags
+            tags = await get_profile_tags(conn, profile['id'])
+            profile_dict['tags'] = [dict(tag) for tag in tags]
+            
+            # Calculate distance if coordinates available
+            if (user_profile['latitude'] and user_profile['longitude'] and 
+                profile['latitude'] and profile['longitude']):
+                distance = haversine_distance(
+                    user_profile['latitude'], 
+                    user_profile['longitude'], 
+                    profile['latitude'], 
+                    profile['longitude']
+                )
+                profile_dict['distance'] = distance
+            else:
+                profile_dict['distance'] = None
+            
+            # Calculate age
+            if profile['birth_date']:
+                today = datetime.utcnow()
+                birth_date = profile['birth_date']
+                age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+                profile_dict['age'] = age
+            else:
+                profile_dict['age'] = None
+            
+            # Check if user has liked this profile
+            liked = await conn.fetchval("""
+            SELECT id FROM likes
+            WHERE liker_id = $1 AND liked_id = $2
+            """, user_profile['id'], profile['id'])
+            
+            profile_dict['has_liked'] = liked is not None
+            
+            # Calculate common tags
+            user_tags = await conn.fetch("""
+            SELECT tag_id FROM profile_tags
+            WHERE profile_id = $1
+            """, user_profile['id'])
+            
+            profile_tags = await conn.fetch("""
+            SELECT tag_id FROM profile_tags
+            WHERE profile_id = $1
+            """, profile['id'])
+            
+            user_tag_ids = {t['tag_id'] for t in user_tags}
+            profile_tag_ids = {t['tag_id'] for t in profile_tags}
+            common_tags = len(user_tag_ids.intersection(profile_tag_ids))
+            
+            profile_dict['common_tags'] = common_tags
+            
+            results.append(profile_dict)
         
-        # Get profile tags
-        tags = await get_profile_tags(conn, profile['id'])
-        profile_dict['tags'] = [dict(tag) for tag in tags]
-        
-        # Calculate distance if coordinates available
-        if (user_profile['latitude'] and user_profile['longitude'] and 
-            profile['latitude'] and profile['longitude']):
-            distance = haversine_distance(
-                user_profile['latitude'], 
-                user_profile['longitude'], 
-                profile['latitude'], 
-                profile['longitude']
-            )
-            profile_dict['distance'] = distance
-        else:
-            profile_dict['distance'] = None
-        
-        # Calculate age
-        if profile['birth_date']:
-            today = datetime.utcnow()
-            birth_date = profile['birth_date']
-            age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
-            profile_dict['age'] = age
-        else:
-            profile_dict['age'] = None
-        
-        # Check if user has liked this profile
-        liked = await conn.fetchval("""
-        SELECT id FROM likes
-        WHERE liker_id = $1 AND liked_id = $2
-        """, user_profile['id'], profile['id'])
-        
-        profile_dict['has_liked'] = liked is not None
-        
-        # Calculate common tags
-        user_tags = await conn.fetch("""
-        SELECT tag_id FROM profile_tags
-        WHERE profile_id = $1
-        """, user_profile['id'])
-        
-        profile_tags = await conn.fetch("""
-        SELECT tag_id FROM profile_tags
-        WHERE profile_id = $1
-        """, profile['id'])
-        
-        user_tag_ids = {t['tag_id'] for t in user_tags}
-        profile_tag_ids = {t['tag_id'] for t in profile_tags}
-        common_tags = len(user_tag_ids.intersection(profile_tag_ids))
-        
-        profile_dict['common_tags'] = common_tags
-        
-        results.append(profile_dict)
-    
-    # Sort by proximity, then common tags, then fame rating
-    if max_distance is not None:
-        results.sort(key=lambda x: (
-            float('inf') if x['distance'] is None else x['distance'],
-            -x['common_tags'],
-            -x['fame_rating']
-        ))
-    
-    return results
+        # Sort by proximity, then common tags, then fame rating
+        if max_distance is not None:
+            results.sort(key=lambda x: (
+                float('inf') if x['distance'] is None else x['distance'],
+                -x['common_tags'],
+                -x['fame_rating']
+            ))
+        return results
+    except Exception as e:
+        print(f"Error executing query: {str(e)}")
+        print(f"Query: {query}")
+        print(f"Params: {params}")
+        raise

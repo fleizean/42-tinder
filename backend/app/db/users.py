@@ -102,6 +102,8 @@ async def update_password(conn, user_id, hashed_password):
 
 async def update_last_activity(conn, user_id, is_online):
     """Update user's last activity and online status"""
+
+    now = datetime.utcnow()
     if is_online:
         query = """
         UPDATE users
@@ -109,7 +111,7 @@ async def update_last_activity(conn, user_id, is_online):
         WHERE id = $1
         RETURNING id
         """
-        return await conn.fetchval(query, user_id, True, datetime.utcnow())
+        return await conn.fetchval(query, user_id, True, now)
     else:
         query = """
         UPDATE users
@@ -117,7 +119,7 @@ async def update_last_activity(conn, user_id, is_online):
         WHERE id = $1
         RETURNING id
         """
-        return await conn.fetchval(query, user_id, False, datetime.utcnow())
+        return await conn.fetchval(query, user_id, False, now)
 
 async def update_verification(conn, token, is_verified=True):
     """Verify a user using their verification token"""

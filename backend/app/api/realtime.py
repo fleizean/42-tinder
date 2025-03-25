@@ -8,8 +8,8 @@ import logging
 from app.core.db import get_connection
 from app.core.security import get_current_verified_user
 from app.db.realtime import (
-    create_notification,
     get_notifications,
+    get_recent_conversations,
     mark_notification_as_read,
     mark_all_notifications_as_read,
     get_unread_notification_count,
@@ -18,8 +18,9 @@ from app.db.realtime import (
     get_unread_message_count
 )
 
-from jose import jwt, JWTError
-from app.core.config import settings
+
+from app.db.users import update_last_activity
+from app.db.auth import verify_jwt_token
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -55,47 +56,6 @@ class ConnectionManager:
 
 # Create connection manager instance
 manager = ConnectionManager()
-
-async def broadcast_notification(
-    manager: ConnectionManager,
-    user_id: str, 
-    notification_type: str, 
-    sender_id: str = None, 
-    content: str = None
-):
-    """
-    Broadcast a notification to a user over WebSocket if they're connected
-    """
-    try:
-        if user_id in manager.active_connections:
-            notification_data = {
-                "type": "notification",
-                "data": {
-                    "type": notification_type,
-                    "timestamp": datetime.utcnow().isoformat()
-                }
-            }
-            
-            if sender_id:
-                notification_data["data"]["sender_id"] = sender_id
-                
-            if content:
-                notification_data["data"]["content"] = content
-                
-            await manager.send_personal_message(notification_data, user_id)
-            logger.info(f"Sent {notification_type} notification to user {user_id}")
-    except Exception as e:
-        logger.error(f"Error broadcasting notification: {str(e)}")
-
-def verify_jwt_token(token):
-    """Verify JWT token and return payload"""
-    try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
-        return payload
-    except JWTError:
-        return None
 
 @router.websocket("/ws/{token}")
 async def websocket_endpoint(
@@ -135,11 +95,7 @@ async def websocket_endpoint(
         await manager.connect(websocket, user["id"])
         
         # Update online status
-        await conn.execute("""
-        UPDATE users
-        SET is_online = true, last_login = $2
-        WHERE id = $1
-        """, user["id"], datetime.utcnow())
+        await update_last_activity(conn, user["id"], is_online=True)
         
         try:
             while True:
@@ -193,11 +149,7 @@ async def websocket_endpoint(
                 
                 elif message_data["type"] == "ping":
                     # Client ping to keep connection alive and update online status
-                    await conn.execute("""
-                    UPDATE users
-                    SET is_online = true, last_login = $2
-                    WHERE id = $1
-                    """, user["id"], datetime.utcnow())
+                    await update_last_activity(conn, user["id"], is_online=True)
                     
                     await websocket.send_text(json.dumps({"type": "pong"}))
         
@@ -206,11 +158,7 @@ async def websocket_endpoint(
             manager.disconnect(user["id"])
             
             # Update offline status
-            await conn.execute("""
-            UPDATE users
-            SET is_online = false, last_online = $2
-            WHERE id = $1
-            """, user["id"], datetime.utcnow())
+            await update_last_activity(conn, user["id"], is_online=False)
             
         except Exception as e:
             # Handle other exceptions
@@ -218,15 +166,65 @@ async def websocket_endpoint(
             manager.disconnect(user["id"])
             
             # Update offline status
-            await conn.execute("""
-            UPDATE users
-            SET is_online = false, last_online = $2
-            WHERE id = $1
-            """, user["id"], datetime.utcnow())
+            await update_last_activity(conn, user["id"], is_online=False)
     
     except Exception as e:
         # Handle connection initialization errors
         logger.error(f"WebSocket connection error: {str(e)}")
+
+async def broadcast_notification(
+    manager: ConnectionManager,
+    user_id: str, 
+    notification_type: str, 
+    sender_id: str = None, 
+    content: str = None
+):
+    """
+    Broadcast a notification to a user over WebSocket if they're connected
+    """
+    try:
+        if user_id in manager.active_connections:
+            notification_data = {
+                "type": "notification",
+                "data": {
+                    "type": notification_type,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            }
+            
+            if sender_id:
+                notification_data["data"]["sender_id"] = sender_id
+                
+            if content:
+                notification_data["data"]["content"] = content
+                
+            await manager.send_personal_message(notification_data, user_id)
+            logger.info(f"Sent {notification_type} notification to user {user_id}")
+    except Exception as e:
+        logger.error(f"Error broadcasting notification: {str(e)}")
+
+
+async def send_message_with_notification(sender_id: str, recipient_id: str, content: str, conn = Depends(get_connection)):
+    """
+    Send a message from one user to another and broadcast notification
+    """
+    # First, use the existing send_message function
+    result = await send_message(conn, sender_id, recipient_id, content)
+    
+    if result:
+        # Get sender info for notification
+        sender = result["sender"]
+        
+        # Broadcast notification to recipient
+        await broadcast_notification(
+            manager,
+            recipient_id,
+            "message",
+            sender_id,
+            f"{sender.first_name} size yeni bir mesaj gönderdi: '{content[:30]}...'" if len(content) > 30 else f"{sender.first_name} size yeni bir mesaj gönderdi: '{content}'"
+        )
+    
+    return result
 
 
 
@@ -241,14 +239,8 @@ async def read_notifications(
 ):
     """Get notifications for current user"""
     notifications = await get_notifications(conn, current_user["id"], limit, offset, unread_only)
-    
-    # Format response
-    formatted_notifications = []
-    for notification in notifications:
-        formatted_notification = dict(notification)
-        formatted_notifications.append(formatted_notification)
-    
-    return formatted_notifications
+        
+    return notifications
 
 
 @router.get("/notifications/count")
@@ -279,9 +271,10 @@ async def mark_notification_read(
             detail="Notification not found"
         )
     
-    return {
+    return notification_id
+"""     return {
         "message": "Notification marked as read"
-    }
+    } """
 
 
 @router.post("/notifications/read-all")
@@ -315,34 +308,15 @@ async def create_message(
         )
     
     # Send message and create notification
-    message = await send_message(conn, current_user["id"], recipient_id, content)
+    result = await send_message_with_notification(conn, current_user["id"], recipient_id, content)
     
-    if not message:
+    if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Could not send message. You might not be connected with this user."
         )
-    
-    # Get sender info for notification
-    sender = await conn.fetchrow("""
-    SELECT username, first_name, last_name
-    FROM users
-    WHERE id = $1
-    """, current_user["id"])
-    
-    # Send WebSocket notification if recipient is online
-    if sender:
-        notification_content = f"{sender['first_name']} size yeni bir mesaj gönderdi: '{content[:30]}...'" if len(content) > 30 else f"{sender['first_name']} size yeni bir mesaj gönderdi: '{content}'"
         
-        await broadcast_notification(
-            manager,
-            recipient_id,
-            "message",
-            current_user["id"],
-            notification_content
-        )
-    
-    return message
+    return result["message"]
 
 
 @router.get("/messages/{user_id}")
@@ -359,6 +333,39 @@ async def read_messages(
     return messages
 
 
+@router.get("/conversations")
+async def read_conversations(
+    limit: int = 10,
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """Get recent conversations for current user"""
+    try:
+        logger.info(f"Fetching conversations for user: {current_user['id']}")
+        conversations = await get_recent_conversations(conn, current_user['id'], limit)
+        logger.info(f"Found {len(conversations)} conversations")
+        
+        formatted_conversations = []
+        for conv in conversations:            
+            # Format conversation data
+            conversation = {
+                "connection": conv["connection"],
+                "user": conv["user"],
+                "recent_message": conv["recent_message"] if conv["recent_message"] else None,
+                "unread_count": conv["unread_count"]
+            }
+            
+            formatted_conversations.append(conversation)
+        
+        return formatted_conversations
+    
+    except Exception as e:
+        logger.error(f"Error fetching conversations: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching conversations: {str(e)}"
+        )
+    
 @router.get("/messages/unread/count")
 async def read_unread_message_count(
     current_user = Depends(get_current_verified_user),
@@ -371,70 +378,3 @@ async def read_unread_message_count(
         "count": count
     }
 
-
-@router.get("/conversations")
-async def read_conversations(
-    limit: int = 10,
-    current_user = Depends(get_current_verified_user),
-    conn = Depends(get_connection)
-):
-    """Get recent conversations for current user"""
-    try:
-        # Get active connections
-        connections = await conn.fetch("""
-        SELECT c.id, c.user1_id, c.user2_id, c.is_active, c.created_at, c.updated_at
-        FROM connections c
-        WHERE c.is_active = true AND (c.user1_id = $1 OR c.user2_id = $1)
-        ORDER BY c.updated_at DESC
-        LIMIT $2
-        """, current_user["id"], limit)
-        
-        conversations = []
-        for connection in connections:
-            # Get the other user's ID
-            other_user_id = connection["user2_id"] if connection["user1_id"] == current_user["id"] else connection["user1_id"]
-            
-            # Get user info
-            user_info = await conn.fetchrow("""
-            SELECT id, username, first_name, last_name, is_online, last_online
-            FROM users
-            WHERE id = $1
-            """, other_user_id)
-            
-            if not user_info:
-                continue
-            
-            # Get most recent message
-            recent_message = await conn.fetchrow("""
-            SELECT id, sender_id, recipient_id, content, is_read, created_at, read_at
-            FROM messages
-            WHERE (sender_id = $1 AND recipient_id = $2) OR (sender_id = $2 AND recipient_id = $1)
-            ORDER BY created_at DESC
-            LIMIT 1
-            """, current_user["id"], other_user_id)
-            
-            # Get unread count
-            unread_count = await conn.fetchval("""
-            SELECT COUNT(*)
-            FROM messages
-            WHERE sender_id = $1 AND recipient_id = $2 AND is_read = false
-            """, other_user_id, current_user["id"])
-            
-            # Format conversation data
-            conversation = {
-                "connection": dict(connection),
-                "user": dict(user_info),
-                "recent_message": dict(recent_message) if recent_message else None,
-                "unread_count": unread_count
-            }
-            
-            conversations.append(conversation)
-        
-        return conversations
-    
-    except Exception as e:
-        logger.error(f"Error fetching conversations: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching conversations: {str(e)}"
-        )

@@ -1,10 +1,9 @@
-from datetime import datetime, timedelta
+from datetime import datetime
+import json
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.responses import JSONResponse
-from typing import List, Optional
 
 from app.core.db import get_connection
-from app.core.security import get_current_user, get_current_verified_user
+from app.core.security import get_current_verified_user
 from app.api.realtime import manager, broadcast_notification
 from app.db.profiles import update_fame_rating
 
@@ -479,12 +478,21 @@ async def get_blocks(
 @router.post("/is_blocked")
 async def check_if_blocked(
     request: Request,
+    blocked_username: str = None,
     current_user = Depends(get_current_verified_user),
     conn = Depends(get_connection)
 ):
     """Check if a user is blocked and who initiated the block"""
-    data = await request.json()
-    username = data.get("username")
+    # Try getting from query params first
+    username = blocked_username
+    
+    # If not in query params, try getting from request body
+    if not username:
+        try:
+            data = await request.json()
+            username = data.get("username")
+        except json.JSONDecodeError:
+            pass
     
     if not username:
         raise HTTPException(
@@ -661,68 +669,6 @@ async def get_likes(
     
     return result
 
-@router.get("/matches")
-async def get_matches(
-    limit: int = 10,
-    offset: int = 0,
-    current_user = Depends(get_current_verified_user),
-    conn = Depends(get_connection)
-):
-    """Get current user's matches (mutual likes)"""
-    # Get user's profile
-    profile = await conn.fetchrow("""
-    SELECT id FROM profiles 
-    WHERE user_id = $1
-    """, current_user["id"])
-    
-    if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Your profile not found"
-        )
-    
-    # Get active connections with matched users
-    matches = await conn.fetch("""
-    SELECT p.id, p.user_id, p.gender, p.sexual_preference, p.biography,
-           p.latitude, p.longitude, p.fame_rating, p.birth_date,
-           u.username, u.first_name, u.last_name, u.is_online, u.last_online
-    FROM connections c
-    JOIN users u ON (c.user1_id = $1 AND c.user2_id = u.id) OR (c.user2_id = $1 AND c.user1_id = u.id)
-    JOIN profiles p ON u.id = p.user_id
-    WHERE c.is_active = true
-    ORDER BY c.updated_at DESC
-    LIMIT $2 OFFSET $3
-    """, current_user["id"], limit, offset)
-    
-    # Get profile pictures and tags for each match
-    result = []
-    for match in matches:
-        # Format the profile data
-        profile_data = dict(match)
-        
-        # Get profile pictures
-        pictures = await conn.fetch("""
-        SELECT id, profile_id, file_path, backend_url, is_primary
-        FROM profile_pictures
-        WHERE profile_id = $1
-        ORDER BY is_primary DESC, created_at ASC
-        """, match["id"])
-        
-        # Get profile tags
-        tags = await conn.fetch("""
-        SELECT t.id, t.name
-        FROM tags t
-        JOIN profile_tags pt ON t.id = pt.tag_id
-        WHERE pt.profile_id = $1
-        """, match["id"])
-        
-        # Add pictures and tags to the profile data
-        profile_data["pictures"] = [dict(pic) for pic in pictures]
-        profile_data["tags"] = [dict(tag) for tag in tags]
-        
-        result.append(profile_data)
-    
-    return result
 
 @router.post("/visit/{profile_id}")
 async def create_visit(

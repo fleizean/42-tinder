@@ -10,9 +10,9 @@ CREATE TABLE IF NOT EXISTS users (
     hashed_password VARCHAR(100) NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     is_verified BOOLEAN DEFAULT FALSE,
-    verification_token VARCHAR(100),
-    reset_password_token VARCHAR(100),
-    refresh_token VARCHAR(100),
+    verification_token VARCHAR(255),
+    reset_password_token VARCHAR(255),
+    refresh_token VARCHAR(255),
     refresh_token_expires TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     longitude FLOAT,
     fame_rating FLOAT DEFAULT 0.0,
     is_complete BOOLEAN DEFAULT FALSE,
-    birth_date TIMESTAMP,
+    birth_date TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

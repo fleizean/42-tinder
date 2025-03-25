@@ -1,17 +1,16 @@
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query, Request
 from fastapi.responses import JSONResponse
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 import uuid
 import os
 import shutil
-from pathlib import Path
 
 from app.core.db import get_connection
-from app.core.security import get_current_user, get_current_verified_user
+from app.core.security import get_current_verified_user
 from app.core.config import settings
-from app.validation.profile import validate_profile_update, validate_tags, validate_birth_date
-from app.db import profiles as profiles_db
+from app.validation.profile import validate_profile_update, validate_tags
+from app.db.profiles import get_suggested_profiles
 
 router = APIRouter()
 
@@ -91,10 +90,23 @@ async def update_my_profile(
     param_idx = 2
     
     for key, value in data.items():
-        if key in ["gender", "sexual_preference", "biography", "latitude", "longitude", "birth_date"]:
+        if key in ["gender", "sexual_preference", "biography", "latitude", "longitude"]:
             update_fields.append(f"{key} = ${param_idx}")
             params.append(value)
             param_idx += 1
+        elif key == "birth_date" and value:
+            # Convert birth_date string to datetime object
+            try:
+                if isinstance(value, str):
+                    birth_date = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                else:
+                    birth_date = value
+                update_fields.append(f"{key} = ${param_idx}")
+                params.append(birth_date)
+                param_idx += 1
+            except ValueError:
+                # Skip invalid date
+                pass
     
     # Add updated_at field
     update_fields.append(f"updated_at = ${param_idx}")
@@ -683,10 +695,20 @@ async def get_suggested(
     min_fame: Optional[float] = None,
     max_fame: Optional[float] = None,
     max_distance: Optional[float] = None,
-    tags: Optional[List[str]] = Query(
+        tags: Optional[List[str]] = Query(
         None, 
         description="List of tags to filter by",
-        example=["müzik", "kitap"]
+        example=["music", "kitap"],  # Add example
+        openapi_examples={
+            "single_tag": {
+                "summary": "Single tag filter",
+                "value": ["music"]
+            },
+            "multiple_tags": {
+                "summary": "Multiple tag filter",
+                "value": ["music", "kitap", "spor"]
+            }
+        }
     ),
     current_user = Depends(get_current_verified_user),
     conn = Depends(get_connection)
@@ -694,201 +716,148 @@ async def get_suggested(
     """
     Get suggested profiles with age-based filtering
     """
-    # Get user's profile
-    profile = await conn.fetchrow("""
-    SELECT id, is_complete FROM profiles
-    WHERE user_id = $1
-    """, current_user["id"])
-    
-    if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profil bulunamadı"
-        )
-    
-    # Check if profile is complete
-    if not profile["is_complete"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Lütfen profilinizi tamamlayın"
-        )
-    
     try:
-        # Use a modified approach for getting suggested profiles
-        # Get blocks in both directions
-        blocked_ids = await conn.fetch("""
-        SELECT blocked_id FROM blocks WHERE blocker_id = $1
-        UNION
-        SELECT blocker_id FROM blocks WHERE blocked_id = $1
-        """, profile["id"])
-        
-        # Convert to list of IDs
-        excluded_ids = [row['blocked_id'] for row in blocked_ids]
-        # Add user's own profile ID
-        excluded_ids.append(profile["id"])
-        
-        # Base query parts
-        select_part = """
-        SELECT p.id, p.user_id, p.gender, p.sexual_preference, p.biography,
-               p.latitude, p.longitude, p.fame_rating, p.birth_date,
-               u.username, u.first_name, u.last_name, u.is_online, u.last_online
-        FROM profiles p
-        JOIN users u ON p.user_id = u.id
-        """
-        
-        where_parts = ["p.is_complete = true"]
-        
-        # Handle the excluded IDs
-        if excluded_ids:
-            excluded_placeholders = ','.join(f"${i+1}" for i in range(len(excluded_ids)))
-            where_parts.append(f"p.id NOT IN ({excluded_placeholders})")
-        
-        # Build parameters list starting with excluded IDs
-        params = excluded_ids.copy()
-        param_idx = len(params) + 1
-        
-        # Add filters for age, fame, distance if provided
-        if min_age is not None:
-            max_birth_date = datetime.utcnow() - timedelta(days=min_age*365.25)
-            where_parts.append(f"p.birth_date <= ${param_idx}")
-            params.append(max_birth_date)
-            param_idx += 1
-        
-        if max_age is not None:
-            min_birth_date = datetime.utcnow() - timedelta(days=(max_age+1)*365.25)
-            where_parts.append(f"p.birth_date >= ${param_idx}")
-            params.append(min_birth_date)
-            param_idx += 1
-        
-        if min_fame is not None:
-            where_parts.append(f"p.fame_rating >= ${param_idx}")
-            params.append(min_fame)
-            param_idx += 1
-        
-        if max_fame is not None:
-            where_parts.append(f"p.fame_rating <= ${param_idx}")
-            params.append(max_fame)
-            param_idx += 1
-        
-        # Add tag filters
-        if tags and len(tags) > 0:
-            tag_conditions = []
-            for tag in tags:
-                tag_conditions.append(f"""
-                EXISTS (
-                    SELECT 1 FROM profile_tags pt
-                    JOIN tags t ON pt.tag_id = t.id
-                    WHERE pt.profile_id = p.id AND LOWER(t.name) = LOWER(${param_idx})
-                )
-                """)
-                params.append(tag)
-                param_idx += 1
-            
-            if tag_conditions:
-                where_parts.append(f"({' AND '.join(tag_conditions)})")
-        
-        # Complete the query
-        where_clause = " AND ".join(where_parts)
-        order_clause = "ORDER BY p.fame_rating DESC, u.is_online DESC, u.last_online DESC"
-        limit_clause = f"LIMIT ${param_idx} OFFSET ${param_idx+1}"
-        params.extend([limit, offset])
-        
-        query = f"{select_part} WHERE {where_clause} {order_clause} {limit_clause}"
-        
-        # Execute query
-        profiles_data = await conn.fetch(query, *params)
-        
-        # Get additional data for each profile
-        results = []
-        for profile_data in profiles_data:
-            profile_dict = dict(profile_data)
-            
-            # Get profile pictures
-            pictures = await conn.fetch("""
-            SELECT id, profile_id, file_path, backend_url, is_primary
-            FROM profile_pictures
-            WHERE profile_id = $1
-            ORDER BY is_primary DESC, created_at ASC
-            """, profile_dict["id"])
-            
-            # Get profile tags
-            tags = await conn.fetch("""
-            SELECT t.id, t.name
-            FROM tags t
-            JOIN profile_tags pt ON t.id = pt.tag_id
-            WHERE pt.profile_id = $1
-            """, profile_dict["id"])
-            
-            # Add pictures and tags to the profile data
-            profile_dict["pictures"] = [dict(pic) for pic in pictures]
-            profile_dict["tags"] = [dict(tag) for tag in tags]
-            
-            results.append(profile_dict)
-        
-        return results
-        
-    except Exception as e:
-        # Log the exception details for debugging
-        print(f"Error in get_suggested: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching suggested profiles: {str(e)}"
-        )
-    
-@router.get("/me/is-liked/{username}")
-async def check_if_liked(
-    username: str,
-    current_user = Depends(get_current_verified_user),
-    conn = Depends(get_connection)
-):
-    """
-    Check if current user has liked a profile
-    """
-    try:
-        # Get target profile by username
-        target_profile = await conn.fetchrow("""
-        SELECT p.id 
-        FROM profiles p
-        JOIN users u ON p.user_id = u.id
-        WHERE u.username = $1
-        """, username)
-        
-        if not target_profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Hedef profil bulunamadı"
-            )
-        
-        # Get current user's profile
-        current_profile = await conn.fetchrow("""
-        SELECT id FROM profiles 
+        # Get user's profile
+        profile = await conn.fetchrow("""
+        SELECT id, is_complete FROM profiles
         WHERE user_id = $1
         """, current_user["id"])
         
-        if not current_profile:
+        if not profile:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Profil bulunamadı"
             )
         
-        # Check if the user has liked the target profile
-        like = await conn.fetchval("""
-        SELECT id FROM likes
-        WHERE liker_id = $1 AND liked_id = $2
-        """, current_profile["id"], target_profile["id"])
+        # Check if profile is complete
+        if not profile["is_complete"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Lütfen profilinizi tamamlayın"
+            )
         
-        return {"is_liked": like is not None}
+        # Get suggested profiles with filters
+        suggested = await get_suggested_profiles(
+            conn=conn,
+            user_id=current_user["id"],
+            limit=limit,
+            offset=offset,
+            min_age=min_age,
+            max_age=max_age,
+            min_fame=min_fame,
+            max_fame=max_fame,
+            max_distance=max_distance,
+            tags=tags
+        )
+                
+        return suggested
+        
+    except Exception as e:
+        # Log the error
+        import logging
+        logging.error(f"Error in get_suggested: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching suggested profiles: {str(e)}"
+        )
+
+@router.get("/{username}")
+async def get_profile(
+    username: str,
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """
+    Get a profile by username
+    """
+    try:
+        # Get basic profile info
+        profile_user = await conn.fetchrow("""
+        SELECT p.id, p.user_id, p.gender, p.sexual_preference, p.biography,
+               p.latitude, p.longitude, p.fame_rating, p.birth_date,
+               u.username, u.first_name, u.last_name, u.is_online, u.last_online
+        FROM profiles p
+        JOIN users u ON p.user_id = u.id
+        WHERE u.username = $1
+        """, username)
+        
+        if not profile_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Profile not found"
+            )
+        
+        # Get profile pictures
+        pictures = await conn.fetch("""
+        SELECT id, profile_id, file_path, backend_url, is_primary, created_at
+        FROM profile_pictures
+        WHERE profile_id = $1
+        ORDER BY is_primary DESC, created_at ASC
+        """, profile_user["id"])
+        
+        # Get profile tags
+        tags = await conn.fetch("""
+        SELECT t.id, t.name
+        FROM tags t
+        JOIN profile_tags pt ON t.id = pt.tag_id
+        WHERE pt.profile_id = $1
+        """, profile_user["id"])
+        
+        # Record visit if not own profile
+        if profile_user["user_id"] != current_user["id"]:
+            # Get current user's profile
+            visitor_profile = await conn.fetchrow("""
+            SELECT id FROM profiles
+            WHERE user_id = $1
+            """, current_user["id"])
+            
+            if visitor_profile:
+                # Check if a visit was recorded recently (last 5 minutes)
+                five_minutes_ago = datetime.utcnow() - timedelta(minutes=5)
+                recent_visit = await conn.fetchval("""
+                SELECT id FROM visits
+                WHERE visitor_id = $1 AND visited_id = $2 AND created_at > $3
+                """, visitor_profile["id"], profile_user["id"], five_minutes_ago)
+                
+                # Only record new visit if no recent visit exists
+                if not recent_visit:
+                    # Record the visit
+                    await conn.execute("""
+                    INSERT INTO visits (visitor_id, visited_id, created_at)
+                    VALUES ($1, $2, $3)
+                    """, visitor_profile["id"], profile_user["id"], datetime.utcnow())
+                    
+                    # Create notification
+                    await conn.execute("""
+                    INSERT INTO notifications (user_id, sender_id, type, content, created_at)
+                    VALUES ($1, $2, 'visit', $3, $4)
+                    """, profile_user["user_id"], current_user["id"],
+                    f"{current_user['first_name']} profilinizi ziyaret etti!", datetime.utcnow())
+                    
+                    # Update fame rating
+                    await conn.execute("""
+                    UPDATE profiles
+                    SET fame_rating = fame_rating + 0.1, updated_at = $2
+                    WHERE id = $1
+                    """, profile_user["id"], datetime.utcnow())
+        
+        # Combine all data into a single response
+        profile_dict = dict(profile_user)
+        profile_dict["pictures"] = [dict(pic) for pic in pictures]
+        profile_dict["tags"] = [dict(tag) for tag in tags]
+        
+        return profile_dict
         
     except Exception as e:
         import logging
-        logging.error(f"Error in check_if_liked: {str(e)}")
+        logging.error(f"Error in get_profile: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+            detail=f"Error fetching profile: {str(e)}"
         )
     
 @router.get("/get-for-chat/{username}")
-async def get_profile(
+async def get_profile_for_chat(
     username: str,
     current_user = Depends(get_current_verified_user),
     conn = Depends(get_connection)
@@ -943,3 +912,220 @@ async def get_profile(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching profile: {str(e)}"
         )
+
+@router.get("/get-by-user_id/{user_id}")
+async def get_profile_by_user_id_endpoint(
+    user_id: str,
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """
+    Get a profile by user_id
+    """
+    try:
+        # Get basic profile info
+        profile_user = await conn.fetchrow("""
+        SELECT p.id, p.user_id, p.gender, p.sexual_preference, p.biography,
+               p.latitude, p.longitude, p.fame_rating, p.birth_date,
+               u.username, u.first_name, u.last_name, u.is_online, u.last_online
+        FROM profiles p
+        JOIN users u ON p.user_id = u.id
+        WHERE u.id = $1
+        """, user_id)
+        
+        if not profile_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Profile not found"
+            )
+        
+        # Get profile pictures
+        pictures = await conn.fetch("""
+        SELECT id, profile_id, file_path, backend_url, is_primary, created_at
+        FROM profile_pictures
+        WHERE profile_id = $1
+        ORDER BY is_primary DESC, created_at ASC
+        """, profile_user["id"])
+        
+        # Get profile tags
+        tags = await conn.fetch("""
+        SELECT t.id, t.name
+        FROM tags t
+        JOIN profile_tags pt ON t.id = pt.tag_id
+        WHERE pt.profile_id = $1
+        """, profile_user["id"])
+        
+        # Combine all data into a single response
+        profile_dict = dict(profile_user)
+        profile_dict["pictures"] = [dict(pic) for pic in pictures]
+        profile_dict["tags"] = [dict(tag) for tag in tags]
+        
+        return profile_dict
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error in get_profile_by_user_id: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching profile: {str(e)}"
+        )
+
+@router.get("/check-real-profile/{username}")
+async def check_real_profile(
+    username: str,
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """
+    Check if a profile is real
+    """
+    try:
+        # Check if profile exists
+        profile_exists = await conn.fetchval("""
+        SELECT p.id
+        FROM profiles p
+        JOIN users u ON p.user_id = u.id
+        WHERE u.username = $1
+        """, username)
+        
+        return {"exists": profile_exists is not None}
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error in check_real_profile: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error checking profile: {str(e)}"
+        )
+
+@router.put("/me/delete-account")
+async def delete_account(
+    request: Request,
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """
+    Delete user account
+    """
+    try:
+        # Parse request body
+        data = await request.json()
+        password = data.get("password")
+        
+        if not password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password is required"
+            )
+        
+        # Get user with password
+        user = await conn.fetchrow("""
+        SELECT hashed_password FROM users
+        WHERE id = $1
+        """, current_user["id"])
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Verify password - you'll need to import your password verification function
+        from app.core.security import verify_password
+        if not verify_password(password, user["hashed_password"]):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Hatalı şifre"
+            )
+        
+        # Get profile
+        profile = await conn.fetchrow("""
+        SELECT id FROM profiles
+        WHERE user_id = $1
+        """, current_user["id"])
+        
+        if profile:
+            # Get profile pictures
+            pictures = await conn.fetch("""
+            SELECT id, file_path FROM profile_pictures
+            WHERE profile_id = $1
+            """, profile["id"])
+            
+            # Delete physical picture files
+            for picture in pictures:
+                file_path = os.path.join(settings.MEDIA_ROOT, picture["file_path"])
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+        
+        # Start a transaction
+        async with conn.transaction():
+            # The profile and related data will be deleted by cascading constraints
+            
+            # Delete user
+            await conn.execute("""
+            DELETE FROM users
+            WHERE id = $1
+            """, current_user["id"])
+        
+        return {"message": "Hesap başarıyla silindi"}
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error in delete_account: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting account: {str(e)}"
+        )    
+
+@router.get("/me/is-liked/{username}")
+async def check_if_liked(
+    username: str,
+    current_user = Depends(get_current_verified_user),
+    conn = Depends(get_connection)
+):
+    """
+    Check if current user has liked a profile
+    """
+    try:
+        # Get target profile by username
+        target_profile = await conn.fetchrow("""
+        SELECT p.id 
+        FROM profiles p
+        JOIN users u ON p.user_id = u.id
+        WHERE u.username = $1
+        """, username)
+        
+        if not target_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Hedef profil bulunamadı"
+            )
+        
+        # Get current user's profile
+        current_profile = await conn.fetchrow("""
+        SELECT id FROM profiles 
+        WHERE user_id = $1
+        """, current_user["id"])
+        
+        if not current_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Profil bulunamadı"
+            )
+        
+        # Check if the user has liked the target profile
+        like = await conn.fetchval("""
+        SELECT id FROM likes
+        WHERE liker_id = $1 AND liked_id = $2
+        """, current_profile["id"], target_profile["id"])
+        
+        return {"is_liked": like is not None}
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error in check_if_liked: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+    

@@ -10,7 +10,9 @@ from app.core.db import get_connection
 from app.core.security import get_current_verified_user
 from app.core.config import settings
 from app.validation.profile import validate_profile_update, validate_tags
-from app.db.profiles import get_suggested_profiles
+from app.db.profiles import get_suggested_profiles, update_fame_rating
+from app.db.realtime import create_notification
+from app.api.realtime import broadcast_notification, manager
 
 router = APIRouter()
 
@@ -787,6 +789,18 @@ async def get_profile(
                 detail="Profile not found"
             )
         
+        # Check if profile user has blocked current user
+        is_blocked = await conn.fetchval("""
+        SELECT id FROM blocks
+        WHERE blocker_id = $2 AND blocked_id = $1
+        """, current_user["id"], profile_user["id"])
+        
+        if is_blocked:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Blocked profile"
+            )
+        
         # Get profile pictures
         pictures = await conn.fetch("""
         SELECT id, profile_id, file_path, backend_url, is_primary, created_at
@@ -828,18 +842,12 @@ async def get_profile(
                     """, visitor_profile["id"], profile_user["id"], datetime.utcnow())
                     
                     # Create notification
-                    await conn.execute("""
-                    INSERT INTO notifications (user_id, sender_id, type, content, created_at)
-                    VALUES ($1, $2, 'visit', $3, $4)
-                    """, profile_user["user_id"], current_user["id"],
-                    f"{current_user['first_name']} profilinizi ziyaret etti!", datetime.utcnow())
-                    
+                    await create_notification(conn, profile_user["user_id"], current_user["id"], "visit", f"{current_user['first_name']} profilinizi ziyaret etti!")
+
+                    # Send WebSocket notification
+                    await broadcast_notification(manager, profile_user["user_id"], "visit", current_user["id"], f"{current_user['first_name']} profilinizi ziyaret etti!")                    
                     # Update fame rating
-                    await conn.execute("""
-                    UPDATE profiles
-                    SET fame_rating = fame_rating + 0.1, updated_at = $2
-                    WHERE id = $1
-                    """, profile_user["id"], datetime.utcnow())
+                    await update_fame_rating(conn, profile_user["id"])
         
         # Combine all data into a single response
         profile_dict = dict(profile_user)

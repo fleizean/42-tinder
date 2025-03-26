@@ -113,7 +113,7 @@ async def like_profile(conn, liker_id, liked_id):
         else:
             # Create new connection
             now = datetime.utcnow()
-            connection_id = await conn.fetchval("""
+            await conn.fetchval("""
             INSERT INTO connections (user1_id, user2_id, is_active, created_at, updated_at)
             VALUES ($1, $2, true, $3, $3)
             RETURNING id
@@ -239,6 +239,7 @@ async def unlike_profile(conn, liker_id, liked_id):
         "was_match": was_match
     }
 
+#TODO: Unused function
 async def visit_profile(conn, visitor_id, visited_id):
     """Record a profile visit"""
     # Check if profiles exist
@@ -282,6 +283,7 @@ async def visit_profile(conn, visitor_id, visited_id):
     
     return visit_id
 
+#TODO: Unused function
 async def is_blocked(conn, blocker_id, blocked_id):
     """Check if a user is blocked and return block details"""
     block = await conn.fetchrow("""
@@ -305,6 +307,7 @@ async def is_blocked(conn, blocker_id, blocked_id):
         }
     }
 
+#TODO: Unused function
 async def get_blocks_sent(conn, profile_id, limit=10, offset=0):
     """Get blocks sent by a profile"""
     blocks = await conn.fetch("""
@@ -359,6 +362,7 @@ async def get_blocks_sent(conn, profile_id, limit=10, offset=0):
     
     return result
 
+#TODO: Unused function
 async def get_blocks_received(conn, profile_id, limit=10, offset=0):
     """Get blocks received by a profile"""
     blocks = await conn.fetch("""
@@ -413,65 +417,8 @@ async def get_blocks_received(conn, profile_id, limit=10, offset=0):
     
     return result
 
-async def block_profile(conn, blocker_id, blocked_id):
-    """Block a profile"""
-    # Check if profiles exist
-    blocker_profile = await conn.fetchrow("SELECT id, user_id FROM profiles WHERE id = $1", blocker_id)
-    blocked_profile = await conn.fetchrow("SELECT id, user_id FROM profiles WHERE id = $1", blocked_id)
-    
-    if not blocker_profile or not blocked_profile or blocker_id == blocked_id:
-        return None
-    
-    # Check if already blocked
-    existing = await conn.fetchval("""
-    SELECT id FROM blocks
-    WHERE blocker_id = $1 AND blocked_id = $2
-    """, blocker_id, blocked_id)
-    
-    if existing:
-        return existing
-    
-    # Create block
-    block_id = await conn.fetchval("""
-    INSERT INTO blocks (blocker_id, blocked_id, created_at)
-    VALUES ($1, $2, $3)
-    RETURNING id
-    """, blocker_id, blocked_id, datetime.utcnow())
-    
-    # Remove likes in both directions
-    await conn.execute("""
-    DELETE FROM likes
-    WHERE (liker_id = $1 AND liked_id = $2) OR (liker_id = $2 AND liked_id = $1)
-    """, blocker_id, blocked_id)
-    
-    # Deactivate any connections
-    await conn.execute("""
-    UPDATE connections
-    SET is_active = false, updated_at = $3
-    WHERE (user1_id = $1 AND user2_id = $2) OR (user1_id = $2 AND user2_id = $1)
-    """, blocker_profile['user_id'], blocked_profile['user_id'], datetime.utcnow())
-    
-    return block_id
 
-async def unblock_profile(conn, blocker_id, blocked_id):
-    """Unblock a profile"""
-    # Check if the block exists
-    block = await conn.fetchval("""
-    SELECT id FROM blocks
-    WHERE blocker_id = $1 AND blocked_id = $2
-    """, blocker_id, blocked_id)
-    
-    if not block:
-        return False
-    
-    # Remove the block
-    await conn.execute("""
-    DELETE FROM blocks
-    WHERE blocker_id = $1 AND blocked_id = $2
-    """, blocker_id, blocked_id)
-    
-    return True
-
+#TODO: Unused function
 async def report_profile(conn, reporter_id, reported_id, reason, description=None):
     """Report a profile"""
     # Check if profiles exist
@@ -559,6 +506,7 @@ async def get_likes_received(conn, profile_id, limit=10, offset=0):
     
     return result
 
+#TODO: Unused function
 async def get_visits_received(conn, profile_id, limit=10, offset=0):
     """Get visits received by a profile"""
     visits = await conn.fetch("""
@@ -628,6 +576,7 @@ async def get_visits_received(conn, profile_id, limit=10, offset=0):
     
     return result
 
+#TODO: Unused function
 async def get_matches(conn, user_id, limit=10, offset=0):
     """Get matches for a user"""
     # Get the user's profile ID

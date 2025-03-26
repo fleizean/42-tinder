@@ -189,26 +189,6 @@ async def change_password(conn, user_id: str, current_password: str, new_passwor
     return dict(updated_user)
 
 
-async def update_refresh_token(conn, user_id: str, refresh_token: str) -> Optional[Dict[str, Any]]:
-    """
-    Update user's refresh token
-    """
-    expires_at = datetime.utcnow() + timedelta(days=7)
-    
-    query = """
-    UPDATE users
-    SET refresh_token = $2, refresh_token_expires = $3
-    WHERE id = $1
-    RETURNING id, username, email
-    """
-    
-    user = await conn.fetchrow(query, user_id, refresh_token, expires_at)
-    
-    if not user:
-        return None
-    
-    return dict(user)
-
 async def validate_refresh_token(conn, refresh_token: str) -> Optional[Dict[str, Any]]:
     """
     Validate a refresh token and return the user if valid

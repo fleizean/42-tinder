@@ -1,6 +1,7 @@
 # app/db/users.py
+from math import e
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -131,8 +132,10 @@ async def update_verification(conn, token, is_verified=True):
     """
     return await conn.fetchrow(query, token, is_verified, datetime.utcnow())
 
-async def update_refresh_token(conn, user_id, refresh_token, expires_at):
+async def update_refresh_token(conn, user_id, refresh_token):
     """Update a user's refresh token"""
+
+    expires_at = datetime.utcnow() + timedelta(days=7)
     query = """
     UPDATE users
     SET refresh_token = $2, refresh_token_expires = $3
@@ -140,13 +143,3 @@ async def update_refresh_token(conn, user_id, refresh_token, expires_at):
     RETURNING id
     """
     return await conn.fetchval(query, user_id, refresh_token, expires_at)
-
-async def invalidate_refresh_token(conn, user_id):
-    """Invalidate a user's refresh token"""
-    query = """
-    UPDATE users
-    SET refresh_token = NULL, refresh_token_expires = NULL
-    WHERE id = $1
-    RETURNING id
-    """
-    return await conn.fetchval(query, user_id)

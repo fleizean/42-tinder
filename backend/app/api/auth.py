@@ -1,7 +1,6 @@
-# app/api/auth.py
 from typing import Any
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
@@ -110,8 +109,7 @@ async def login(
     refresh_token = create_refresh_token(user["id"])
     
     # Store refresh token in the database
-    token_expires = datetime.utcnow() + timedelta(days=7)
-    await users.update_refresh_token(conn, user["id"], refresh_token, token_expires)
+    await users.update_refresh_token(conn, user["id"], refresh_token)
     
     # Update user's last login and online status
     await users.update_last_activity(conn, user["id"], True)
@@ -141,21 +139,11 @@ async def login_json(
         )
     
     # Get user by username
-    user = await conn.fetchrow("""
-    SELECT id, username, email, first_name, last_name, hashed_password, 
-           is_active, is_verified
-    FROM users
-    WHERE username = $1
-    """, username)
+    user = await users.get_user_by_username(conn, username)
     
     # If not found by username, try email
     if not user:
-        user = await conn.fetchrow("""
-        SELECT id, username, email, first_name, last_name, hashed_password, 
-               is_active, is_verified
-        FROM users
-        WHERE email = $1
-        """, username)
+        user = await users.get_user_by_email(conn, username)
     
     # Check if user exists and password is correct
     if not user or not verify_password(password, user["hashed_password"]):
@@ -175,12 +163,10 @@ async def login_json(
     refresh_token = create_refresh_token(user["id"])
     
     # Store refresh token in the database with expiration
-    token_expires = datetime.utcnow() + timedelta(days=7)
-    await conn.execute("""
-    UPDATE users
-    SET refresh_token = $2, refresh_token_expires = $3, last_login = $4, is_online = true
-    WHERE id = $1
-    """, user["id"], refresh_token, token_expires, datetime.utcnow())
+    await users.update_refresh_token(conn, user["id"], refresh_token)
+
+    # Update user's last login and online status
+    await users.update_last_activity(conn, user["id"], True)
     
     return {
         "access_token": access_token,
@@ -225,8 +211,7 @@ async def refresh_token_endpoint(
     new_refresh_token = create_refresh_token(user_id)
     
     # Update refresh token in database
-    token_expires = datetime.utcnow() + timedelta(days=7)
-    await users.update_refresh_token(conn, user_id, new_refresh_token, token_expires)
+    await users.update_refresh_token(conn, user_id, new_refresh_token)
     
     return {
         "access_token": access_token,
@@ -244,12 +229,7 @@ async def verify_email(
     Verify email with token
     """
     # Verify user with token
-    user = await conn.fetchrow("""
-    UPDATE users
-    SET is_verified = true, verification_token = NULL, updated_at = $2
-    WHERE verification_token = $1
-    RETURNING id, username, email
-    """, token, datetime.utcnow())
+    user = await users.update_verification(conn, token)
     
     if not user:
         raise HTTPException(

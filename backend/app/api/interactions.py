@@ -6,7 +6,7 @@ from app.core.db import get_connection
 from app.core.security import get_current_verified_user
 from app.api.realtime import manager, broadcast_notification
 from app.db.profiles import get_profile_by_user_id, update_fame_rating
-from app.db.interactions import unlike_profile
+from app.db.interactions import like_profile, unlike_profile
 
 router = APIRouter()
 
@@ -26,168 +26,19 @@ async def create_like(
             detail="Liked profile ID is required"
         )
     
-    # Get current user's profile
-    liker_profile = await conn.fetchrow("""
-    SELECT id, is_complete FROM profiles 
-    WHERE user_id = $1
-    """, current_user["id"])
-    
-    if not liker_profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Your profile not found"
-        )
-    
-    # Check if profile is complete
-    if not liker_profile["is_complete"]:
+    liker_profile = await get_profile_by_user_id(conn, current_user["id"])
+      
+    # Like profile
+    result = await like_profile(conn, liker_profile["id"], liked_id)
+    if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Please complete your profile first"
+            detail="Could not like profile. The profile may not exist or might be blocked."
         )
-    
-    # Check if user has profile pictures
-    pic_count = await conn.fetchval("""
-    SELECT COUNT(*) FROM profile_pictures
-    WHERE profile_id = $1
-    """, liker_profile["id"])
-    
-    if pic_count == 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You need to upload at least one profile picture to like other profiles"
-        )
-    
-    # Check if target profile exists
-    liked_profile = await conn.fetchrow("""
-    SELECT p.id, p.user_id, u.username, u.first_name
-    FROM profiles p
-    JOIN users u ON p.user_id = u.id
-    WHERE p.id = $1
-    """, liked_id)
-    
-    if not liked_profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profile to like not found"
-        )
-    
-    # Check if already liked
-    existing_like = await conn.fetchrow("""
-    SELECT id FROM likes
-    WHERE liker_id = $1 AND liked_id = $2
-    """, liker_profile["id"], liked_id)
-    
-    if existing_like:
-        return {
-            "message": "Profile already liked",
-            "is_match": False
-        }
-    
-    # Check if blocked
-    is_blocked = await conn.fetchrow("""
-    SELECT id FROM blocks
-    WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)
-    """, liker_profile["id"], liked_id)
-    
-    if is_blocked:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot like this profile due to block"
-        )
-    
-    # Create like
-    await conn.execute("""
-    INSERT INTO likes (liker_id, liked_id, created_at)
-    VALUES ($1, $2, $3)
-    """, liker_profile["id"], liked_id, datetime.utcnow())
-    
-    # Check if it's a match
-    mutual_like = await conn.fetchrow("""
-    SELECT id FROM likes
-    WHERE liker_id = $1 AND liked_id = $2
-    """, liked_id, liker_profile["id"])
-    
-    is_match = mutual_like is not None
-    
-    # If it's a match, create a connection
-    if is_match:
-        # Check if connection already exists
-        existing_conn = await conn.fetchrow("""
-        SELECT id, is_active FROM connections
-        WHERE (user1_id = $1 AND user2_id = $2) OR (user1_id = $2 AND user2_id = $1)
-        """, current_user["id"], liked_profile["user_id"])
-        
-        now = datetime.utcnow()
-        
-        if existing_conn:
-            # Reactivate if inactive
-            if not existing_conn["is_active"]:
-                await conn.execute("""
-                UPDATE connections
-                SET is_active = true, updated_at = $2
-                WHERE id = $1
-                """, existing_conn["id"], now)
-        else:
-            # Create new connection
-            await conn.execute("""
-            INSERT INTO connections (user1_id, user2_id, is_active, created_at, updated_at)
-            VALUES ($1, $2, true, $3, $3)
-            """, current_user["id"], liked_profile["user_id"], now)
-        
-        # Create notifications for both users
-        # For the liked user
-        await conn.execute("""
-        INSERT INTO notifications (user_id, sender_id, type, content, created_at)
-        VALUES ($1, $2, 'match', $3, $4)
-        """, liked_profile["user_id"], current_user["id"], 
-        f"{current_user['first_name']} ile eşleştiniz!", now)
-        
-        # For the current user
-        await conn.execute("""
-        INSERT INTO notifications (user_id, sender_id, type, content, created_at)
-        VALUES ($1, $2, 'match', $3, $4)
-        """, current_user["id"], liked_profile["user_id"],
-        f"{liked_profile['first_name']} ile eşleştiniz!", now)
-        
-        # Send WebSocket notifications if users are online
-        await broadcast_notification(
-            manager,
-            liked_profile["user_id"],
-            "match",
-            current_user["id"],
-            f"{current_user['first_name']} ile eşleştiniz!"
-        )
-        
-        await broadcast_notification(
-            manager,
-            current_user["id"],
-            "match",
-            liked_profile["user_id"],
-            f"{liked_profile['first_name']} ile eşleştiniz!"
-        )
-    else:
-        # Just a like notification
-        await conn.execute("""
-        INSERT INTO notifications (user_id, sender_id, type, content, created_at)
-        VALUES ($1, $2, 'like', $3, $4)
-        """, liked_profile["user_id"], current_user["id"],
-        f"{current_user['first_name']} profilinizi beğendi!", datetime.utcnow())
-        
-        # Send WebSocket notification
-        await broadcast_notification(
-            manager,
-            liked_profile["user_id"],
-            "like",
-            current_user["id"],
-            f"{current_user['first_name']} profilinizi beğendi!"
-        )
-    
-    # Update fame rating of liked profile
-    await update_fame_rating(conn, liked_id)
-    
+   
     return {
         "message": "Profile liked successfully",
-        "is_match": is_match
+        "is_match": result["is_match"]
     }
 
 @router.delete("/like/{profile_id}")

@@ -37,6 +37,31 @@ async def like_profile(conn, liker_id, liked_id):
     VALUES ($1, $2, $3)
     RETURNING id
     """, liker_id, liked_id, datetime.utcnow())
+
+    # Get user IDs for both profiles
+    liker_user_id = await conn.fetchval("SELECT user_id FROM profiles WHERE id = $1", liker_id)
+    liked_user_id = await conn.fetchval("SELECT user_id FROM profiles WHERE id = $1", liked_id)
+
+    # Get user info for notifications
+    liker_user = await conn.fetchrow("""
+    SELECT id, username, first_name, last_name FROM users WHERE id = $1
+    """, liker_user_id)
+    
+    liked_user = await conn.fetchrow("""
+    SELECT id, username, first_name, last_name FROM users WHERE id = $1
+    """, liked_user_id)
+
+    # Create like notification
+    await create_notification(
+        conn, liked_user_id, liker_user_id, 'like', f"{liker_user['first_name']} Profilinizi beğendi!")
+    
+    # Send WebSocket notification to current user too
+    await broadcast_notification(
+        manager,
+        liked_user_id,
+        'like',
+        liker_user_id,
+        content=f"{liker_user['first_name']} Profilinizi beğendi!")
     
     # Check if it's a match (mutual like)
     mutual_like = await conn.fetchval("""
@@ -48,18 +73,6 @@ async def like_profile(conn, liker_id, liked_id):
     
     # If it's a match, create or reactivate a connection
     if is_match:
-        # Get user IDs for both profiles
-        liker_user_id = await conn.fetchval("SELECT user_id FROM profiles WHERE id = $1", liker_id)
-        liked_user_id = await conn.fetchval("SELECT user_id FROM profiles WHERE id = $1", liked_id)
-        
-        # Get user info for notifications
-        liker_user = await conn.fetchrow("""
-        SELECT id, username, first_name, last_name FROM users WHERE id = $1
-        """, liker_user_id)
-        
-        liked_user = await conn.fetchrow("""
-        SELECT id, username, first_name, last_name FROM users WHERE id = $1
-        """, liked_user_id)
         
         # Check if connection already exists
         existing_conn = await conn.fetchrow("""
@@ -72,22 +85,31 @@ async def like_profile(conn, liker_id, liked_id):
             if not existing_conn['is_active']:
                 await conn.execute("""
                 UPDATE connections
-                SET is_active = true, updated_at = $3
+                SET is_active = true, updated_at = $2
                 WHERE id = $1
                 """, existing_conn['id'], datetime.utcnow())
                 
                 # Create match notifications for reconnection
-                await conn.execute("""
-                INSERT INTO notifications (user_id, sender_id, type, content, created_at)
-                VALUES ($1, $2, 'match', $3, $4)
-                """, liker_user_id, liked_user_id, 
-                f"{liked_user['first_name']} ile yeniden eşleştiniz!", datetime.utcnow())
+                await create_notification(
+                conn, liker_user_id, liked_user_id, 'match', f"{liked_user['first_name']} ile yeniden eşleştiniz! Şimdi sohbet edebilirsiniz.")
                 
-                await conn.execute("""
-                INSERT INTO notifications (user_id, sender_id, type, content, created_at)
-                VALUES ($1, $2, 'match', $3, $4)
-                """, liked_user_id, liker_user_id,
-                f"{liker_user['first_name']} ile yeniden eşleştiniz!", datetime.utcnow())
+                await create_notification(
+                conn, liked_user_id, liker_user_id, 'match', f"{liker_user['first_name']} ile yeniden eşleştiniz! Şimdi sohbet edebilirsiniz.")
+
+                # Send WebSocket notification to both users too
+                await broadcast_notification(
+                    manager,
+                    liker_user_id,
+                    'match',
+                    liked_user_id,
+                    content=f"{liked_user['first_name']} ile yeniden eşleştiniz! Şimdi sohbet edebilirsiniz.")
+                
+                await broadcast_notification(
+                    manager,
+                    liked_user_id,
+                    'match',
+                    liker_user_id,
+                    content=f"{liker_user['first_name']} ile yeniden eşleştiniz! Şimdi sohbet edebilirsiniz.")
         else:
             # Create new connection
             now = datetime.utcnow()
@@ -98,32 +120,27 @@ async def like_profile(conn, liker_id, liked_id):
             """, liker_user_id, liked_user_id, now)
             
             # Create match notifications for both users
-            await conn.execute("""
-            INSERT INTO notifications (user_id, sender_id, type, content, created_at)
-            VALUES ($1, $2, 'match', $3, $4)
-            """, liker_user_id, liked_user_id, 
-            f"{liked_user['first_name']} ile eşleştiniz! Şimdi sohbet edebilirsiniz.", now)
+            await create_notification(
+            conn, liker_user_id, liked_user_id, 'match', f"{liked_user['first_name']} ile eşleştiniz! Şimdi sohbet edebilirsiniz.")
+
+            await create_notification(
+            conn, liked_user_id, liker_user_id, 'match', f"{liker_user['first_name']} ile eşleştiniz! Şimdi sohbet edebilirsiniz.")
+
+            # Send WebSocket notification to both users too
+            await broadcast_notification(
+                manager,
+                liker_user_id,
+                'match',
+                liked_user_id,
+                content=f"{liked_user['first_name']} ile eşleştiniz! Şimdi sohbet edebilirsiniz.")
             
-            await conn.execute("""
-            INSERT INTO notifications (user_id, sender_id, type, content, created_at)
-            VALUES ($1, $2, 'match', $3, $4)
-            """, liked_user_id, liker_user_id,
-            f"{liker_user['first_name']} ile eşleştiniz! Şimdi sohbet edebilirsiniz.", now)
-    else:
-        # Create like notification with descriptive content
-        liker_user_id = await conn.fetchval("SELECT user_id FROM profiles WHERE id = $1", liker_id)
-        liked_user_id = await conn.fetchval("SELECT user_id FROM profiles WHERE id = $1", liked_id)
-        
-        liker_user = await conn.fetchrow("""
-        SELECT id, username, first_name, last_name FROM users WHERE id = $1
-        """, liker_user_id)
-        
-        await conn.execute("""
-        INSERT INTO notifications (user_id, sender_id, type, content, created_at)
-        VALUES ($1, $2, 'like', $3, $4)
-        """, liked_user_id, liker_user_id,
-        f"{liker_user['first_name']} profilinizi beğendi!", datetime.utcnow())
-    
+            await broadcast_notification(
+                manager,
+                liked_user_id,
+                'match',
+                liker_user_id,
+                content=f"{liker_user['first_name']} ile eşleştiniz! Şimdi sohbet edebilirsiniz.")
+  
     # Update fame rating
     await update_fame_rating(conn, liked_id)
     

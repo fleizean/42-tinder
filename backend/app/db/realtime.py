@@ -34,26 +34,20 @@ async def get_notifications(conn, user_id, limit=20, offset=0, unread_only=False
     """
     
     notifications = await conn.fetch(query, *params)
-    
     result = []
     for notification in notifications:
-        notification_dict = dict(notification)
         result.append({
-            "notification": {
-                "id": notification['id'],
-                "user_id": notification['user_id'],
-                "sender_id": notification['sender_id'],
-                "type": notification['type'],
-                "content": notification['content'],
-                "is_read": notification['is_read'],
-                "created_at": notification['created_at'],
-                "read_at": notification['read_at']
-            },
-            "sender": {
-                "username": notification['sender_username'],
-                "first_name": notification['sender_first_name'],
-                "last_name": notification['sender_last_name']
-            } if notification['sender_id'] else None
+            "id": notification['id'],
+            "user_id": notification['user_id'],
+            "sender_id": notification['sender_id'],
+            "type": notification['type'],
+            "content": notification['content'],
+            "is_read": notification['is_read'],
+            "created_at": notification['created_at'],
+            "read_at": notification['read_at'],
+            "sender_username": notification['sender_username'],
+            "sender_first_name": notification['sender_first_name'],
+            "sender_last_name": notification['sender_last_name']
         })
     
     return result

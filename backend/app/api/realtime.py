@@ -263,18 +263,17 @@ async def mark_notification_read(
     conn = Depends(get_connection)
 ):
     """Mark a notification as read"""
-    notification_id = await mark_notification_as_read(conn, notification_id, current_user["id"])
+    notification = await mark_notification_as_read(conn, notification_id, current_user["id"])
     
-    if not notification_id:
+    if not notification:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Notification not found"
         )
     
-    return notification_id
-"""     return {
+    return {
         "message": "Notification marked as read"
-    } """
+    }
 
 
 @router.post("/notifications/read-all")

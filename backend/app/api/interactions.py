@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from app.core.db import get_connection
 from app.core.security import get_current_verified_user
 from app.api.realtime import manager, broadcast_notification
-from app.db.profiles import update_fame_rating
+from app.db.profiles import get_profile_by_user_id, update_fame_rating
+from app.db.interactions import unlike_profile
 
 router = APIRouter()
 
@@ -197,10 +198,8 @@ async def delete_like(
 ):
     """Unlike a profile"""
     # Get current user's profile
-    liker_profile = await conn.fetchrow("""
-    SELECT id FROM profiles 
-    WHERE user_id = $1
-    """, current_user["id"])
+    liker_profile = await get_profile_by_user_id(conn, current_user["id"])
+
     
     if not liker_profile:
         raise HTTPException(
@@ -208,63 +207,15 @@ async def delete_like(
             detail="Your profile not found"
         )
     
-    # Check if this was a match before unliking
-    mutual_like = await conn.fetchrow("""
-    SELECT id FROM likes
-    WHERE liker_id = $1 AND liked_id = $2
-    """, profile_id, liker_profile["id"])
+  
+    result = await unlike_profile(conn, liker_profile["id"], profile_id)
     
-    was_match = mutual_like is not None
-    
-    # Delete the like
-    deleted = await conn.fetchval("""
-    DELETE FROM likes
-    WHERE liker_id = $1 AND liked_id = $2
-    RETURNING id
-    """, liker_profile["id"], profile_id)
-    
-    if not deleted:
+    if not result["unliked"]:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Like not found or already removed"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile to unlike not found"
         )
-    
-    # If it was a match, deactivate the connection
-    if was_match:
-        # Get unliked user's info
-        unliked_user = await conn.fetchrow("""
-        SELECT u.id, u.first_name FROM profiles p
-        JOIN users u ON p.user_id = u.id
-        WHERE p.id = $1
-        """, profile_id)
-        
-        if unliked_user:
-            # Deactivate connection
-            await conn.execute("""
-            UPDATE connections
-            SET is_active = false, updated_at = $3
-            WHERE (user1_id = $1 AND user2_id = $2) OR (user1_id = $2 AND user2_id = $1)
-            """, current_user["id"], unliked_user["id"], datetime.utcnow())
-            
-            # Create unmatch notification
-            await conn.execute("""
-            INSERT INTO notifications (user_id, sender_id, type, content, created_at)
-            VALUES ($1, $2, 'unmatch', $3, $4)
-            """, unliked_user["id"], current_user["id"], 
-            f"{current_user['first_name']} artık eşleşmenizde değil.", datetime.utcnow())
-            
-            # Send WebSocket notification
-            await broadcast_notification(
-                manager,
-                unliked_user["id"],
-                "unmatch",
-                current_user["id"],
-                f"{current_user['first_name']} artık eşleşmenizde değil."
-            )
-    
-    # Update fame rating
-    await update_fame_rating(conn, profile_id)
-    
+         
     return {
         "message": "Profile unliked successfully"
     }

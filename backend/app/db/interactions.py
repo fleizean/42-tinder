@@ -1,6 +1,8 @@
 from datetime import datetime
 
 from app.db.profiles import update_fame_rating
+from app.db.realtime import create_notification
+from app.api.realtime import broadcast_notification, manager
 
 async def like_profile(conn, liker_id, liked_id):
     """Like a profile"""
@@ -150,27 +152,39 @@ async def unlike_profile(conn, liker_id, liked_id):
     """, liked_id, liker_id)
     
     was_match = mutual_like is not None
-    
+
     # Remove the like
     await conn.execute("""
     DELETE FROM likes
     WHERE liker_id = $1 AND liked_id = $2
     """, liker_id, liked_id)
+    #TODO: Directly get liker_user, liked_user??
+    liker_user_id = await conn.fetchval("SELECT user_id FROM profiles WHERE id = $1", liker_id)
+    liked_user_id = await conn.fetchval("SELECT user_id FROM profiles WHERE id = $1", liked_id)
+
+    # Get user info for notifications
+    liker_user = await conn.fetchrow("""
+    SELECT id, username, first_name, last_name FROM users WHERE id = $1
+    """, liker_user_id)
     
+    liked_user = await conn.fetchrow("""
+    SELECT id, username, first_name, last_name FROM users WHERE id = $1
+    """, liked_user_id)
+
+    # Create unlike notification with descriptive content
+    await create_notification(
+        conn, liked_user_id, liker_user_id, 'unlike', f"{liker_user['first_name']} profilinizi beğenmekten vazgeçti.")
+
+    # Send WebSocket notification to current user too
+    await broadcast_notification(
+        manager,
+        liker_user_id,
+        'unlike',
+        liked_user_id,
+        content=f"{liked_user['first_name']} profilinizi beğenmekten vazgeçti.")
     # If it was a match, deactivate the connection
     if was_match:
-        liker_user_id = await conn.fetchval("SELECT user_id FROM profiles WHERE id = $1", liker_id)
-        liked_user_id = await conn.fetchval("SELECT user_id FROM profiles WHERE id = $1", liked_id)
-        
-        # Get user info for notifications
-        liker_user = await conn.fetchrow("""
-        SELECT id, username, first_name, last_name FROM users WHERE id = $1
-        """, liker_user_id)
-        
-        liked_user = await conn.fetchrow("""
-        SELECT id, username, first_name, last_name FROM users WHERE id = $1
-        """, liked_user_id)
-        
+       
         # Update connection
         await conn.execute("""
         UPDATE connections
@@ -179,19 +193,27 @@ async def unlike_profile(conn, liker_id, liked_id):
         """, liker_user_id, liked_user_id, datetime.utcnow())
         
         # Create unmatch notifications for both users
-        now = datetime.utcnow()
-        await conn.execute("""
-        INSERT INTO notifications (user_id, sender_id, type, content, created_at)
-        VALUES ($1, $2, 'unmatch', $3, $4)
-        """, liker_user_id, liked_user_id, 
-        f"{liked_user['first_name']} artık eşleşmenizde değil.", now)
+        await create_notification(
+        conn, liked_user_id, liker_user_id, 'unmatch', f"{liker_user['first_name']} artık eşleşmenizde değil.")
+
+        await create_notification(
+        conn, liker_user_id, liked_user_id, 'unmatch', f"{liked_user['first_name']} artık eşleşmenizde değil.")
         
-        await conn.execute("""
-        INSERT INTO notifications (user_id, sender_id, type, content, created_at)
-        VALUES ($1, $2, 'unmatch', $3, $4)
-        """, liked_user_id, liker_user_id,
-        f"{liker_user['first_name']} artık eşleşmenizde değil.", now)
-    
+        # Send WebSocket notification to both users too
+        await broadcast_notification(
+            manager,
+            liker_user_id,
+            'unmatch',
+            liked_user_id,
+            content=f"{liked_user['first_name']} artık eşleşmenizde değil.")
+        
+        await broadcast_notification(
+            manager,
+            liked_user_id,
+            'unmatch',
+            liker_user_id,
+            content=f"{liker_user['first_name']} artık eşleşmenizde değil.")
+        
     # Update fame rating
     await update_fame_rating(conn, liked_id)
     

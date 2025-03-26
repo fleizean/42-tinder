@@ -13,7 +13,7 @@ import toast from "react-hot-toast";
 
 interface NotificationType {
   id: number;
-  type: "like" | "match" | "visit" | "message" | "unmatch";
+  type: "like" | "unlike" | "match" | "unmatch" | "visit" | "message";
   message: string;
   time: string;
   sender_id?: string;
@@ -324,6 +324,12 @@ const Header = () => {
           router.push(`/profile/${notification.sender_username}`);
         }
         break;
+      case "unlike":
+        // Navigate to the profile of the user who liked you
+        if (notification.sender_username) {
+          router.push(`/profile/${notification.sender_username}`);
+        }
+        break;
       case "match":
         // Navigate to chat with the matched user
         if (notification.sender_id) {
@@ -361,6 +367,11 @@ const Header = () => {
         return notification.sender_username 
           ? `${notification.sender_username} profilinizi beğendi`
           : "Profiliniz beğenildi";
+
+      case "unlike":
+        return notification.sender_username 
+          ? `${notification.sender_username} profilinizi beğenmekten vazgeçti`
+          : "Birisi profilinizi beğenmekten vazgeçti";
       case "match":
         return notification.sender_username 
           ? `${notification.sender_username} ile eşleştiniz! Şimdi sohbet edebilirsiniz.`
@@ -440,6 +451,8 @@ const getNotificationIcon = (type: string) => {
   switch (type) {
     case 'like':
       return <FaHeart className="text-pink-500" />;
+    case 'unlike':
+      return <FaHeartBroken className="text-red-500" />;
     case 'match':
       return <FaKissWinkHeart className="text-pink-500" />;
     case 'visit':

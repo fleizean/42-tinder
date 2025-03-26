@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     sender_id VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
-    type VARCHAR(20) NOT NULL CHECK (type IN ('like', 'match', 'visit', 'message', 'unmatch')),
+    type VARCHAR(20) NOT NULL CHECK (type IN ('like', 'unlike', 'match', 'unmatch', 'visit', 'message')),
     content TEXT,
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
